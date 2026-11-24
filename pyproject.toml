@@ -1,0 +1,29 @@
+[project]
+name = "pinwheel"
+version = "0.1.0"
+description = "A ~50M parameter language model trained from scratch, for learning"
+requires-python = ">=3.12"
+dependencies = [
+    "torch>=2.7",
+    "numpy",
+    "tokenizers",
+    "huggingface_hub",
+    "pyarrow",
+    "matplotlib",
+]
+
+[dependency-groups]
+dev = ["pytest"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+# Blackwell (sm_120) needs CUDA 12.8+ builds of PyTorch.
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true

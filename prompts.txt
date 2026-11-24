@@ -1,0 +1,10 @@
+Once upon a time, there was a little dog named
+Lily wanted to go to the park, but her mom said
+The capital of France is
+Photosynthesis is the process by which
+The main difference between a virus and a bacterium is
+In 1492, Christopher Columbus
+Tom had three apples. He gave one to his sister, so now he has
+Here is a list of prime numbers: 2, 3, 5, 7,
+def fibonacci(n):
+The best way to learn a new language is

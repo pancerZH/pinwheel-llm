@@ -1,0 +1,9 @@
+PLAN.md
+data/
+runs/
+ckpt/
+*.bin
+*.pt
+__pycache__/
+.venv/
+.pytest_cache/
