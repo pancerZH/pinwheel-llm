@@ -42,11 +42,16 @@ It is trained with AdamW, warmup + cosine LR, bf16 and `torch.compile`, at about
 | 1c | Official baseline: FineWeb-Edu, 1B tokens, LR 1e-3, warmup 100 | ✅ val BPB **1.147** in 1.64 h. Every later experiment is compared against this run. Writes fluent, on-topic encyclopedia-style text, but facts are often wrong, it sometimes repeats itself, and it cannot do math or code. |
 | 1d | Inference: KV cache, temperature / top-k / top-p, CLI | ✅ built during setup |
 | 1e | Noise floor: same config with 2–3 seeds | TODO. A gain smaller than this noise does not count. |
-| side | Mini scaling law: 5M / 10M / 20M / 50M models at about 20 tokens per parameter (`scripts/scaling.sh`; 1c is the 50M point) | 🔄 running |
+| side | Mini scaling law: 5M / 10M / 20M / 50M models at about 20 tokens per parameter (`scripts/scaling.sh`; 1c is the 50M point) | ✅ With the best LR per size, val BPB ≈ 7.76 · C^-0.047 (C = training FLOPs): each doubling of compute lowers BPB by about 3.2%. Best LR is 4e-3 for 5M–19M (8e-3 is worse, and worse the bigger the model) but 1e-3 for 50M. Plot: `scripts/scaling.py`. |
 
 What 1a taught us:
 - **BPB depends on the data.** The same model scores 0.517 on TinyStories but 2.58 on FineWeb-Edu, because TinyStories uses simple words and repetitive plots.
 - **No overfitting.** Train and val BPB are almost the same, and only about 60% of the training tokens were ever seen.
+
+What the scaling law taught us:
+- **Small models want larger learning rates.** 5M–19M models did best at 4e-3, while the 50M model already preferred 1e-3 to 2e-3.
+- **A sweep is done only when the best LR is inside the grid.** 2e-3 and then 4e-3 won at the edge; only 8e-3 losing closed the bracket.
+- **Four points fit one power law within ±0.016 BPB.** The ends sit above the line and the middle below it. That may be the first sign of an irreducible-loss floor, or the 50M LR may be slightly off. Four points cannot tell these apart.
 
 ### Stage 2: v1, shape and optimizer ablations (M2): TODO
 - Same parameter count, different shapes: wide and shallow vs. deep and narrow.
