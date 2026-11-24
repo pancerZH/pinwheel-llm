@@ -31,15 +31,15 @@ It is trained with AdamW, warmup + cosine LR, bf16 and `torch.compile`, at about
 
 ### Stage 0: setup (M0) ✅
 - ✅ Tokenizer: byte-level BPE with 8192 tokens, trained on 200k FineWeb-Edu documents.
-- ✅ Data: TinyStories (549M train tokens). 🔄 FineWeb-Edu (1B train tokens).
+- ✅ Data: TinyStories (549M train tokens) and FineWeb-Edu (1B train tokens).
 - ✅ Sanity checks: initial loss 9.13 (expected ≈ ln 8192 = 9.01), and a single batch can be overfit to loss 0.0003.
 
 ### Stage 1: v0 baseline (M1)
 | Step | What | Status / result |
 |---|---|---|
 | 1a | Train on TinyStories, 0.5B tokens | ✅ val BPB **0.517** in 0.82 h. Writes coherent short stories. Prompts about facts, math or code drift back into children's stories. |
-| 1b | Learning-rate sweep: 5 LRs × 100M tokens on FineWeb-Edu | 🔄 running |
-| 1c | Official baseline: FineWeb-Edu, 1B tokens | TODO. Every later experiment is compared against this run. |
+| 1b | Learning-rate sweep on FineWeb-Edu, 100M tokens per run | ✅ Best LR **1e-3** (val BPB 1.668), with 2e-3 close behind (1.681). Warmup matters: with only 20 warmup steps, every LR ≥ 1e-3 stalled early and the sweep wrongly favored 5e-4. |
+| 1c | Official baseline: FineWeb-Edu, 1B tokens, LR 1e-3, warmup 100 | TODO. Every later experiment is compared against this run. |
 | 1d | Inference: KV cache, temperature / top-k / top-p, CLI | ✅ built during setup |
 | 1e | Noise floor: same config with 2–3 seeds | TODO. A gain smaller than this noise does not count. |
 | side | Mini scaling law: 5M / 10M / 20M / 50M models | TODO |
