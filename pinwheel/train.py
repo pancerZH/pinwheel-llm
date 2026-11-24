@@ -162,6 +162,8 @@ def main():
         lr = lr_at(step, cfg, max_steps)
         for group in optimizer.param_groups:
             group["lr"] = lr
+        if step % cfg.log_every == 0:
+            torch.cuda.synchronize()  # the CPU runs ahead of the GPU: drain earlier steps so only this one is timed
         t0 = time.time()
         loss_sum = torch.zeros((), device=device)
         for _ in range(accum):
