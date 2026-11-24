@@ -39,10 +39,10 @@ It is trained with AdamW, warmup + cosine LR, bf16 and `torch.compile`, at about
 |---|---|---|
 | 1a | Train on TinyStories, 0.5B tokens | ✅ val BPB **0.517** in 0.82 h. Writes coherent short stories. Prompts about facts, math or code drift back into children's stories. |
 | 1b | Learning-rate sweep on FineWeb-Edu, 100M tokens per run | ✅ Best LR **1e-3** (val BPB 1.668), with 2e-3 close behind (1.681). Warmup matters: with only 20 warmup steps, every LR ≥ 1e-3 stalled early and the sweep wrongly favored 5e-4. |
-| 1c | Official baseline: FineWeb-Edu, 1B tokens, LR 1e-3, warmup 100 | TODO. Every later experiment is compared against this run. |
+| 1c | Official baseline: FineWeb-Edu, 1B tokens, LR 1e-3, warmup 100 | ✅ val BPB **1.147** in 1.64 h. Every later experiment is compared against this run. Writes fluent, on-topic encyclopedia-style text, but facts are often wrong, it sometimes repeats itself, and it cannot do math or code. |
 | 1d | Inference: KV cache, temperature / top-k / top-p, CLI | ✅ built during setup |
 | 1e | Noise floor: same config with 2–3 seeds | TODO. A gain smaller than this noise does not count. |
-| side | Mini scaling law: 5M / 10M / 20M / 50M models | TODO |
+| side | Mini scaling law: 5M / 10M / 20M / 50M models at about 20 tokens per parameter (`scripts/scaling.sh`; 1c is the 50M point) | 🔄 running |
 
 What 1a taught us:
 - **BPB depends on the data.** The same model scores 0.517 on TinyStories but 2.58 on FineWeb-Edu, because TinyStories uses simple words and repetitive plots.
