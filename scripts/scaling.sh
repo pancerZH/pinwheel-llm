@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # Mini scaling law (stage 1 side line): 5M / 10M / 20M models on FineWeb-Edu at about 20 tokens per
-# parameter, three learning rates each; the 50M point is 1c. The batch doubles with the model, so every
+# parameter, four learning rates each; the 50M point is 1c. The batch doubles with the model, so every
 # run gets 1525 steps instead of a few hundred, and warmup stays at 100 steps (the 1b lesson).
 set -u
 cd "$(dirname "$0")/.."
 
 run() {  # name d_model n_layer n_head n_kv_head d_ff max_tokens batch_tokens
-  for lr in 1e-3 2e-3 4e-3; do
+  for lr in 1e-3 2e-3 4e-3 8e-3; do
     name="side-scaling-$1-lr$lr"
     [ -d "runs/$name" ] && continue  # already done: rerunning the script only adds new runs
     uv run python -u -m pinwheel.train --data_dir data/tok8192/fineweb-edu --run "$name" \
