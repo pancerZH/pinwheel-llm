@@ -1,4 +1,8 @@
-"""A small Llama-style decoder: RMSNorm, RoPE, GQA, SwiGLU, tied embeddings."""
+"""A small Llama-style decoder: RMSNorm, RoPE, GQA, SwiGLU, tied embeddings.
+
+arch="gpt2" swaps three of them back to GPT-2: LayerNorm, learned absolute positions and a GELU MLP
+(pair it with n_kv_head = n_head for plain multi-head attention).
+"""
 
 import math
 from dataclasses import dataclass
@@ -18,6 +22,7 @@ class GPTConfig:
     d_ff: int = 1728
     max_seq_len: int = 1024
     rope_base: float = 10000.0
+    arch: str = "llama"  # "llama" or "gpt2" (see the module docstring)
 
 
 def rope_tables(head_dim, max_len, base):
@@ -65,7 +70,8 @@ class Attention(nn.Module):
         q = self.wq(x).view(B, T, self.n_head, self.head_dim).transpose(1, 2)
         k = self.wk(x).view(B, T, self.n_kv_head, self.head_dim).transpose(1, 2)
         v = self.wv(x).view(B, T, self.n_kv_head, self.head_dim).transpose(1, 2)
-        q, k = apply_rope(q, cos, sin), apply_rope(k, cos, sin)
+        if cos is not None:  # RoPE; gpt2 adds learned positions to the input instead
+            q, k = apply_rope(q, cos, sin), apply_rope(k, cos, sin)
         if cache is not None:
             k, v = cache.update(k, v)
         # A prompt needs the causal mask; a single new token may see everything in the cache.
@@ -84,13 +90,29 @@ class SwiGLU(nn.Module):
         return self.w_down(F.silu(self.w_gate(x)) * self.w_up(x))
 
 
+class GeluMLP(nn.Module):
+    """GPT-2's MLP: up-projection, GELU, down-projection."""
+
+    def __init__(self, cfg):
+        super().__init__()
+        self.w_up = nn.Linear(cfg.d_model, cfg.d_ff, bias=False)
+        self.w_down = nn.Linear(cfg.d_ff, cfg.d_model, bias=False)
+
+    def forward(self, x):
+        return self.w_down(F.gelu(self.w_up(x), approximate="tanh"))
+
+
+def make_norm(cfg):
+    return nn.LayerNorm(cfg.d_model) if cfg.arch == "gpt2" else nn.RMSNorm(cfg.d_model, eps=1e-6)
+
+
 class Block(nn.Module):
     def __init__(self, cfg):
         super().__init__()
-        self.attn_norm = nn.RMSNorm(cfg.d_model, eps=1e-6)
+        self.attn_norm = make_norm(cfg)
         self.attn = Attention(cfg)
-        self.mlp_norm = nn.RMSNorm(cfg.d_model, eps=1e-6)
-        self.mlp = SwiGLU(cfg)
+        self.mlp_norm = make_norm(cfg)
+        self.mlp = GeluMLP(cfg) if cfg.arch == "gpt2" else SwiGLU(cfg)
 
     def forward(self, x, cos, sin, cache=None):
         x = x + self.attn(self.attn_norm(x), cos, sin, cache)
@@ -100,10 +122,13 @@ class Block(nn.Module):
 class GPT(nn.Module):
     def __init__(self, cfg: GPTConfig):
         super().__init__()
+        if cfg.arch not in ("llama", "gpt2"):
+            raise ValueError(f"unknown arch: {cfg.arch}")
         self.cfg = cfg
         self.tok_emb = nn.Embedding(cfg.vocab_size, cfg.d_model)
+        self.pos_emb = nn.Embedding(cfg.max_seq_len, cfg.d_model) if cfg.arch == "gpt2" else None
         self.blocks = nn.ModuleList(Block(cfg) for _ in range(cfg.n_layer))
-        self.norm = nn.RMSNorm(cfg.d_model, eps=1e-6)
+        self.norm = make_norm(cfg)
         cos, sin = rope_tables(cfg.d_model // cfg.n_head, cfg.max_seq_len, cfg.rope_base)
         self.register_buffer("cos", cos, persistent=False)
         self.register_buffer("sin", sin, persistent=False)
@@ -121,8 +146,12 @@ class GPT(nn.Module):
         """Logits (B, T, V), or the cross-entropy loss when targets are given."""
         T = idx.size(1)
         pos = caches[0].pos if caches else 0
-        cos, sin = self.cos[pos : pos + T], self.sin[pos : pos + T]
         x = self.tok_emb(idx)
+        if self.pos_emb is None:
+            cos, sin = self.cos[pos : pos + T], self.sin[pos : pos + T]
+        else:
+            cos = sin = None
+            x = x + self.pos_emb(torch.arange(pos, pos + T, device=idx.device))
         for i, block in enumerate(self.blocks):
             x = block(x, cos, sin, caches[i] if caches else None)
         logits = F.linear(self.norm(x), self.tok_emb.weight)  # tied: the output head is the embedding

@@ -36,6 +36,7 @@ class TrainConfig:
     n_kv_head: int = 5
     d_model: int = 640
     d_ff: int = 1728
+    arch: str = "llama"  # "llama" or "gpt2" (LayerNorm, learned positions, GELU MLP)
     seq_len: int = 1024
     # optimization
     max_tokens: float = 1e9
@@ -128,7 +129,7 @@ def main():
     token_bytes = token_byte_lengths(tok).to(device)
     mcfg = GPTConfig(vocab_size=tok.get_vocab_size(), n_layer=cfg.n_layer, n_head=cfg.n_head,
                      n_kv_head=cfg.n_kv_head, d_model=cfg.d_model, d_ff=cfg.d_ff,
-                     max_seq_len=cfg.seq_len)
+                     max_seq_len=cfg.seq_len, arch=cfg.arch)
     model = GPT(mcfg).to(device)
     n_params, flops_per_token = model.num_params(), model.flops_per_token(cfg.seq_len)
 

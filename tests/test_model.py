@@ -29,3 +29,15 @@ def test_kv_cache_matches_full_forward():
     steps = [model(x[:, :8], caches=caches)]  # prompt, then one token at a time
     steps += [model(x[:, t : t + 1], caches=caches) for t in range(8, 16)]
     torch.testing.assert_close(torch.cat(steps, dim=1), model(x), atol=1e-5, rtol=1e-4)
+
+
+def test_gpt2_arch_kv_cache_matches_full_forward():
+    torch.manual_seed(0)
+    cfg = GPTConfig(**{**TINY.__dict__, "arch": "gpt2", "n_kv_head": 4})
+    model = GPT(cfg).eval()
+    assert model.pos_emb is not None and isinstance(model.norm, torch.nn.LayerNorm)
+    x = torch.randint(0, cfg.vocab_size, (2, 16))
+    caches = [KVCache(16) for _ in model.blocks]
+    steps = [model(x[:, :8], caches=caches)]
+    steps += [model(x[:, t : t + 1], caches=caches) for t in range(8, 16)]
+    torch.testing.assert_close(torch.cat(steps, dim=1), model(x), atol=1e-5, rtol=1e-4)
