@@ -12,11 +12,11 @@ from __future__ import annotations
 
 import argparse
 import csv
-import functools
 import http.server
 import json
 import math
 import re
+import socket
 import statistics
 import tomllib
 import webbrowser
@@ -520,13 +520,61 @@ def _fmt_val(val) -> str:
     return str(val)
 
 
+def _lan_ip() -> str | None:
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(("10.255.255.255", 1))
+            return s.getsockname()[0]
+    except OSError:
+        return None
+
+
+def _serve_single_file(html_path: Path, host: str, port: int) -> None:
+    """Serve only the generated HTML file (no directory listing, no sibling files)."""
+    target_name = "/" + html_path.name
+
+    class Handler(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            path = self.path.split("?", 1)[0]
+            if path not in ("/", target_name):
+                self.send_error(404)
+                return
+            body = html_path.read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, fmt, *args):
+            pass
+
+    class Server(http.server.ThreadingHTTPServer):
+        allow_reuse_address = True
+
+    with Server((host, port), Handler) as httpd:
+        if host in ("0.0.0.0", ""):
+            ip = _lan_ip() or "127.0.0.1"
+            print(f"serving on LAN: http://{ip}:{port}/ (and http://127.0.0.1:{port}/) — Ctrl-C to stop", flush=True)
+        else:
+            url = f"http://{host}:{port}/"
+            print(f"serving at {url} — Ctrl-C to stop", flush=True)
+            webbrowser.open(url)
+        try:
+            httpd.serve_forever()
+        except KeyboardInterrupt:
+            pass
+
+
 def main():
     p = argparse.ArgumentParser(description="Generate interactive experiment tree HTML from runs/ and tree.toml")
     p.add_argument("--spec", type=Path, default=Path("tree.toml"), help="hand-written topology TOML")
     p.add_argument("--runs", type=Path, default=Path("runs"), help="runs directory")
     p.add_argument("--ckpt", type=Path, default=Path("ckpt"), help="checkpoints directory")
     p.add_argument("-o", "--out", type=Path, default=Path("runs/tree.html"), help="output HTML path")
-    p.add_argument("--serve", action="store_true", help="serve runs/ over a local HTTP server and open in browser")
+    p.add_argument("--serve", action="store_true", help="serve only the generated HTML over HTTP")
+    p.add_argument("--host", default="127.0.0.1", help="bind address for --serve (use 0.0.0.0 for LAN)")
     p.add_argument("--port", type=int, default=8765, help="port for --serve")
     args = p.parse_args()
 
@@ -550,15 +598,7 @@ def main():
         print(f"In-progress runs (not yet in results.tsv): {names}")
 
     if args.serve:
-        handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=str(out.parent.resolve()))
-        with http.server.ThreadingHTTPServer(("127.0.0.1", args.port), handler) as httpd:
-            url = f"http://127.0.0.1:{args.port}/{out.name}"
-            print(f"serving at {url} (Ctrl-C to stop)")
-            webbrowser.open(url)
-            try:
-                httpd.serve_forever()
-            except KeyboardInterrupt:
-                pass
+        _serve_single_file(out.resolve(), args.host, args.port)
 
 
 if __name__ == "__main__":
