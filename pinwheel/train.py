@@ -39,12 +39,12 @@ class TrainConfig:
     seq_len: int = 1024
     # optimization
     max_tokens: float = 1e9
-    batch_tokens: int = 524288  # tokens per optimizer step, reached by gradient accumulation
+    batch_tokens: int = 131072  # tokens per optimizer step, reached by gradient accumulation (stage 2a)
     micro_batch: int = 32  # sequences per forward pass
-    lr: float = 2e-3  # best of 1e-3 / 2e-3 / 4e-3 for v0 at 1B tokens (stage 1e)
-    min_lr_frac: float = 0.1
+    lr: float = 1.4e-3  # best for v0 at batch 128k and 1B tokens (stage 2a)
+    min_lr_frac: float = 0.0  # final LR as a fraction of lr (stage 1 cosine runs used 0.1)
     warmup_steps: int = 100
-    schedule: str = "cosine"  # "cosine" or "wsd" (warmup + constant + (1-sqrt) cooldown)
+    schedule: str = "wsd"  # "wsd" (warmup + constant + (1-sqrt) cooldown, stage 2b) or "cosine"
     cooldown_frac: float = 0.2  # WSD: fraction of steps spent in cooldown
     save_stable_at: float = 0.0  # optional token count to save ckpt/<run>-stable.pt (with optimizer)
     cooldown_from: str = ""  # load model + optimizer from a stable ckpt and run a pure cooldown
