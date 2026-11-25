@@ -188,7 +188,7 @@ def main():
     Path("ckpt").mkdir(exist_ok=True)
     torch.save({"model": model.state_dict(), "model_config": asdict(mcfg),
                 "train_config": asdict(cfg), "step": max_steps}, Path("ckpt") / f"{run}.pt")
-    bench = run_benchmarks(model, tok)  # about 30 s for v0
+    bench = run_benchmarks(model, tok, save_items_path=Path("runs/bench") / f"{run}.npz")  # about 30 s for v0
     append_bench_row(run, bench)
     hellaswag = bench["hellaswag"]["acc_norm"]
     append_result(cfg, run, n_params, max_steps * cfg.batch_tokens, hours, val_bpb, hellaswag)
