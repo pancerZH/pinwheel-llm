@@ -44,6 +44,10 @@ class TrainConfig:
     lr: float = 2e-3  # best of 1e-3 / 2e-3 / 4e-3 for v0 at 1B tokens (stage 1e)
     min_lr_frac: float = 0.1
     warmup_steps: int = 100
+    schedule: str = "cosine"  # "cosine" or "wsd" (warmup + constant + (1-sqrt) cooldown)
+    cooldown_frac: float = 0.2  # WSD: fraction of steps spent in cooldown
+    save_stable_at: float = 0.0  # optional token count to save ckpt/<run>-stable.pt (with optimizer)
+    cooldown_from: str = ""  # load model + optimizer from a stable ckpt and run a pure cooldown
     weight_decay: float = 0.1
     grad_clip: float = 1.0
     compile: bool = True
@@ -65,9 +69,21 @@ def parse_args():
 
 
 def lr_at(step, cfg, max_steps):
-    """Linear warmup, then cosine decay down to min_lr_frac * lr."""
+    """Cosine or WSD (warmup + constant + (1-sqrt) cooldown). cooldown_from runs a pure cooldown."""
+    if cfg.cooldown_from:
+        t = min(1.0, step / max(1, max_steps))
+        return cfg.lr * (cfg.min_lr_frac + (1 - cfg.min_lr_frac) * (1 - math.sqrt(t)))
     if step < cfg.warmup_steps:
         return cfg.lr * (step + 1) / cfg.warmup_steps
+    if cfg.schedule == "wsd":
+        decay_steps = max(1, round(max_steps * cfg.cooldown_frac))
+        decay_start = max(cfg.warmup_steps, max_steps - decay_steps)
+        if step < decay_start:
+            return cfg.lr
+        t = min(1.0, (step - decay_start) / max(1, max_steps - decay_start))
+        return cfg.lr * (cfg.min_lr_frac + (1 - cfg.min_lr_frac) * (1 - math.sqrt(t)))
+    if cfg.schedule != "cosine":
+        raise ValueError(f"unknown schedule: {cfg.schedule}")
     progress = (step - cfg.warmup_steps) / max(1, max_steps - cfg.warmup_steps)
     return cfg.lr * (cfg.min_lr_frac + (1 - cfg.min_lr_frac) * 0.5 * (1 + math.cos(math.pi * progress)))
 
@@ -114,7 +130,6 @@ def main():
                      n_kv_head=cfg.n_kv_head, d_model=cfg.d_model, d_ff=cfg.d_ff,
                      max_seq_len=cfg.seq_len)
     model = GPT(mcfg).to(device)
-    train_model = torch.compile(model) if cfg.compile else model
     n_params, flops_per_token = model.num_params(), model.flops_per_token(cfg.seq_len)
 
     # Weight decay only on matrices; norms (1-D) are left alone.
@@ -124,6 +139,13 @@ def main():
          {"params": [p for p in params if p.dim() < 2], "weight_decay": 0.0}],
         lr=cfg.lr, betas=(0.9, 0.95), fused=True,
     )
+    if cfg.cooldown_from:
+        ckpt = torch.load(cfg.cooldown_from, map_location=device, weights_only=True)
+        model.load_state_dict(ckpt["model"])
+        if "optimizer" in ckpt:
+            optimizer.load_state_dict(ckpt["optimizer"])
+        print(f"cooldown_from {cfg.cooldown_from} (step {ckpt.get('step', '?')}, tokens {ckpt.get('tokens', '?')})")
+    train_model = torch.compile(model) if cfg.compile else model
 
     accum, rest = divmod(cfg.batch_tokens, cfg.micro_batch * cfg.seq_len)
     assert accum > 0 and rest == 0, "batch_tokens must be a multiple of micro_batch * seq_len"
@@ -146,7 +168,7 @@ def main():
         print("  ".join(f"{k} {v:.4g}" if isinstance(v, float) else f"{k} {v}" for k, v in r.items()))
 
     fixed = data.random_batch(cfg.micro_batch, cfg.seq_len, device) if cfg.overfit_batch else None
-    t_start, val_bpb = time.time(), float("nan")
+    t_start, val_bpb, saved_stable = time.time(), float("nan"), False
     for step in range(max_steps + 1):
         last = step == max_steps
         if step % cfg.eval_every == 0 or last:
@@ -176,6 +198,15 @@ def main():
         grad_norm = torch.nn.utils.clip_grad_norm_(params, cfg.grad_clip)
         optimizer.step()
         optimizer.zero_grad(set_to_none=True)
+        done_tokens = (step + 1) * cfg.batch_tokens
+        if not saved_stable and cfg.save_stable_at > 0 and done_tokens >= cfg.save_stable_at:
+            Path("ckpt").mkdir(exist_ok=True)
+            stable_path = Path("ckpt") / f"{run}-stable.pt"
+            torch.save({"model": model.state_dict(), "optimizer": optimizer.state_dict(),
+                        "model_config": asdict(mcfg), "train_config": asdict(cfg),
+                        "step": step + 1, "tokens": done_tokens}, stable_path)
+            print(f"saved stable checkpoint to {stable_path} ({done_tokens / 1e6:.1f}M tokens)")
+            saved_stable = True
 
         if step % cfg.log_every == 0:
             torch.cuda.synchronize()
