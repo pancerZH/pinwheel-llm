@@ -37,6 +37,10 @@ SUITES = {
     "tier2": ("hellaswag", "arc_easy", "piqa", "blimp", "sciq", "lambada"),
 }
 BLIMP_GROUPS = 67  # 67 grammatical phenomena, each 1,000 minimal pairs
+# Short answers after "Answer:": target_bpb is dominated by the first answer token, whose cost reflects
+# the model's format prior (it expects " The ...") and moves all options together. Its seed std is ~0.035,
+# about 20x that of val BPB, so the paired p-value overstates it; judge these tasks by acc / prob.
+SHORT_ANSWER_TASKS = ("arc_easy", "sciq")
 
 
 def read_parquet(repo, name):
@@ -332,7 +336,11 @@ def compare_saved(path_a, path_b):
             p_acc = p_mc
         d_prob, _, p_prob = paired_diff_test(da[f"{t}__prob"], db[f"{t}__prob"], n_clusters=clusters)
         d_bpb, _, p_bpb = paired_diff_test(da[f"{t}__target_bpb"], db[f"{t}__target_bpb"], n_clusters=clusters)
-        print(f"{t:10s} {d_acc:+8.4f} {p_acc:10.4g} {d_prob:+9.5f} {p_prob:9.4g} {d_bpb:+9.5f} {p_bpb:9.4g}")
+        mark = " *" if t in SHORT_ANSWER_TASKS else ""
+        print(f"{t:10s} {d_acc:+8.4f} {p_acc:10.4g} {d_prob:+9.5f} {p_prob:9.4g} {d_bpb:+9.5f} {p_bpb:9.4g}{mark}")
+    if any(t in SHORT_ANSWER_TASKS for t in shared):
+        print("* Δbpb unreliable here: short answers make it a first-token format prior shared by all options,\n"
+              "  with seed std ~0.035 that the paired p-value ignores. Judge these tasks by Δacc / Δprob.")
 
 
 def main():
