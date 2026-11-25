@@ -51,7 +51,7 @@ What 1a taught us:
 What the scaling law taught us:
 - **Small models want larger learning rates.** 5M–19M models did best at 4e-3, while 8e-3 hurt more the bigger the model.
 - **A sweep is done only when the best LR is inside the grid.** 2e-3 and then 4e-3 won at the edge; only 8e-3 losing closed the bracket.
-- **Four points fit one power law within ±0.008 BPB** (after the 50M LR fix; ±0.016 before). The ends still sit above the line and the middle below it, by 3–5× the seed noise. That may be the first sign of an irreducible-loss floor, Now that the 50M LR is bracketed, an irreducible-loss floor is the likelier reason, but four points cannot prove it.
+- **Four points fit one power law within ±0.008 BPB** (after the 50M LR fix; ±0.016 before). The ends still sit above the line and the middle below it, by 3–5× the seed noise. Now that the 50M LR is bracketed, an irreducible-loss floor is the likelier reason, but four points cannot prove it.
 
 ### Stage 2: v1, shape and optimizer ablations (M2): TODO
 - Same parameter count, different shapes: wide and shallow vs. deep and narrow.
