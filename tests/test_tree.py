@@ -260,3 +260,29 @@ def test_scaling_chart_power_law_fit(tmp_path):
     assert len(sc["points"]) == 3
     assert sc["best_ids"] == ["s-5m", "s-50m"]
     assert sc["fit"]["b"] > 0 and sc["fit"]["drop_per_2x_pct"] > 0
+
+
+def test_cooldown_from_shifts_val_curve_by_branch_tokens(tmp_path):
+    runs_dir = tmp_path / "runs"
+    ckpt_dir = tmp_path / "ckpt"
+    runs_dir.mkdir()
+    _write_run(
+        runs_dir,
+        ckpt_dir,
+        "base-wsd",
+        {"batch_tokens": 131072, "save_stable_at": 500_000_000.0},
+    )
+    _write_run(
+        runs_dir,
+        ckpt_dir,
+        "branch-cd",
+        {"cooldown_from": "ckpt/base-wsd-stable.pt", "max_tokens": 1e8},
+        log_rows=[
+            {"step": 0, "tokens": 0, "val_bpb": 1.1805},
+            {"step": 762, "tokens": 99_876_864, "val_bpb": 1.1252},
+        ],
+    )
+    art = tree_mod.load_run_artifacts("branch-cd", runs_dir, ckpt_dir)
+    assert math.isclose(art["token_offset_m"], 500.04, abs_tol=0.05)
+    assert math.isclose(art["val_curve"][0][0], 500.04, abs_tol=0.05)
+    assert math.isclose(art["val_curve"][-1][0], 599.92, abs_tol=0.05)

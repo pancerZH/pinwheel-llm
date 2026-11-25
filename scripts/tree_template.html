@@ -401,6 +401,9 @@ const I18N = {
     curveEmpty: "<code>log.jsonl</code> 中没有可用的 val BPB 记录。",
     curveRefPrefix: "对照",
     curveNote: "悬停圆点查看各评测点精确值（已略去 step 0 初始值以便放大收敛段）。",
+    curveBranchNote: (m) => `已按分支起点对齐到累计 token 轴（从 ${m}M 处分叉退火）。`,
+    curveBranchMarker: (m) => `${m}M 分支`,
+    tokensWithOffset: (tok, off) => `${tok} 退火（从 ${off}M 分支）`,
     curveGroupNote: "同组子实验 val BPB 随 tokens 变化曲线对比（悬停圆点查看精确值）。",
     sectionValPoints: "评测点记录（val BPB）",
     scalingTitle: "val BPB 随参数量 / 计算量变化（双对数幂律）",
@@ -500,6 +503,9 @@ const I18N = {
     curveEmpty: "No val BPB checkpoints found in <code>log.jsonl</code>.",
     curveRefPrefix: "ref",
     curveNote: "Hover points for exact values (step 0 omitted to zoom into convergence).",
+    curveBranchNote: (m) => `Aligned to cumulative token axis (branched at ${m}M tokens).`,
+    curveBranchMarker: (m) => `branch @ ${m}M`,
+    tokensWithOffset: (tok, off) => `${tok} cd (from ${off}M)`,
     curveGroupNote: "Overlay of val BPB vs tokens across runs in this group (hover points for values).",
     sectionValPoints: "Validation Checkpoints (val BPB)",
     scalingTitle: "val BPB vs Model Size / Training Compute (log-log)",
@@ -1117,11 +1123,15 @@ function renderOverviewTab(n) {
   const speedText = n.tok_per_s ? `${(n.tok_per_s / 1000).toFixed(1)}k tok/s` : "—";
   const mfuText = n.mfu != null ? `MFU ${(n.mfu * 100).toFixed(1)}%` : "";
 
+  const tokLabel = n.token_offset_m > 0
+    ? L.tokensWithOffset(n.tokens || "—", Math.round(n.token_offset_m))
+    : `${n.tokens || "—"} tokens`;
+
   parts.push(`<div class="kpi-grid">
     <div class="kpi">
       <div class="kpi-label">${L.kpiValBpb}</div>
       <div class="kpi-val">${fmtBpb(n.val_bpb)}</div>
-      <div class="kpi-sub">${esc(n.tokens || "—")} tokens · ${n.wall_h != null ? n.wall_h + " h" : "—"}</div>
+      <div class="kpi-sub">${esc(tokLabel)} · ${n.wall_h != null ? n.wall_h + " h" : "—"}</div>
     </div>
     <div class="kpi">
       <div class="kpi-label">${L.kpiDeltaBpb}</div>
@@ -1468,21 +1478,29 @@ function renderCurveTab(n) {
   const curSvg = `<path d="${pathOf(curPts)}" fill="none" stroke="#2a78d6" stroke-width="2.2"/>`
     + curPts.map(p => `<circle cx="${sx(p[0]).toFixed(1)}" cy="${sy(p[1]).toFixed(1)}" r="3" fill="#2a78d6"><title>${esc(n.id)} @ ${p[0]}M tok: ${p[1]}</title></circle>`).join("");
 
+  const offsetM = n.token_offset_m || 0;
+  const branchGuide = offsetM > 0
+    ? `<line x1="${sx(offsetM).toFixed(1)}" y1="${MT}" x2="${sx(offsetM).toFixed(1)}" y2="${H - MB}" stroke="#2a78d6" stroke-width="1" stroke-dasharray="3 3" opacity="0.55"/>
+       <text x="${sx(offsetM).toFixed(1)}" y="${MT + 10}" text-anchor="middle" font-size="9.5" font-weight="600" fill="#2a78d6">${esc(L.curveBranchMarker(Math.round(offsetM)))}</text>`
+    : "";
+
   const legend = `<div class="curve-legend">
     <span><span class="curve-dot" style="background:#2a78d6"></span>${esc(n.id)} (${fmtBpb(n.val_bpb)})</span>
     ${refPts.length ? `<span><span class="curve-dot" style="background:#898781"></span>${L.curveRefPrefix} ${esc(ref.id)} (${fmtBpb(ref.val_bpb)})</span>` : ""}
   </div>`;
 
   const stepRows = curPts.map(p => `<tr><td>${p[0]}M</td><td>${p[1].toFixed(4)}</td></tr>`).join("");
+  const curveFootnote = offsetM > 0 ? L.curveBranchNote(Math.round(offsetM)) : L.curveNote;
 
   return `<div class="curve-wrap">${legend}
     <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
       ${grid}
+      ${branchGuide}
       <line x1="${ML}" y1="${MT}" x2="${ML}" y2="${H - MB}" stroke="#c3c2b7"/>
       <line x1="${ML}" y1="${H - MB}" x2="${W - MR}" y2="${H - MB}" stroke="#c3c2b7"/>
       ${refSvg}${curSvg}
     </svg>
-    <div class="note-small" style="margin-top:4px">${L.curveNote}</div>
+    <div class="note-small" style="margin-top:4px">${esc(curveFootnote)}</div>
   </div>
   <div class="section-h">${L.sectionValPoints}</div>
   <table class="data"><thead><tr><th>Tokens</th><th>val BPB</th></tr></thead><tbody>${stepRows}</tbody></table>`;

@@ -318,6 +318,32 @@ def build_scaling_chart(run_ids: list[str], runs_dir: Path, results: dict[str, d
     }
 
 
+def resolve_cooldown_offset_tokens(cfg_raw: dict | None, runs_dir: Path) -> float:
+    """Infer cumulative starting tokens for a run branched via --cooldown_from."""
+    if not cfg_raw:
+        return 0.0
+    cd_from = (cfg_raw.get("train") or {}).get("cooldown_from") or ""
+    if not cd_from:
+        return 0.0
+    stem = Path(cd_from).stem
+    is_stable = stem.endswith("-stable")
+    src_id = stem[: -len("-stable")] if is_stable else stem
+    src_cfg_path = runs_dir / src_id / "config.json"
+    if src_cfg_path.exists():
+        src_cfg = json.loads(src_cfg_path.read_text(encoding="utf-8"))
+        st = src_cfg.get("train") or {}
+        if is_stable and st.get("save_stable_at"):
+            target = float(st["save_stable_at"])
+            bs = int(st.get("batch_tokens") or 0)
+            if bs > 0:
+                return float(math.ceil(target / bs) * bs)
+            return target
+    src_log = parse_log(runs_dir / src_id / "log.jsonl")
+    if src_log["last_tokens_m"] is not None:
+        return src_log["last_tokens_m"] * 1e6
+    return 0.0
+
+
 def load_run_artifacts(run_id: str, runs_dir: Path, ckpt_dir: Path) -> dict:
     """Gather config, training curve, final samples, and artifact paths for a single run."""
     rdir = runs_dir / run_id
@@ -325,13 +351,21 @@ def load_run_artifacts(run_id: str, runs_dir: Path, ckpt_dir: Path) -> dict:
     cfg_raw = json.loads(cfg_path.read_text(encoding="utf-8")) if cfg_path.exists() else None
     cfg_summary = extract_config_summary(cfg_raw) if cfg_raw else None
     log_info = parse_log(rdir / "log.jsonl")
+    offset_toks = resolve_cooldown_offset_tokens(cfg_raw, runs_dir)
+    offset_m = round(offset_toks / 1e6, 2) if offset_toks > 0 else 0.0
+    val_curve = (
+        [[round(t_m + offset_m, 2), bpb] for t_m, bpb in log_info["val_curve"]]
+        if offset_m > 0
+        else log_info["val_curve"]
+    )
     samples = parse_final_samples(rdir / "samples.md")
 
     ckpt_path = ckpt_dir / f"{run_id}.pt"
     npz_path = runs_dir / "bench" / f"{run_id}.npz"
     return {
         "config": cfg_summary,
-        "val_curve": log_info["val_curve"],
+        "val_curve": val_curve,
+        "token_offset_m": offset_m,
         "tok_per_s": log_info["tok_per_s"],
         "mfu": log_info["mfu"],
         "samples": samples,
@@ -415,6 +449,7 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
             "bench": bench,
             "config": art["config"] if art else None,
             "val_curve": art["val_curve"] if art else [],
+            "token_offset_m": art["token_offset_m"] if art else 0.0,
             "tok_per_s": art["tok_per_s"] if art else None,
             "mfu": art["mfu"] if art else None,
             "samples": art["samples"] if art else None,
