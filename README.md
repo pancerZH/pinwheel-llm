@@ -73,9 +73,12 @@ What the benchmarks taught us:
 - TinyStories teaches grammar (BLiMP 62.7) but no world knowledge (the other three are at chance).
 
 ### Stage 2: v1, shape and optimizer ablations (M2): TODO
-- Same parameter count, different shapes: wide and shallow vs. deep and narrow.
+Check published results before each experiment; where a reliable result exists, adopt it and run one confirmation instead of a sweep.
+- Batch size first: DeepSeek LLM's hyperparameter scaling law predicts about 160k tokens for v0's compute (v0 uses 524k), and LR 2e-3, which matches what 1e found.
+- WSD instead of cosine, with a (1 − sqrt) cooldown: adopted from Hägele et al. 2024 and confirmed with one run; it also lets one long run give results at several token budgets.
+- Muon vs. a tuned AdamW. Expect about 1.3× (Wen et al. 2025), not the 2× often quoted.
+- Same parameter count, different shapes: v0 vs. one deep-and-narrow shape (d448/L20), as MobileLLM and SmolLM2 suggest.
 - Vocab size (4k / 8k / 16k), and tied vs. untied embeddings.
-- Optimizer and schedule: Muon vs. AdamW, and WSD vs. cosine.
 - A few modded-nanogpt tricks, such as QK-Norm, ReLU² and logit softcap.
 - Goal: v1 beats v0 on val BPB by more than the noise floor.
 
