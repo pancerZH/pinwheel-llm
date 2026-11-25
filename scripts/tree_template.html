@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>pinwheel-llm 实验树</title>
+<style>
+  :root {
+    --surface: #fcfcfb;
+    --panel: #ffffff;
+    --subtle: #f5f4ef;
+    --ink: #0b0b0b;
+    --ink-2: #52514e;
+    --muted: #898781;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
+    --blue: #2a78d6;
+    --blue-bg: #eef5fd;
+    --green: #1baf7a;
+    --green-dark: #0e7a53;
+    --green-bg: #eaf8f2;
+    --red: #e34948;
+    --red-bg: #fdf0f0;
+    --amber: #d98a00;
+    --amber-bg: #fef7e6;
+    --purple: #6250d6;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; overflow: hidden;
+    background: var(--surface); color: var(--ink);
+    font-family: var(--sans); font-size: 13px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .app { display: flex; flex-direction: column; height: 100vh; }
+
+  /* Header */
+  header {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--grid);
+    flex-shrink: 0; flex-wrap: wrap;
+  }
+  .brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+  .brand h1 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
+  .brand .sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .trunk-pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px;
+    background: var(--green-bg); color: var(--green-dark); border: 1px solid #bfead7;
+    border-radius: 999px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+  }
+  .controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .controls input[type="search"] {
+    width: 170px; padding: 5px 9px; border: 1px solid var(--axis); border-radius: 6px;
+    background: var(--surface); color: var(--ink); font-size: 12px; outline: none;
+  }
+  .controls input[type="search"]:focus { border-color: var(--blue); background: #fff; }
+  .btn {
+    padding: 5px 10px; border: 1px solid var(--grid); border-radius: 6px;
+    background: var(--panel); color: var(--ink-2); font-size: 12px; cursor: pointer;
+    transition: background .12s, border-color .12s, color .12s;
+  }
+  .btn:hover { background: var(--subtle); border-color: var(--axis); color: var(--ink); }
+  .btn.active { background: var(--blue-bg); border-color: var(--blue); color: var(--blue); font-weight: 600; }
+
+  /* Alert banner for uncataloged / running runs */
+  .banner {
+    display: none; padding: 6px 16px; background: var(--amber-bg); border-bottom: 1px solid #f0d799;
+    color: #7c4d00; font-size: 12px; align-items: center; gap: 12px; flex-shrink: 0;
+  }
+  .banner.show { display: flex; }
+
+  /* Main split layout */
+  .workspace { display: flex; flex: 1; min-height: 0; position: relative; }
+  .canvas-wrap {
+    flex: 1; position: relative; overflow: hidden; cursor: grab;
+    background-color: var(--surface);
+    background-image: radial-gradient(var(--grid) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+  .canvas-wrap.dragging { cursor: grabbing; }
+  svg#tree-svg { width: 100%; height: 100%; display: block; user-select: none; }
+
+  .legend {
+    position: absolute; left: 14px; bottom: 14px; display: flex; gap: 12px; align-items: center;
+    padding: 6px 11px; background: rgba(255,255,255,0.92); border: 1px solid var(--grid);
+    border-radius: 8px; font-size: 11px; color: var(--ink-2); backdrop-filter: blur(4px);
+    pointer-events: none;
+  }
+  .legend-item { display: inline-flex; align-items: center; gap: 5px; }
+  .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .swatch-line { width: 16px; height: 0; border-top: 2px dashed var(--blue); display: inline-block; }
+
+  /* Detail drawer */
+  aside.drawer {
+    width: 440px; max-width: 44vw; min-width: 340px; background: var(--panel);
+    border-left: 1px solid var(--grid); display: flex; flex-direction: column; flex-shrink: 0;
+  }
+  .drawer-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--grid); }
+  .drawer-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 999px;
+    font-size: 11px; font-weight: 600;
+  }
+  .badge-root { background: #f2eefc; color: var(--purple); border: 1px solid #d7cef7; }
+  .badge-adopted { background: var(--green-bg); color: var(--green-dark); border: 1px solid #bfead7; }
+  .badge-branch { background: var(--subtle); color: var(--ink-2); border: 1px solid var(--grid); }
+  .badge-group { background: var(--amber-bg); color: #8c5800; border: 1px solid #f0d799; }
+  .badge-milestone { background: var(--amber-bg); color: #8c5800; border: 1px solid #eab954; }
+  .drawer-title { margin: 0; font-size: 17px; font-weight: 700; line-height: 1.3; }
+  .drawer-runid {
+    margin-top: 2px; font-family: var(--mono); font-size: 11.5px; color: var(--muted);
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+
+  .tabs {
+    display: flex; border-bottom: 1px solid var(--grid); padding: 0 12px; gap: 2px;
+    background: var(--surface); flex-shrink: 0;
+  }
+  .tab {
+    padding: 8px 11px; border: none; background: none; color: var(--ink-2); font-size: 12.5px;
+    font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tab:hover { color: var(--ink); }
+  .tab.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
+
+  .drawer-body { flex: 1; overflow-y: auto; padding: 14px 16px 24px; }
+
+  .takeaway-box {
+    padding: 10px 12px; background: var(--subtle); border-left: 3px solid var(--green);
+    border-radius: 4px; margin-bottom: 12px; color: var(--ink); font-size: 13px;
+  }
+  .takeaway-box.branch { border-left-color: var(--axis); }
+  .takeaway-box.root { border-left-color: var(--purple); }
+  .protocol-box {
+    padding: 7px 10px; background: var(--blue-bg); border: 1px solid #cfe2f9;
+    border-radius: 6px; margin-bottom: 12px; font-size: 12px; color: #194b87;
+  }
+  .protocol-box strong { color: #103666; }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 14px; }
+  .kpi {
+    padding: 9px 10px; border: 1px solid var(--grid); border-radius: 7px; background: var(--surface);
+  }
+  .kpi-label { font-size: 11px; color: var(--muted); }
+  .kpi-val {
+    font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 1px;
+    font-family: var(--mono);
+  }
+  .kpi-sub { font-size: 11px; color: var(--ink-2); margin-top: 2px; }
+  .delta-good { color: var(--green-dark); }
+  .delta-bad { color: var(--red); }
+  .delta-noise { color: var(--muted); }
+
+  .section-h {
+    font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--muted); margin: 14px 0 6px;
+  }
+  .meta-list {
+    display: grid; grid-template-columns: 92px 1fr; gap: 4px 10px; font-size: 12px;
+    padding: 8px 10px; background: var(--surface); border: 1px solid var(--grid); border-radius: 7px;
+  }
+  .meta-list dt { color: var(--muted); }
+  .meta-list dd { margin: 0; font-family: var(--mono); color: var(--ink); word-break: break-all; }
+
+  table.data {
+    width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums;
+  }
+  table.data th, table.data td {
+    padding: 6px 6px; border-bottom: 1px solid var(--grid); text-align: right;
+  }
+  table.data th:first-child, table.data td:first-child { text-align: left; }
+  table.data th { color: var(--muted); font-weight: 600; font-size: 11px; }
+  table.data tr:last-child td { border-bottom: none; }
+  .diff-old { color: var(--muted); text-decoration: line-through; margin-right: 4px; }
+  .diff-new { color: var(--ink); font-weight: 600; }
+
+  .link-btn {
+    background: none; border: none; padding: 0; color: var(--blue); cursor: pointer;
+    font-size: inherit; font-family: inherit; text-decoration: underline; text-underline-offset: 2px;
+  }
+  .link-btn:hover { color: #16529c; }
+
+  .note-small { font-size: 11.5px; color: var(--muted); margin-top: 8px; line-height: 1.45; }
+  .empty-state { padding: 20px 10px; text-align: center; color: var(--muted); font-size: 12.5px; }
+
+  /* Curve box */
+  .curve-wrap {
+    border: 1px solid var(--grid); border-radius: 8px; background: var(--surface); padding: 10px;
+  }
+  .curve-legend { display: flex; gap: 14px; font-size: 11.5px; color: var(--ink-2); margin-bottom: 6px; flex-wrap: wrap; }
+  .curve-dot { display: inline-block; width: 10px; height: 3px; vertical-align: middle; margin-right: 5px; border-radius: 2px; }
+
+  /* Samples viewer */
+  .sample-controls { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+  .sample-controls select {
+    width: 100%; padding: 6px 8px; border: 1px solid var(--axis); border-radius: 6px;
+    background: #fff; font-size: 12px; color: var(--ink);
+  }
+  .sample-controls label { font-size: 12px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .sample-card {
+    padding: 10px 12px; border: 1px solid var(--grid); border-radius: 7px; background: var(--surface);
+    font-size: 12.5px; white-space: pre-wrap; word-break: break-word; line-height: 1.55; margin-bottom: 10px;
+  }
+  .sample-card-head {
+    font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 5px;
+    display: flex; justify-content: space-between; font-family: var(--mono);
+  }
+  .sample-prompt { font-weight: 700; color: var(--ink); background: #efeee7; padding: 0 3px; border-radius: 3px; }
+  .artifact-row {
+    display: flex; justify-content: space-between; align-items: center; padding: 7px 10px;
+    border: 1px solid var(--grid); border-radius: 6px; margin-bottom: 6px; background: var(--surface);
+    font-size: 12px;
+  }
+  .artifact-path { font-family: var(--mono); color: var(--ink); }
+  .artifact-status { font-size: 11px; font-weight: 600; }
+  .ok { color: var(--green-dark); }
+  .miss { color: var(--muted); }
+
+  /* SVG node styling */
+  .edge { fill: none; stroke: var(--axis); stroke-width: 1.6; }
+  .edge.trunk { stroke: var(--green); stroke-width: 3.4; }
+  .edge.dim { opacity: 0.2; }
+  .cross-arc {
+    fill: none; stroke: var(--blue); stroke-width: 1.8; stroke-dasharray: 5 4;
+    opacity: 0.32; transition: opacity .15s, stroke-width .15s;
+  }
+  .cross-arc.active { opacity: 0.95; stroke-width: 2.5; }
+  .cross-label { font-size: 11px; font-weight: 600; fill: var(--blue); }
+
+  .node-g { cursor: pointer; }
+  .node-g.dim { opacity: 0.22; }
+  .node-rect { transition: stroke .12s, filter .12s; }
+  .node-g:hover .node-rect { filter: drop-shadow(0 3px 8px rgba(0,0,0,0.08)); }
+  .node-g.selected .node-rect { stroke: var(--blue) !important; stroke-width: 2.6 !important; filter: drop-shadow(0 3px 10px rgba(42,120,214,0.22)); }
+  .leaf-pill { cursor: pointer; }
+  .leaf-pill:hover rect { opacity: 0.85; }
+  .toggle-btn { cursor: pointer; }
+  .toggle-btn:hover rect { fill: #e9e7de; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="brand">
+      <h1 id="page-title">pinwheel-llm 实验树</h1>
+      <span class="trunk-pill" id="trunk-summary"></span>
+      <span class="sub" id="page-subtitle"></span>
+    </div>
+    <div class="controls">
+      <input type="search" id="search-input" placeholder="搜索 run / 标题…" autocomplete="off">
+      <button class="btn" id="btn-trunk">仅看主干</button>
+      <button class="btn" id="btn-expand">展开全部簇</button>
+      <button class="btn" id="btn-collapse">折叠实验簇</button>
+      <button class="btn" id="btn-fit">适应画布</button>
+    </div>
+  </header>
+
+  <div class="banner" id="status-banner"></div>
+
+  <div class="workspace">
+    <div class="canvas-wrap" id="canvas-wrap">
+      <svg id="tree-svg">
+        <defs>
+          <marker id="arrow-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#2a78d6"/>
+          </marker>
+        </defs>
+        <g id="viewport">
+          <g id="edges-layer"></g>
+          <g id="arcs-layer"></g>
+          <g id="nodes-layer"></g>
+        </g>
+      </svg>
+      <div class="legend">
+        <span class="legend-item"><span class="swatch" style="background:#1baf7a"></span>主干（采用）</span>
+        <span class="legend-item"><span class="swatch" style="background:#d98a00"></span>里程碑（大图标）</span>
+        <span class="legend-item"><span class="swatch" style="background:#c3c2b7"></span>树枝（未采用/校验）</span>
+        <span class="legend-item"><span class="swatch-line"></span>跨配方单变量对照</span>
+      </div>
+    </div>
+
+    <aside class="drawer">
+      <div class="drawer-head">
+        <div class="drawer-badges" id="d-badges"></div>
+        <h2 class="drawer-title" id="d-title"></h2>
+        <div class="drawer-runid" id="d-runid"></div>
+      </div>
+      <div class="tabs" id="d-tabs">
+        <button class="tab active" data-tab="overview">概览</button>
+        <button class="tab" data-tab="bench">基准</button>
+        <button class="tab" data-tab="curve">曲线</button>
+        <button class="tab" data-tab="artifacts">产出物 &amp; 样本</button>
+      </div>
+      <div class="drawer-body" id="d-body"></div>
+    </aside>
+  </div>
+</div>
+
+<script>
+const DATA = __PINWHEEL_TREE_DATA__;
+
+const TASK_LABELS = {
+  hellaswag: "HellaSwag",
+  arc_easy: "ARC-Easy",
+  piqa: "PIQA",
+  blimp: "BLiMP",
+  sciq: "SciQ",
+  lambada: "LAMBADA"
+};
+const CHANCE = { hellaswag: 0.25, arc_easy: 0.25, piqa: 0.5, blimp: 0.5, sciq: 0.25, lambada: 0.0 };
+
+const state = {
+  selectedId: DATA.meta.head_id,
+  activeTab: "overview",
+  trunkOnly: false,
+  search: "",
+  collapsed: {},
+  sampleIdx: 0,
+  compareSamples: true,
+  pan: { x: 40, y: 40, scale: 1 },
+  layout: {},
+};
+
+for (const [id, n] of Object.entries(DATA.nodes)) {
+  if (n.is_group && n.collapsed) state.collapsed[id] = true;
+}
+
+const trunkSet = new Set(DATA.meta.trunk);
+
+function isMilestoneNode(n) {
+  return Boolean(n.milestone) || n.status === "root" || n.status === "adopted";
+}
+
+function nodeBoxSize(n) {
+  if (isMilestoneNode(n)) return { w: 272, h: 108 };
+  if (n.is_group) return { w: 226, h: 80 };
+  return { w: 218, h: 80 };
+}
+
+function visibleChildren(id) {
+  const n = DATA.nodes[id];
+  if (!n || state.collapsed[id]) return [];
+  let kids = n.children.slice();
+  if (state.trunkOnly) kids = kids.filter(c => trunkSet.has(c));
+  // Keep adopted trunk child at the very top so the main spine stays straight.
+  kids.sort((a, b) => {
+    const ka = DATA.nodes[a].status === "adopted" ? 0 : 1;
+    const kb = DATA.nodes[b].status === "adopted" ? 0 : 1;
+    return ka - kb;
+  });
+  return kids;
+}
+
+function computeLayout() {
+  const X_GAP = 66;
+  const Y_GAP = 18;
+  const subH = {};
+  const depthW = {};
+
+  function measure(id, depth) {
+    const sz = nodeBoxSize(DATA.nodes[id]);
+    depthW[depth] = Math.max(depthW[depth] || 0, sz.w);
+    const kids = visibleChildren(id);
+    if (!kids.length) {
+      subH[id] = sz.h;
+      return sz.h;
+    }
+    let total = 0;
+    kids.forEach((c, i) => {
+      total += measure(c, depth + 1);
+      if (i > 0) total += Y_GAP;
+    });
+    subH[id] = Math.max(sz.h, total);
+    return subH[id];
+  }
+
+  measure(DATA.meta.root_id, 0);
+
+  const colX = {};
+  let cx = 36;
+  const maxD = Math.max(...Object.keys(depthW).map(Number));
+  for (let d = 0; d <= maxD; d++) {
+    colX[d] = cx;
+    cx += (depthW[d] || 220) + X_GAP;
+  }
+
+  const pos = {};
+  function place(id, depth, topY) {
+    const n = DATA.nodes[id];
+    const sz = nodeBoxSize(n);
+    const kids = visibleChildren(id);
+    let y;
+    if (!kids.length) {
+      y = topY + (subH[id] - sz.h) / 2;
+    } else {
+      let curY = topY;
+      kids.forEach((c, i) => {
+        place(c, depth + 1, curY);
+        curY += subH[c] + Y_GAP;
+      });
+      // Align trunk parent with its adopted child's center; otherwise center over children.
+      const first = pos[kids[0]];
+      const last = pos[kids[kids.length - 1]];
+      if (DATA.nodes[kids[0]].status === "adopted") {
+        y = first.y + (first.h - sz.h) / 2;
+      } else {
+        const mid = (first.y + first.h / 2 + last.y + last.h / 2) / 2;
+        y = mid - sz.h / 2;
+      }
+    }
+    pos[id] = { x: colX[depth], y, w: sz.w, h: sz.h, depth };
+  }
+
+  place(DATA.meta.root_id, 0, 76);
+  state.layout = pos;
+}
+
+function elNS(tag, attrs = {}, text = null) {
+  const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+  if (text !== null) el.textContent = text;
+  return el;
+}
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  }[c]));
+}
+
+function fmtBpb(v) { return v == null ? "—" : v.toFixed(4); }
+function fmtDelta(v) { return v == null ? "—" : (v > 0 ? `+${v.toFixed(4)}` : v.toFixed(4)); }
+function fmtPct(v) { return v == null ? "—" : `${(v * 100).toFixed(2)}%`; }
+function fmtP(p) {
+  if (p == null) return "—";
+  if (p < 1e-4) return p.toExponential(1);
+  return p.toFixed(4);
+}
+function trunc(s, max) { return s && s.length > max ? s.slice(0, max - 1) + "…" : (s || ""); }
+
+function milestoneIconPath(n) {
+  if (n.is_head) {
+    // Bold star for current HEAD baseline
+    return "M12 2.5l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.4 6.1 20.5l1.2-6.5L2.5 9.4l6.6-.9z";
+  }
+  if (n.status === "root") {
+    // Flag for GPT-2 vanilla root
+    return "M5 3v18h2v-7h11l-2.5-4.5L18 5H7V3H5z";
+  }
+  if (n.status === "adopted") {
+    // Check badge diamond for adopted trunk milestones
+    return "M12 2L22 12L12 22L2 12Z";
+  }
+  // Trophy / spark diamond for branch milestones (TinyStories, scaling law)
+  return "M12 2l2.6 6.4L21 11l-6.4 2.6L12 20l-2.6-6.4L3 11l6.4-2.6z";
+}
+
+function renderTree() {
+  computeLayout();
+  const edgesLayer = document.getElementById("edges-layer");
+  const arcsLayer = document.getElementById("arcs-layer");
+  const nodesLayer = document.getElementById("nodes-layer");
+  edgesLayer.innerHTML = "";
+  arcsLayer.innerHTML = "";
+  nodesLayer.innerHTML = "";
+
+  const q = state.search.trim().toLowerCase();
+  const matches = new Set();
+  if (q) {
+    for (const n of Object.values(DATA.nodes)) {
+      const hay = `${n.id} ${n.label} ${n.milestone} ${n.takeaway}`.toLowerCase();
+      if (hay.includes(q)) matches.add(n.id);
+    }
+  }
+
+  // 1. Tree edges
+  for (const [id, p] of Object.entries(state.layout)) {
+    const n = DATA.nodes[id];
+    if (!n.parent || !state.layout[n.parent]) continue;
+    const par = state.layout[n.parent];
+    const x1 = par.x + par.w, y1 = par.y + par.h / 2;
+    const x2 = p.x, y2 = p.y + p.h / 2;
+    const mx = (x1 + x2) / 2;
+    const d = `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
+    const isTrunk = trunkSet.has(id) && trunkSet.has(n.parent);
+    const cls = ["edge", isTrunk ? "trunk" : "", q && !matches.has(id) ? "dim" : ""].filter(Boolean).join(" ");
+    edgesLayer.appendChild(elNS("path", { d, class: cls }));
+  }
+
+  // 2. Cross-recipe comparison arcs (compare_to != parent, both visible)
+  const crossPairs = [];
+  for (const [id, p] of Object.entries(state.layout)) {
+    const n = DATA.nodes[id];
+    if (!n.cross_compare || !n.compare_to || !state.layout[n.compare_to]) continue;
+    crossPairs.push([id, n.compare_to]);
+  }
+  crossPairs.forEach(([srcId, dstId], idx) => {
+    const a = state.layout[srcId], b = state.layout[dstId];
+    const src = DATA.nodes[srcId];
+    const active = state.selectedId === srcId || state.selectedId === dstId;
+    const x1 = a.x + a.w / 2, x2 = b.x + b.w / 2;
+    const topArc = srcId === DATA.meta.root_id || a.y <= b.y;
+    const y1 = topArc ? a.y : a.y + a.h;
+    const y2 = topArc ? b.y : b.y + b.h;
+    const lift = topArc ? -(42 + idx * 24) : (38 + idx * 20);
+    const cy = (topArc ? Math.min(y1, y2) : Math.max(y1, y2)) + lift;
+    const d = `M ${x1} ${y1} Q ${(x1 + x2) / 2} ${cy}, ${x2} ${y2}`;
+    arcsLayer.appendChild(elNS("path", {
+      d,
+      class: `cross-arc${active ? " active" : ""}`,
+      "marker-end": "url(#arrow-blue)",
+    }));
+    if (active || srcId === DATA.meta.root_id) {
+      const lx = (x1 + x2) / 2;
+      const ly = topArc ? (y1 + y2) / 4 + cy / 2 - 4 : (y1 + y2) / 4 + cy / 2 + 12;
+      const txt = src.delta_bpb != null
+        ? (srcId === DATA.meta.root_id
+            ? `同配方单变量对照：Llama 胜 ${fmtDelta(-src.delta_bpb)} BPB`
+            : `对照 ${src.compare_to}：${fmtDelta(src.delta_bpb)} BPB`)
+        : `对照 ${src.compare_to}`;
+      const pillW = Math.max(150, txt.length * 7.6 + 18);
+      arcsLayer.appendChild(elNS("rect", {
+        x: lx - pillW / 2, y: ly - 13, width: pillW, height: 20, rx: 10,
+        fill: active ? "#eef5fd" : "rgba(255,255,255,0.92)",
+        stroke: active ? "#2a78d6" : "#cfe2f9", "stroke-width": 1,
+      }));
+      arcsLayer.appendChild(elNS("text", {
+        x: lx, y: ly + 1, "text-anchor": "middle", class: "cross-label",
+      }, txt));
+    }
+  });
+
+  // 3. Nodes
+  for (const [id, p] of Object.entries(state.layout)) {
+    const n = DATA.nodes[id];
+    const big = isMilestoneNode(n);
+    const g = elNS("g", {
+      class: [
+        "node-g",
+        state.selectedId === id ? "selected" : "",
+        q && !matches.has(id) ? "dim" : "",
+      ].filter(Boolean).join(" "),
+      transform: `translate(${p.x}, ${p.y})`,
+    });
+
+    // Stacked paper shadow for collapsed group nodes
+    if (n.is_group && state.collapsed[id]) {
+      g.appendChild(elNS("rect", {
+        x: 6, y: 6, width: p.w, height: p.h, rx: 10,
+        fill: "#f1efe7", stroke: "#d4d1c5", "stroke-width": 1,
+      }));
+      g.appendChild(elNS("rect", {
+        x: 3, y: 3, width: p.w, height: p.h, rx: 10,
+        fill: "#f8f7f2", stroke: "#d4d1c5", "stroke-width": 1,
+      }));
+    }
+
+    // Card colors by status
+    let fill = "#ffffff", stroke = "#d7d5cb", strokeW = 1.2;
+    if (n.status === "root") { fill = "#faf8ff"; stroke = "#6250d6"; strokeW = 2; }
+    else if (n.is_head) { fill = "#f3fcf7"; stroke = "#1baf7a"; strokeW = 2.4; }
+    else if (n.status === "adopted") { fill = "#f8fdfb"; stroke = "#1baf7a"; strokeW = 1.8; }
+    else if (n.is_group) { fill = "#fffcf5"; stroke = "#d9a94e"; strokeW = 1.4; }
+    else if (big) { fill = "#fffdf8"; stroke = "#d98a00"; strokeW = 1.8; }
+
+    g.appendChild(elNS("rect", {
+      class: "node-rect", x: 0, y: 0, width: p.w, height: p.h, rx: big ? 12 : 9,
+      fill, stroke, "stroke-width": strokeW,
+    }));
+
+    if (big) {
+      // Large, prominent milestone emblem on the top-left of milestone/trunk nodes
+      let iconBg = "#1baf7a";
+      if (n.status === "root") iconBg = "#6250d6";
+      else if (n.is_head) iconBg = "#0e7a53";
+      else if (n.status !== "adopted") iconBg = "#d98a00";
+
+      g.appendChild(elNS("rect", {
+        x: 11, y: 11, width: 32, height: 32, rx: 9, fill: iconBg,
+      }));
+      const iconG = elNS("g", { transform: "translate(17, 17) scale(0.83)" });
+      iconG.appendChild(elNS("path", { d: milestoneIconPath(n), fill: "#ffffff" }));
+      if (n.status === "adopted" && !n.is_head) {
+        iconG.appendChild(elNS("path", {
+          d: "M8.5 12.2l2.3 2.3 4.8-5.1", fill: "none", stroke: iconBg,
+          "stroke-width": 2.4, "stroke-linecap": "round", "stroke-linejoin": "round",
+        }));
+      }
+      g.appendChild(iconG);
+
+      // Milestone pill + run_id on top line, bold title below
+      const mText = n.milestone || (n.status === "adopted" ? "主干" : "里程碑");
+      g.appendChild(elNS("text", {
+        x: 51, y: 22, "font-size": 10.5, "font-weight": 700, fill: iconBg,
+      }, mText));
+      if (n.run_id) {
+        g.appendChild(elNS("text", {
+          x: p.w - 11, y: 22, "text-anchor": "end", "font-size": 9.8, fill: "#898781",
+          "font-family": "var(--mono)",
+        }, trunc(n.run_id, 19)));
+      }
+      g.appendChild(elNS("text", {
+        x: 51, y: 40, "font-size": 14, "font-weight": 700, fill: "#0b0b0b",
+      }, trunc(n.label, 15)));
+
+      // Metric row (dedicated line so val BPB and ΔBPB badge never collide with run_id)
+      if (n.is_group) {
+        const gs = n.group_stats || {};
+        g.appendChild(elNS("text", {
+          x: 12, y: 68, "font-size": 12, fill: "#52514e", "font-family": "var(--mono)",
+        }, `${gs.count || 0} runs · 最佳 ${fmtBpb(gs.best_bpb)}`));
+      } else {
+        g.appendChild(elNS("text", {
+          x: 12, y: 69, "font-size": 15.5, "font-weight": 700, fill: "#0b0b0b",
+          "font-family": "var(--mono)",
+        }, fmtBpb(n.val_bpb)));
+        drawDeltaTag(g, n, 94, 55);
+      }
+    } else {
+      // Compact branch / group card
+      g.appendChild(elNS("text", {
+        x: 11, y: 21, "font-size": 12.5, "font-weight": 600, fill: "#0b0b0b",
+      }, trunc(n.label, 18)));
+      if (n.is_group) {
+        const gs = n.group_stats || {};
+        g.appendChild(elNS("text", {
+          x: 11, y: 42, "font-size": 11.5, fill: "#52514e", "font-family": "var(--mono)",
+        }, `${gs.count || 0} runs · 最佳 ${fmtBpb(gs.best_bpb)}`));
+      } else {
+        g.appendChild(elNS("text", {
+          x: 11, y: 43, "font-size": 13.5, "font-weight": 700, fill: "#0b0b0b",
+          "font-family": "var(--mono)",
+        }, fmtBpb(n.val_bpb)));
+        drawDeltaTag(g, n, 80, 30);
+      }
+    }
+
+    // Bottom bar: compact artifact leaf pills for run nodes, or expand/collapse button for groups
+    const bottomY = p.h - 24;
+    if (n.is_group) {
+      const isCol = Boolean(state.collapsed[id]);
+      const gs = n.group_stats || {};
+      const btnText = isCol ? `＋ 展开 (${gs.count || n.children.length})` : "－ 收起";
+      const tg = elNS("g", { class: "toggle-btn", transform: `translate(11, ${bottomY})` });
+      tg.appendChild(elNS("rect", {
+        x: 0, y: 0, width: 96, height: 18, rx: 9, fill: "#f2efe4", stroke: "#d9c99e", "stroke-width": 1,
+      }));
+      tg.appendChild(elNS("text", {
+        x: 48, y: 12.5, "text-anchor": "middle", "font-size": 10.5, "font-weight": 600, fill: "#7a5100",
+      }, btnText));
+      tg.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        state.collapsed[id] = !state.collapsed[id];
+        renderTree();
+      });
+      g.appendChild(tg);
+    } else if (n.artifacts) {
+      drawLeafPills(g, n, 11, bottomY);
+    }
+
+    g.addEventListener("click", () => selectNode(id));
+    nodesLayer.appendChild(g);
+  }
+}
+
+function drawDeltaTag(g, n, x, y) {
+  let text = "", bg = "#f2f1ec", fg = "#6d6b65";
+  if (n.delta_bpb != null) {
+    text = fmtDelta(n.delta_bpb);
+    if (n.in_noise) { bg = "#f0efe9"; fg = "#7a7872"; text += " 噪声"; }
+    else if (n.delta_bpb < 0) { bg = "#e6f7ef"; fg = "#0e7a53"; }
+    else { bg = "#fdeeee"; fg = "#c73534"; }
+  } else if (n.status === "adopted" && n.parent === DATA.meta.root_id) {
+    text = "见对照弧"; bg = "#eef5fd"; fg = "#2a78d6";
+  } else if (n.compare_to == null && n.status !== "root") {
+    text = "独立口径"; bg = "#f2f1ec"; fg = "#7a7872";
+  }
+  if (!text) return;
+  const w = Math.max(58, text.length * 6.8 + 12);
+  g.appendChild(elNS("rect", { x, y, width: w, height: 18, rx: 9, fill: bg }));
+  g.appendChild(elNS("text", {
+    x: x + w / 2, y: y + 12.5, "text-anchor": "middle",
+    "font-size": 10.5, "font-weight": 700, fill: fg, "font-family": "var(--mono)",
+  }, text));
+}
+
+function drawLeafPills(g, n, startX, y) {
+  const a = n.artifacts;
+  const hasT2 = n.bench && n.bench.tier === "tier2";
+  const hasBench = Boolean(n.bench);
+  const pills = [
+    {
+      label: a.ckpt_exists ? "ckpt" : "no-ckpt",
+      ok: a.ckpt_exists,
+      tab: "artifacts",
+      bg: a.ckpt_exists ? "#edf5ef" : "#f4f3ee",
+      fg: a.ckpt_exists ? "#1c6b48" : "#9c9a92",
+    },
+    {
+      label: hasT2 ? "T2" : (hasBench ? "T1" : "no-eval"),
+      ok: hasBench,
+      tab: "bench",
+      bg: hasT2 ? "#eaf2fc" : (hasBench ? "#f0f4fa" : "#f4f3ee"),
+      fg: hasT2 ? "#1f5fb0" : (hasBench ? "#4a6fa0" : "#9c9a92"),
+    },
+    {
+      label: "samples",
+      ok: a.samples_exists,
+      tab: "artifacts",
+      bg: a.samples_exists ? "#f5f0fb" : "#f4f3ee",
+      fg: a.samples_exists ? "#5b44b8" : "#9c9a92",
+    },
+  ];
+  let cx = startX;
+  for (const pl of pills) {
+    const w = Math.max(32, Math.round(pl.label.length * 6.4 + 18));
+    const pg = elNS("g", { class: "leaf-pill", transform: `translate(${cx}, ${y})` });
+    pg.appendChild(elNS("rect", {
+      x: 0, y: 0, width: w, height: 17, rx: 8.5, fill: pl.bg,
+      stroke: pl.ok ? "rgba(0,0,0,0.06)" : "none",
+    }));
+    // Tiny leaf dot
+    pg.appendChild(elNS("circle", {
+      cx: 7, cy: 8.5, r: 2.4, fill: pl.ok ? pl.fg : "#c7c5bc",
+    }));
+    pg.appendChild(elNS("text", {
+      x: 13, y: 12, "font-size": 10, "font-weight": 600, fill: pl.fg, "font-family": "var(--mono)",
+    }, pl.label));
+    pg.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      selectNode(n.id, pl.tab);
+    });
+    g.appendChild(pg);
+    cx += w + 5;
+  }
+}
+
+function selectNode(id, tab = null) {
+  if (!DATA.nodes[id]) return;
+  state.selectedId = id;
+  if (tab) state.activeTab = tab;
+  // Ensure ancestors are expanded if jumping via link or search
+  let cur = DATA.nodes[id].parent;
+  while (cur) {
+    if (state.collapsed[cur]) state.collapsed[cur] = false;
+    cur = DATA.nodes[cur].parent;
+  }
+  renderTree();
+  renderDrawer();
+}
+
+function renderDrawer() {
+  const n = DATA.nodes[state.selectedId];
+  if (!n) return;
+
+  // Badges
+  const badges = [];
+  if (n.status === "root") badges.push(`<span class="badge badge-root">树根</span>`);
+  else if (n.is_head) badges.push(`<span class="badge badge-adopted">主干 · HEAD</span>`);
+  else if (n.status === "adopted") badges.push(`<span class="badge badge-adopted">主干（采用）</span>`);
+  else if (n.is_group) badges.push(`<span class="badge badge-group">实验簇</span>`);
+  else badges.push(`<span class="badge badge-branch">树枝</span>`);
+  if (n.milestone) badges.push(`<span class="badge badge-milestone">★ ${esc(n.milestone)}</span>`);
+  document.getElementById("d-badges").innerHTML = badges.join("");
+  document.getElementById("d-title").textContent = n.label;
+  document.getElementById("d-runid").innerHTML = n.is_group
+    ? `<span>包含 ${n.group_stats?.count || 0} 个子实验</span>`
+    : `<span>${esc(n.run_id)}</span>${n.date ? `<span>· ${esc(n.date)}</span>` : ""}${n.git_sha ? `<span>· ${esc(n.git_sha)}</span>` : ""}`;
+
+  document.querySelectorAll("#d-tabs .tab").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.tab === state.activeTab);
+  });
+
+  const body = document.getElementById("d-body");
+  if (state.activeTab === "overview") body.innerHTML = renderOverviewTab(n);
+  else if (state.activeTab === "bench") body.innerHTML = renderBenchTab(n);
+  else if (state.activeTab === "curve") body.innerHTML = renderCurveTab(n);
+  else body.innerHTML = renderArtifactsTab(n);
+
+  // Wire internal node jump links & sample controls
+  body.querySelectorAll("[data-jump]").forEach(el => {
+    el.addEventListener("click", () => selectNode(el.dataset.jump));
+  });
+  const sel = body.querySelector("#sample-select");
+  if (sel) {
+    sel.addEventListener("change", () => { state.sampleIdx = Number(sel.value); renderDrawer(); });
+  }
+  const cmpChk = body.querySelector("#sample-cmp-chk");
+  if (cmpChk) {
+    cmpChk.addEventListener("change", () => { state.compareSamples = cmpChk.checked; renderDrawer(); });
+  }
+}
+
+function renderOverviewTab(n) {
+  const parts = [];
+  if (n.takeaway) {
+    const cls = n.status === "root" ? "root" : (n.status === "adopted" ? "" : "branch");
+    parts.push(`<div class="takeaway-box ${cls}">${esc(n.takeaway)}</div>`);
+  }
+  if (n.protocol) {
+    parts.push(`<div class="protocol-box"><strong>比较口径：</strong>${esc(n.protocol)}</div>`);
+  }
+
+  if (n.is_group) {
+    const gs = n.group_stats || {};
+    parts.push(`<div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">子实验数</div><div class="kpi-val">${gs.count || 0}</div></div>
+      <div class="kpi"><div class="kpi-label">组内最优 val BPB</div><div class="kpi-val">${fmtBpb(gs.best_bpb)}</div>
+        <div class="kpi-sub">${gs.best_id ? `<button class="link-btn" data-jump="${esc(gs.best_id)}">${esc(gs.best_label)}</button>` : "—"}</div>
+      </div>
+    </div>`);
+    const rows = collectDescRuns(n.id).map(r => `
+      <tr>
+        <td><button class="link-btn" data-jump="${esc(r.id)}">${esc(r.label)}</button></td>
+        <td>${fmtBpb(r.val_bpb)}</td>
+        <td>${r.delta_bpb != null ? fmtDelta(r.delta_bpb) : "—"}</td>
+      </tr>`).join("");
+    parts.push(`<div class="section-h">包含实验</div><table class="data"><thead><tr><th>节点</th><th>val BPB</th><th>ΔBPB</th></tr></thead><tbody>${rows}</tbody></table>`);
+    return parts.join("");
+  }
+
+  // KPI cards
+  const ref = n.compare_to ? DATA.nodes[n.compare_to] : null;
+  let deltaCls = "delta-noise", deltaSub = "未指定直接对照";
+  if (ref && n.delta_bpb != null) {
+    deltaCls = n.in_noise ? "delta-noise" : (n.delta_bpb < 0 ? "delta-good" : "delta-bad");
+    const verdict = n.in_noise
+      ? `噪声内（< ${DATA.meta.noise_floor}）`
+      : (n.delta_bpb < 0 ? "显著优于对照" : "差于对照");
+    deltaSub = `${verdict} · vs <button class="link-btn" data-jump="${esc(ref.id)}">${esc(ref.label)}</button>`;
+  } else if (n.compare_to == null && n.parent) {
+    deltaSub = "跨配方/跨数据集，禁止直接相减";
+  }
+
+  const speedText = n.tok_per_s ? `${(n.tok_per_s / 1000).toFixed(1)}k tok/s` : "—";
+  const mfuText = n.mfu != null ? `MFU ${(n.mfu * 100).toFixed(1)}%` : "";
+
+  parts.push(`<div class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-label">val BPB（越低越好）</div>
+      <div class="kpi-val">${fmtBpb(n.val_bpb)}</div>
+      <div class="kpi-sub">${esc(n.tokens || "—")} tokens · ${n.wall_h != null ? n.wall_h + " h" : "—"}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">相对对照 Δval BPB</div>
+      <div class="kpi-val ${deltaCls}">${fmtDelta(n.delta_bpb)}</div>
+      <div class="kpi-sub">${deltaSub}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">模型参数 / 吞吐</div>
+      <div class="kpi-val" style="font-size:15px">${esc(n.params || "—")}</div>
+      <div class="kpi-sub">${speedText}${mfuText ? " · " + mfuText : ""}</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">基准 CORE 均分</div>
+      <div class="kpi-val" style="font-size:15px">${n.bench?.core != null ? (n.bench.core >= 0 ? "+" : "") + n.bench.core.toFixed(4) : "—"}</div>
+      <div class="kpi-sub">${n.bench ? (n.bench.tier === "tier2" ? "Tier 2 (6 项)" : "默认 (4 项)") : "未跑基准"}</div>
+    </div>
+  </div>`);
+
+  // Config diff vs compare_to
+  if (ref) {
+    parts.push(`<div class="section-h">改了什么（自动对比 ${esc(ref.id)}）</div>`);
+    if (n.config_diff && n.config_diff.length) {
+      const rows = n.config_diff.map(d => `
+        <tr>
+          <td>${esc(d.label)}</td>
+          <td style="text-align:right"><span class="diff-old">${esc(d.from)}</span> → <span class="diff-new">${esc(d.to)}</span></td>
+        </tr>`).join("");
+      parts.push(`<table class="data"><tbody>${rows}</tbody></table>`);
+    } else {
+      parts.push(`<div class="note-small">与对照节点的核心配置字段一致。</div>`);
+    }
+  }
+
+  // Reverse comparisons (e.g., 2b-wsd-lr2e-3 compared by 2c-gpt2-vanilla)
+  if (n.compared_by && n.compared_by.length) {
+    const items = n.compared_by.map(c => {
+      const d = c.delta_from_other;
+      const cls = d == null ? "" : (Math.abs(d) < DATA.meta.noise_floor ? "delta-noise" : (d < 0 ? "delta-good" : "delta-bad"));
+      return `<tr>
+        <td><button class="link-btn" data-jump="${esc(c.id)}">${esc(c.label)}</button></td>
+        <td class="${cls}" style="font-family:var(--mono);font-weight:600">${fmtDelta(d)}</td>
+      </tr>`;
+    }).join("");
+    parts.push(`<div class="section-h">被以下实验作为对照（本节点相对优势）</div>
+      <table class="data"><thead><tr><th>对照方</th><th>本节点 ΔBPB</th></tr></thead><tbody>${items}</tbody></table>`);
+  }
+
+  // Metadata
+  const cfg = n.config || {};
+  parts.push(`<div class="section-h">运行记录</div>
+    <dl class="meta-list">
+      <dt>实验备注</dt><dd>${esc(n.change || "—")}</dd>
+      <dt>结构形状</dt><dd>${esc(cfg.arch || "—")} · L${cfg.n_layer ?? "?"} d${cfg.d_model ?? "?"} h${cfg.n_head ?? "?"}/${cfg.n_kv_head ?? "?"} ff${cfg.d_ff ?? "?"}</dd>
+      <dt>训练配方</dt><dd>${esc(cfg.schedule || "—")} · bs ${cfg.batch_tokens ?? "?"} · lr ${cfg.lr ?? "?"} · wu ${cfg.warmup_steps ?? "?"} · seed ${cfg.seed ?? "?"}</dd>
+      <dt>数据 / 提交</dt><dd>${esc(cfg.data || "—")} · ${esc(n.date || "—")} · ${esc(n.git_sha || "—")}</dd>
+    </dl>`);
+  return parts.join("");
+}
+
+function renderBenchTab(n) {
+  if (n.is_group) return `<div class="empty-state">分组节点本身不跑基准，请点开具体子实验查看。</div>`;
+  if (!n.bench) return `<div class="empty-state">该实验尚未运行 <code>pinwheel.bench</code> 基准评测。</div>`;
+
+  const ref = n.compare_to ? DATA.nodes[n.compare_to] : null;
+  const refScores = ref?.bench?.scores || {};
+  const pairedMap = {};
+  for (const r of (n.paired_bench || [])) pairedMap[r.task] = r;
+
+  const rows = DATA.meta.bench_tasks.map(t => {
+    const val = n.bench.scores[t];
+    if (val == null && refScores[t] == null) return "";
+    const rval = refScores[t];
+    const pr = pairedMap[t];
+    let diffHtml = "—";
+    if (pr) {
+      const pp = (pr.d_acc * 100).toFixed(2);
+      const cls = pr.p_acc != null && pr.p_acc < 0.05 ? (pr.d_acc > 0 ? "delta-good" : "delta-bad") : "delta-noise";
+      diffHtml = `<span class="${cls}">${pr.d_acc >= 0 ? "+" : ""}${pp} pp</span><br><span style="font-size:10.5px;color:var(--muted)">p=${fmtP(pr.p_acc)}</span>`;
+    } else if (val != null && rval != null) {
+      const pp = ((val - rval) * 100).toFixed(2);
+      diffHtml = `${val >= rval ? "+" : ""}${pp} pp`;
+    }
+    let probHtml = "—";
+    if (pr) {
+      const cls = pr.p_prob != null && pr.p_prob < 0.05 ? (pr.d_prob > 0 ? "delta-good" : "delta-bad") : "delta-noise";
+      probHtml = `<span class="${cls}">${pr.d_prob >= 0 ? "+" : ""}${pr.d_prob.toFixed(4)}</span><br><span style="font-size:10.5px;color:var(--muted)">p=${fmtP(pr.p_prob)}</span>`;
+    }
+    const star = pr?.short_answer ? " *" : "";
+    return `<tr>
+      <td>${TASK_LABELS[t] || t}${star}<br><span style="font-size:10.5px;color:var(--muted)">随机 ${(CHANCE[t]*100).toFixed(0)}%</span></td>
+      <td><strong>${fmtPct(val)}</strong></td>
+      <td>${diffHtml}</td>
+      <td>${probHtml}</td>
+    </tr>`;
+  }).filter(Boolean).join("");
+
+  const coreRef = ref?.bench?.core;
+  const coreDelta = (n.bench.core != null && coreRef != null) ? (n.bench.core - coreRef) : null;
+  let html = `<div class="kpi-grid">
+    <div class="kpi">
+      <div class="kpi-label">CORE 中心化均分</div>
+      <div class="kpi-val">${n.bench.core != null ? (n.bench.core >= 0 ? "+" : "") + n.bench.core.toFixed(4) : "—"}</div>
+      <div class="kpi-sub">随机 = 0，满分 = 1</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">相对对照 ΔCORE</div>
+      <div class="kpi-val ${coreDelta == null ? "" : (coreDelta >= 0 ? "delta-good" : "delta-bad")}">${coreDelta == null ? "—" : (coreDelta >= 0 ? "+" : "") + coreDelta.toFixed(4)}</div>
+      <div class="kpi-sub">${ref ? `vs ${esc(ref.label)}` : "无直接对照"}</div>
+    </div>
+  </div>
+  <table class="data">
+    <thead><tr><th>任务</th><th>得分</th><th>Δacc (成对 p)</th><th>Δprob (p)</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`;
+
+  if (n.paired_bench && n.paired_bench.length) {
+    html += `<div class="note-small">成对检验由 <code>runs/bench/*.npz</code> 自动计算（BLiMP 按 67 个语法现象聚类 SE，其余用 McNemar）。标 * 的短答案任务其 <code>target_bpb</code> 受格式先验影响，以 acc / prob 为准。</div>`;
+  } else if (ref) {
+    html += `<div class="note-small">若双方均存有 <code>runs/bench/*.npz</code>，此处会自动显示逐题成对显著性检验。</div>`;
+  }
+  return html;
+}
+
+function renderCurveTab(n) {
+  if (n.is_group) return `<div class="empty-state">请点开具体实验查看 val BPB 训练曲线。</div>`;
+  const curPts = (n.val_curve || []).filter(p => p[0] > 0);
+  const ref = n.compare_to ? DATA.nodes[n.compare_to] : null;
+  const refPts = ref ? (ref.val_curve || []).filter(p => p[0] > 0) : [];
+  if (!curPts.length) return `<div class="empty-state"><code>log.jsonl</code> 中没有可用的 val BPB 记录。</div>`;
+
+  const all = curPts.concat(refPts);
+  const minX = 0, maxX = Math.max(...all.map(p => p[0]), 1);
+  const ys = all.map(p => p[1]);
+  const rawMinY = Math.min(...ys), rawMaxY = Math.max(...ys);
+  const padY = Math.max((rawMaxY - rawMinY) * 0.12, 0.02);
+  const minY = rawMinY - padY, maxY = rawMaxY + padY;
+
+  const W = 384, H = 220, ML = 44, MR = 16, MT = 14, MB = 30;
+  const pw = W - ML - MR, ph = H - MT - MB;
+  const sx = x => ML + ((x - minX) / (maxX - minX)) * pw;
+  const sy = y => MT + (1 - (y - minY) / (maxY - minY)) * ph;
+
+  const pathOf = pts => pts.map((p, i) => `${i === 0 ? "M" : "L"}${sx(p[0]).toFixed(1)},${sy(p[1]).toFixed(1)}`).join(" ");
+
+  let grid = "";
+  for (let i = 0; i <= 4; i++) {
+    const yv = minY + (maxY - minY) * (i / 4);
+    const yp = sy(yv).toFixed(1);
+    grid += `<line x1="${ML}" y1="${yp}" x2="${W - MR}" y2="${yp}" stroke="#e1e0d9" stroke-width="1"/>`;
+    grid += `<text x="${ML - 6}" y="${Number(yp) + 3}" text-anchor="end" font-size="10" fill="#898781" font-family="var(--mono)">${yv.toFixed(2)}</text>`;
+  }
+  for (let i = 0; i <= 4; i++) {
+    const xv = maxX * (i / 4);
+    const xp = sx(xv).toFixed(1);
+    grid += `<text x="${xp}" y="${H - 10}" text-anchor="middle" font-size="10" fill="#898781" font-family="var(--mono)">${Math.round(xv)}M</text>`;
+  }
+
+  const refSvg = refPts.length
+    ? `<path d="${pathOf(refPts)}" fill="none" stroke="#898781" stroke-width="1.8" stroke-dasharray="4 3"/>`
+      + refPts.map(p => `<circle cx="${sx(p[0]).toFixed(1)}" cy="${sy(p[1]).toFixed(1)}" r="2.2" fill="#898781"><title>${esc(ref.id)} @ ${p[0]}M tok: ${p[1]}</title></circle>`).join("")
+    : "";
+  const curSvg = `<path d="${pathOf(curPts)}" fill="none" stroke="#2a78d6" stroke-width="2.2"/>`
+    + curPts.map(p => `<circle cx="${sx(p[0]).toFixed(1)}" cy="${sy(p[1]).toFixed(1)}" r="3" fill="#2a78d6"><title>${esc(n.id)} @ ${p[0]}M tok: ${p[1]}</title></circle>`).join("");
+
+  const legend = `<div class="curve-legend">
+    <span><span class="curve-dot" style="background:#2a78d6"></span>${esc(n.id)} (${fmtBpb(n.val_bpb)})</span>
+    ${refPts.length ? `<span><span class="curve-dot" style="background:#898781"></span>对照 ${esc(ref.id)} (${fmtBpb(ref.val_bpb)})</span>` : ""}
+  </div>`;
+
+  // Table of key checkpoints along the curve
+  const stepRows = curPts.map(p => `<tr><td>${p[0]}M</td><td>${p[1].toFixed(4)}</td></tr>`).join("");
+
+  return `<div class="curve-wrap">${legend}
+    <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
+      ${grid}
+      <line x1="${ML}" y1="${MT}" x2="${ML}" y2="${H - MB}" stroke="#c3c2b7"/>
+      <line x1="${ML}" y1="${H - MB}" x2="${W - MR}" y2="${H - MB}" stroke="#c3c2b7"/>
+      ${refSvg}${curSvg}
+    </svg>
+    <div class="note-small" style="margin-top:4px">悬停圆点查看各评测点精确值（已略去 step 0 初始值以便放大收敛段）。</div>
+  </div>
+  <div class="section-h">评测点记录（val BPB）</div>
+  <table class="data"><thead><tr><th>Tokens</th><th>val BPB</th></tr></thead><tbody>${stepRows}</tbody></table>`;
+}
+
+function renderArtifactsTab(n) {
+  if (n.is_group) return `<div class="empty-state">请点开具体实验查看产出物与样本文本。</div>`;
+  const a = n.artifacts || {};
+  const parts = [`<div class="section-h">产出文件（叶子）</div>`];
+  parts.push(`<div class="artifact-row">
+    <span class="artifact-path">${esc(a.ckpt_path || "—")}</span>
+    <span class="artifact-status ${a.ckpt_exists ? "ok" : "miss"}">${a.ckpt_exists ? `✓ ${a.ckpt_mb} MB` : "未找到"}</span>
+  </div>`);
+  parts.push(`<div class="artifact-row">
+    <span class="artifact-path">${esc(a.npz_path || "—")}</span>
+    <span class="artifact-status ${a.npz_exists ? "ok" : "miss"}">${a.npz_exists ? "✓ 逐题评测存档" : "无 .npz"}</span>
+  </div>`);
+  parts.push(`<div class="artifact-row">
+    <span class="artifact-path">${esc(a.samples_path || "—")}</span>
+    <span class="artifact-status ${a.samples_exists ? "ok" : "miss"}">${a.samples_exists ? `✓ step ${n.samples.step}` : "无样本"}</span>
+  </div>`);
+
+  if (!a.samples_exists) return parts.join("");
+
+  const items = n.samples.items;
+  const idx = Math.min(state.sampleIdx, items.length - 1);
+  const curItem = items[idx];
+  const ref = n.compare_to ? DATA.nodes[n.compare_to] : null;
+  const refItem = (ref && ref.samples && ref.samples.items[idx]) ? ref.samples.items[idx] : null;
+
+  const opts = items.map((it, i) => `<option value="${i}" ${i === idx ? "selected" : ""}>#${i + 1} ${esc(trunc(it.prompt, 46))}</option>`).join("");
+  parts.push(`<div class="section-h">最终步生成样本（step ${n.samples.step}）</div>
+    <div class="sample-controls">
+      <select id="sample-select">${opts}</select>
+      ${refItem ? `<label><input type="checkbox" id="sample-cmp-chk" ${state.compareSamples ? "checked" : ""}> 同时对照 ${esc(ref.label)} (${esc(ref.id)})</label>` : ""}
+    </div>`);
+
+  parts.push(`<div class="sample-card">
+    <div class="sample-card-head"><span>${esc(n.id)}</span><span>val BPB ${fmtBpb(n.val_bpb)}</span></div>
+    <span class="sample-prompt">${esc(curItem.prompt)}</span>${esc(curItem.text)}
+  </div>`);
+
+  if (refItem && state.compareSamples) {
+    parts.push(`<div class="sample-card" style="background:#f9f8f4">
+      <div class="sample-card-head"><span>对照：${esc(ref.id)}</span><span>val BPB ${fmtBpb(ref.val_bpb)}</span></div>
+      <span class="sample-prompt">${esc(refItem.prompt)}</span>${esc(refItem.text)}
+    </div>`);
+  }
+  return parts.join("");
+}
+
+function collectDescRuns(id) {
+  const out = [];
+  for (const cid of (DATA.nodes[id]?.children || [])) {
+    const c = DATA.nodes[cid];
+    if (c.is_group) out.push(...collectDescRuns(cid));
+    else out.push(c);
+  }
+  return out;
+}
+
+function applyTransform() {
+  const vp = document.getElementById("viewport");
+  vp.setAttribute("transform", `translate(${state.pan.x}, ${state.pan.y}) scale(${state.pan.scale})`);
+}
+
+function fitToView() {
+  const wrap = document.getElementById("canvas-wrap");
+  const pts = Object.values(state.layout);
+  if (!pts.length) return;
+  const minX = Math.min(...pts.map(p => p.x)) - 24;
+  const maxX = Math.max(...pts.map(p => p.x + p.w)) + 24;
+  const minY = Math.min(...pts.map(p => p.y)) - 58;
+  const maxY = Math.max(...pts.map(p => p.y + p.h)) + 28;
+  const cw = wrap.clientWidth, ch = wrap.clientHeight;
+  const scale = Math.min(1.05, Math.max(0.35, Math.min(cw / (maxX - minX), ch / (maxY - minY))));
+  state.pan.scale = scale;
+  state.pan.x = (cw - (maxX - minX) * scale) / 2 - minX * scale;
+  state.pan.y = (ch - (maxY - minY) * scale) / 2 - minY * scale;
+  applyTransform();
+}
+
+function initInteractions() {
+  const wrap = document.getElementById("canvas-wrap");
+  let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
+
+  wrap.addEventListener("mousedown", e => {
+    if (e.target.closest(".node-g")) return;
+    dragging = true; sx = e.clientX; sy = e.clientY; ox = state.pan.x; oy = state.pan.y;
+    wrap.classList.add("dragging");
+  });
+  window.addEventListener("mousemove", e => {
+    if (!dragging) return;
+    state.pan.x = ox + (e.clientX - sx);
+    state.pan.y = oy + (e.clientY - sy);
+    applyTransform();
+  });
+  window.addEventListener("mouseup", () => {
+    dragging = false; wrap.classList.remove("dragging");
+  });
+  wrap.addEventListener("wheel", e => {
+    e.preventDefault();
+    const rect = wrap.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    const factor = e.deltaY < 0 ? 1.12 : 0.89;
+    const ns = Math.min(2.2, Math.max(0.28, state.pan.scale * factor));
+    state.pan.x = mx - (mx - state.pan.x) * (ns / state.pan.scale);
+    state.pan.y = my - (my - state.pan.y) * (ns / state.pan.scale);
+    state.pan.scale = ns;
+    applyTransform();
+  }, { passive: false });
+
+  document.querySelectorAll("#d-tabs .tab").forEach(btn => {
+    btn.addEventListener("click", () => { state.activeTab = btn.dataset.tab; renderDrawer(); });
+  });
+
+  document.getElementById("btn-trunk").addEventListener("click", e => {
+    state.trunkOnly = !state.trunkOnly;
+    e.target.classList.toggle("active", state.trunkOnly);
+    renderTree(); fitToView();
+  });
+  document.getElementById("btn-expand").addEventListener("click", () => {
+    for (const id of Object.keys(DATA.nodes)) if (DATA.nodes[id].is_group) state.collapsed[id] = false;
+    renderTree(); fitToView();
+  });
+  document.getElementById("btn-collapse").addEventListener("click", () => {
+    for (const id of Object.keys(DATA.nodes)) if (DATA.nodes[id].is_group) state.collapsed[id] = true;
+    renderTree(); fitToView();
+  });
+  document.getElementById("btn-fit").addEventListener("click", fitToView);
+
+  const search = document.getElementById("search-input");
+  search.addEventListener("input", () => {
+    state.search = search.value;
+    const q = state.search.trim().toLowerCase();
+    if (q) {
+      const hit = Object.values(DATA.nodes).find(n => `${n.id} ${n.label} ${n.milestone}`.toLowerCase().includes(q));
+      if (hit) {
+        let cur = hit.parent;
+        while (cur) { state.collapsed[cur] = false; cur = DATA.nodes[cur].parent; }
+      }
+    }
+    renderTree();
+  });
+}
+
+function initHeader() {
+  document.title = DATA.meta.title;
+  document.getElementById("page-title").textContent = DATA.meta.title;
+  document.getElementById("page-subtitle").textContent = DATA.meta.subtitle || "";
+  const root = DATA.nodes[DATA.meta.root_id];
+  const head = DATA.nodes[DATA.meta.head_id];
+  document.getElementById("trunk-summary").textContent =
+    `原版 ${fmtBpb(root?.val_bpb)} → 当前 ${fmtBpb(head?.val_bpb)} · 共 ${DATA.meta.total_runs} 次实验`;
+
+  const msgs = [];
+  if (DATA.uncataloged?.length) {
+    msgs.push(`发现 ${DATA.uncataloged.length} 个未写入 tree.toml 的已完成实验：${DATA.uncataloged.map(r => r.run_id).join(", ")}`);
+  }
+  if (DATA.in_progress?.length) {
+    msgs.push(`正在训练中：${DATA.in_progress.map(r => `${r.run_id} (${r.tokens_m}M tok)`).join(", ")}`);
+  }
+  if (msgs.length) {
+    const b = document.getElementById("status-banner");
+    b.textContent = msgs.join("   |   ");
+    b.classList.add("show");
+  }
+}
+
+initHeader();
+initInteractions();
+renderTree();
+renderDrawer();
+fitToView();
+</script>
+</body>
+</html>
