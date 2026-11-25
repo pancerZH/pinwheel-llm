@@ -310,3 +310,28 @@ def test_inspired_by_builds_bidirectional_dag_and_validates(tmp_path):
     bad.write_text('[nodes."a"]\nstatus = "root"\ninspired_by = ["missing"]\n', encoding="utf-8")
     with pytest.raises(ValueError, match="missing inspired_by"):
         tree_mod.build_tree_payload(runs_dir, ckpt_dir, bad)
+
+
+def test_external_refs_bidirectional_and_validation(tmp_path):
+    runs_dir = tmp_path / "runs"
+    ckpt_dir = tmp_path / "ckpt"
+    runs_dir.mkdir()
+    spec = tmp_path / "tree.toml"
+    spec.write_text(
+        '[nodes."a"]\nstatus = "root"\nlabel = "Root"\n'
+        'refs = ["ref-1", { id = "ref-2", reason = "公式吻合", reason_en = "Formula matched" }]\n'
+        '[refs."ref-1"]\nkind = "method"\nlabel = "WSD"\nurl = "https://arxiv.org/abs/2405.18392"\n'
+        '[refs."ref-2"]\nkind = "paper"\nlabel = "DeepSeek"\nlabel_en = "DeepSeek Law"\n'
+        'links = [{ label = "arXiv", url = "https://arxiv.org/abs/2401.02954" }]\n',
+        encoding="utf-8",
+    )
+    payload = tree_mod.build_tree_payload(runs_dir, ckpt_dir, spec)
+    assert len(payload["refs"]) == 2
+    assert payload["refs"]["ref-1"]["links"][0]["url"] == "https://arxiv.org/abs/2405.18392"
+    assert payload["refs"]["ref-2"]["used_by"][0]["id"] == "a"
+    assert payload["nodes"]["a"]["refs"][1]["reason_en"] == "Formula matched"
+
+    bad = tmp_path / "bad_ref.toml"
+    bad.write_text('[nodes."a"]\nstatus = "root"\nrefs = ["ghost"]\n', encoding="utf-8")
+    with pytest.raises(ValueError, match="missing ref"):
+        tree_mod.build_tree_payload(runs_dir, ckpt_dir, bad)

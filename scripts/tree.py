@@ -386,13 +386,14 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
     spec = tomllib.loads(spec_path.read_text(encoding="utf-8"))
     noise_floor = float(spec.get("noise_floor", 0.005))
     raw_nodes: dict[str, dict] = spec.get("nodes") or {}
+    raw_refs: dict[str, dict] = spec.get("refs") or {}
     if not raw_nodes:
         raise ValueError(f"{spec_path} defines no [nodes.*] entries")
 
     results = load_results(runs_dir)
     benches = load_bench(runs_dir)
 
-    # Validate tree references first.
+    # Validate tree and reference links first.
     roots = []
     for nid, meta in raw_nodes.items():
         parent = meta.get("parent")
@@ -408,6 +409,10 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
             src_id = item if isinstance(item, str) else (item.get("from") or "")
             if src_id not in raw_nodes:
                 raise ValueError(f"node {nid!r} references missing inspired_by {src_id!r}")
+        for item in meta.get("refs") or []:
+            ref_id = item if isinstance(item, str) else (item.get("id") or "")
+            if ref_id not in raw_refs:
+                raise ValueError(f"node {nid!r} references missing ref {ref_id!r}")
     if len(roots) != 1:
         raise ValueError(f"expected exactly 1 root node (no parent), found {roots}")
     root_id = roots[0]
@@ -467,6 +472,7 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
             "compared_by": [],
             "inspired_by": [],
             "inspired": [],
+            "refs": [],
         }
 
     def nearest_run_ancestor(nid: str) -> str | None:
@@ -534,6 +540,61 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
                     "id": nid,
                     "label": node["label"],
                     "label_en": node["label_en"],
+                    "reason": reason,
+                    "reason_en": reason_en,
+                }
+            )
+
+    # Build external reference / knowledge nodes and bidirectional links.
+    refs: dict[str, dict] = {}
+    for rid, rmeta in raw_refs.items():
+        links = []
+        if rmeta.get("url"):
+            links.append({"label": rmeta.get("url_label") or rmeta["url"], "url": rmeta["url"]})
+        for lk in rmeta.get("links") or []:
+            if isinstance(lk, str):
+                links.append({"label": lk, "url": lk})
+            elif lk.get("url"):
+                links.append({"label": lk.get("label") or lk["url"], "url": lk["url"]})
+        refs[rid] = {
+            "id": rid,
+            "kind": rmeta.get("kind") or "paper",
+            "label": rmeta.get("label") or rid,
+            "label_en": rmeta.get("label_en") or "",
+            "authors": rmeta.get("authors") or "",
+            "summary": rmeta.get("summary") or "",
+            "summary_en": rmeta.get("summary_en") or "",
+            "links": links,
+            "used_by": [],
+        }
+
+    for nid, meta in raw_nodes.items():
+        node = nodes[nid]
+        for item in meta.get("refs") or []:
+            if isinstance(item, str):
+                ref_id, reason, reason_en = item, "", ""
+            else:
+                ref_id = item["id"]
+                reason = item.get("reason") or ""
+                reason_en = item.get("reason_en") or ""
+            r = refs[ref_id]
+            node["refs"].append(
+                {
+                    "id": ref_id,
+                    "kind": r["kind"],
+                    "label": r["label"],
+                    "label_en": r["label_en"],
+                    "reason": reason,
+                    "reason_en": reason_en,
+                    "primary_url": r["links"][0]["url"] if r["links"] else "",
+                }
+            )
+            r["used_by"].append(
+                {
+                    "id": nid,
+                    "label": node["label"],
+                    "label_en": node["label_en"],
+                    "val_bpb": node["val_bpb"],
                     "reason": reason,
                     "reason_en": reason_en,
                 }
@@ -616,6 +677,7 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
             "bench_tasks": list(BENCH_TASKS),
         },
         "nodes": nodes,
+        "refs": refs,
         "uncataloged": uncataloged_finished,
         "in_progress": in_progress,
     }
