@@ -3,6 +3,7 @@
     uv run python scripts/prepare.py tokenizer                       # data/tok8192/tokenizer.json
     uv run python scripts/prepare.py tinystories                     # about 0.5B tokens
     uv run python scripts/prepare.py fineweb-edu --max_tokens 1e9
+    uv run python scripts/prepare.py fineweb-edu --max_tokens 4e9 --name fineweb-edu-4b  # same val split
 
 Parquet files are downloaded one at a time into the Hugging Face cache, so later runs
 (e.g. other vocab sizes) read them from disk.
@@ -60,6 +61,7 @@ def main():
     p.add_argument("--vocab_size", type=int, default=8192)
     p.add_argument("--docs", type=int, default=200_000, help="tokenizer: FineWeb-Edu documents to train on")
     p.add_argument("--max_tokens", type=float, default=1e9, help="fineweb-edu: train tokens to write")
+    p.add_argument("--name", help="output folder under data/tok<V>/ (default: the dataset name)")
     args = p.parse_args()
     root = Path("data") / f"tok{args.vocab_size}"
 
@@ -74,7 +76,7 @@ def main():
 
     assert args.vocab_size <= np.iinfo(DTYPE).max + 1, "vocab too large for the token dtype"
     tok = load_tokenizer(root / "tokenizer.json")
-    out = root / args.what
+    out = root / (args.name or args.what)
     out.mkdir(parents=True, exist_ok=True)
     if args.what == "tinystories":
         n_val = write_split(out / "val.bin", parquet_texts(TINYSTORIES_VAL), tok)
