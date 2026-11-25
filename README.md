@@ -13,11 +13,12 @@ uv run python scripts/prepare.py tokenizer           # 8k byte-level BPE
 uv run python scripts/prepare.py tinystories         # or: fineweb-edu --max_tokens 1e9
 uv run python -m pinwheel.train --data_dir data/tok8192/tinystories --max_tokens 5e8
 uv run python -m pinwheel.sample ckpt/<run>.pt       # interactive sampling
+uv run python -m pinwheel.bench ckpt/<run>.pt        # HellaSwag / ARC-Easy / PIQA / BLiMP, about 30 s
 uv run python scripts/plot.py runs/<a> runs/<b>      # compare loss / BPB curves
 uv run pytest
 ```
 
-Each run writes `runs/<run>/` (config, log, samples) and `ckpt/<run>.pt`, and adds a row to `runs/results.tsv`. `data/`, `runs/` and `ckpt/` are not in git.
+Each run writes `runs/<run>/` (config, log, samples) and `ckpt/<run>.pt`, and adds a row to `runs/results.tsv` (val BPB and HellaSwag) and `runs/bench.tsv` (all four benchmarks). `data/`, `runs/` and `ckpt/` are not in git.
 
 ## The model (v0)
 
@@ -53,6 +54,23 @@ What the scaling law taught us:
 - **A sweep is done only when the best LR is inside the grid.** 2e-3 and then 4e-3 won at the edge; only 8e-3 losing closed the bracket.
 - **Four points fit one power law within ±0.008 BPB** (after the 50M LR fix; ±0.016 before). The ends still sit above the line and the middle below it, by 3–5× the seed noise. Now that the 50M LR is bracketed, an irreducible-loss floor is the likelier reason, but four points cannot prove it.
 
+Zero-shot benchmarks (`pinwheel/bench.py`; HellaSwag, ARC-Easy and PIQA use acc_norm, BLiMP uses acc):
+
+| Checkpoint | HellaSwag | ARC-Easy | PIQA | BLiMP |
+|---|---|---|---|---|
+| chance | 25.0 | 25.0 | 50.0 | 50.0 |
+| 1a, TinyStories | 26.5 | 27.0 | 51.9 | 62.7 |
+| 5M / 10M / 20M (scaling law) | 26.2 / 26.7 / 26.9 | 32.7 / 33.3 / 35.2 | 52.9 / 53.1 / 55.5 | 63.9 / 67.0 / 69.5 |
+| 50M, LR 1e-3, seeds 0 / 1 / 2 | 27.4 / 27.2 / 27.2 | 37.8 / 37.9 / 38.0 | 58.1 / 56.5 / 56.5 | 73.9 / 74.2 / 73.0 |
+| 50M, LR 4e-3 | 27.4 | 37.8 | 57.3 | 74.9 |
+| **50M, LR 2e-3 (baseline)** | **27.6** | **38.1** | **57.5** | **74.2** |
+
+What the benchmarks taught us:
+- **Every score rises with model size**, and an untrained model gets chance (26.3 on HellaSwag), so the harness works.
+- **They are much noisier than val BPB.** Across seeds, PIQA moves 1.6 points and BLiMP 1.1. LR 2e-3 beats 1e-3 by 0.024 BPB, far above the noise, but by only 0.2–0.4 points on HellaSwag, within the noise. So val BPB stays the main metric and the benchmarks are a sanity check.
+- **HellaSwag is 27.6, so the stretch goal (29.5, GPT-2 124M) needs about 2 more points.** Our numbers use the raw HellaSwag context and length-normalize by bytes, close to llm.c's setup but not identical.
+- TinyStories teaches grammar (BLiMP 62.7) but no world knowledge (the other three are at chance).
+
 ### Stage 2: v1, shape and optimizer ablations (M2): TODO
 - Same parameter count, different shapes: wide and shallow vs. deep and narrow.
 - Vocab size (4k / 8k / 16k), and tied vs. untied embeddings.
@@ -80,6 +98,7 @@ What the scaling law taught us:
 pinwheel/model.py      model, KV cache, sampling
 pinwheel/train.py      training loop; every config field is a command-line flag
 pinwheel/eval.py       val BPB
+pinwheel/bench.py      zero-shot HellaSwag, ARC-Easy, PIQA, BLiMP
 pinwheel/data.py       memmapped token shards
 pinwheel/tokenizer.py  BPE tokenizer and per-token byte counts
 pinwheel/sample.py     sample from a checkpoint

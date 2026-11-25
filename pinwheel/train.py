@@ -16,6 +16,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from pinwheel.bench import append_bench_row, run_benchmarks
 from pinwheel.data import TokenData
 from pinwheel.eval import evaluate_bpb
 from pinwheel.model import GPT, GPTConfig
@@ -89,12 +90,12 @@ def write_samples(path, step, model, tok, prompts):
         f.write("\n")
 
 
-def append_result(cfg, run, n_params, tokens, hours, val_bpb):
+def append_result(cfg, run, n_params, tokens, hours, val_bpb, hellaswag):
     path = Path("runs/results.tsv")
     if not path.exists():
         path.write_text("run_id\tdate\tgit_sha\tchange\tparams\ttokens\twall_h\tval_bpb\thellaswag\tnotes\n")
     row = [run, time.strftime("%Y-%m-%d"), git_sha(), cfg.note, f"{n_params / 1e6:.1f}M",
-           f"{tokens / 1e6:.0f}M", f"{hours:.2f}", f"{val_bpb:.4f}", "", ""]
+           f"{tokens / 1e6:.0f}M", f"{hours:.2f}", f"{val_bpb:.4f}", f"{hellaswag:.4f}", ""]
     with open(path, "a") as f:
         f.write("\t".join(row) + "\n")
 
@@ -187,8 +188,11 @@ def main():
     Path("ckpt").mkdir(exist_ok=True)
     torch.save({"model": model.state_dict(), "model_config": asdict(mcfg),
                 "train_config": asdict(cfg), "step": max_steps}, Path("ckpt") / f"{run}.pt")
-    append_result(cfg, run, n_params, max_steps * cfg.batch_tokens, hours, val_bpb)
-    print(f"done in {hours:.2f} h, val_bpb {val_bpb:.4f}")
+    bench = run_benchmarks(model, tok)  # about 30 s for v0
+    append_bench_row(run, bench)
+    hellaswag = bench["hellaswag"]["acc_norm"]
+    append_result(cfg, run, n_params, max_steps * cfg.batch_tokens, hours, val_bpb, hellaswag)
+    print(f"done in {hours:.2f} h, val_bpb {val_bpb:.4f}, hellaswag {hellaswag:.4f}")
 
 
 if __name__ == "__main__":
