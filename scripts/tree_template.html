@@ -273,6 +273,7 @@
     <div class="controls">
       <input type="search" id="search-input" placeholder="搜索 run / 标题…" autocomplete="off">
       <button class="btn" id="btn-trunk">仅看主干</button>
+      <button class="btn active" id="btn-inspire">灵感链</button>
       <button class="btn" id="btn-expand">展开全部簇</button>
       <button class="btn" id="btn-collapse">折叠实验簇</button>
       <button class="btn" id="btn-fit">适应画布</button>
@@ -341,6 +342,7 @@ const I18N = {
     htmlLang: "zh-CN",
     searchPlaceholder: "搜索 run / 标题…",
     btnTrunk: "仅看主干",
+    btnInspire: "灵感链",
     btnExpand: "展开全部簇",
     btnCollapse: "折叠实验簇",
     btnFit: "适应画布",
@@ -447,6 +449,7 @@ const I18N = {
     htmlLang: "en",
     searchPlaceholder: "Search run / title…",
     btnTrunk: "Trunk only",
+    btnInspire: "Inspiration",
     btnExpand: "Expand all",
     btnCollapse: "Collapse groups",
     btnFit: "Fit view",
@@ -564,6 +567,7 @@ const state = {
   selectedId: DATA.meta.head_id,
   activeTab: "overview",
   trunkOnly: false,
+  showInspiration: true,
   search: "",
   collapsed: {},
   sampleIdx: 0,
@@ -852,13 +856,15 @@ function renderTree() {
     return cur;
   }
   const inspireEdges = [];
-  for (const n of Object.values(DATA.nodes)) {
-    for (const edge of (n.inspired_by || [])) {
-      if (state.selectedId === n.id || state.selectedId === edge.id) {
-        const srcVis = visibleAnchor(edge.id);
-        const dstVis = visibleAnchor(n.id);
-        if (srcVis && dstVis && srcVis !== dstVis) {
-          inspireEdges.push({ srcId: srcVis, dstId: dstVis, reason: pick(edge, "reason") });
+  if (state.showInspiration) {
+    for (const n of Object.values(DATA.nodes)) {
+      for (const edge of (n.inspired_by || [])) {
+        if (state.selectedId === n.id || state.selectedId === edge.id) {
+          const srcVis = visibleAnchor(edge.id);
+          const dstVis = visibleAnchor(n.id);
+          if (srcVis && dstVis && srcVis !== dstVis) {
+            inspireEdges.push({ srcId: srcVis, dstId: dstVis, reason: pick(edge, "reason") });
+          }
         }
       }
     }
@@ -1686,6 +1692,9 @@ function renderChrome() {
 
   document.getElementById("search-input").placeholder = L.searchPlaceholder;
   document.getElementById("btn-trunk").textContent = L.btnTrunk;
+  const btnInspire = document.getElementById("btn-inspire");
+  btnInspire.textContent = L.btnInspire;
+  btnInspire.classList.toggle("active", state.showInspiration);
   document.getElementById("btn-expand").textContent = L.btnExpand;
   document.getElementById("btn-collapse").textContent = L.btnCollapse;
   document.getElementById("btn-fit").textContent = L.btnFit;
@@ -1768,6 +1777,11 @@ function initInteractions() {
     state.trunkOnly = !state.trunkOnly;
     e.target.classList.toggle("active", state.trunkOnly);
     renderTree(); fitToView();
+  });
+  document.getElementById("btn-inspire").addEventListener("click", e => {
+    state.showInspiration = !state.showInspiration;
+    e.target.classList.toggle("active", state.showInspiration);
+    renderTree();
   });
   document.getElementById("btn-expand").addEventListener("click", () => {
     for (const id of Object.keys(DATA.nodes)) if (DATA.nodes[id].is_group) state.collapsed[id] = false;
