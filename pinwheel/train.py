@@ -40,7 +40,7 @@ class TrainConfig:
     max_tokens: float = 1e9
     batch_tokens: int = 524288  # tokens per optimizer step, reached by gradient accumulation
     micro_batch: int = 32  # sequences per forward pass
-    lr: float = 1e-3
+    lr: float = 2e-3  # best of 1e-3 / 2e-3 / 4e-3 for v0 at 1B tokens (stage 1e)
     min_lr_frac: float = 0.1
     warmup_steps: int = 100
     weight_decay: float = 0.1

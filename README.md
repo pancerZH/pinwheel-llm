@@ -39,10 +39,10 @@ It is trained with AdamW, warmup + cosine LR, bf16 and `torch.compile`, at about
 |---|---|---|
 | 1a | Train on TinyStories, 0.5B tokens | ✅ val BPB **0.517** in 0.82 h. Writes coherent short stories. Prompts about facts, math or code drift back into children's stories. |
 | 1b | Learning-rate sweep on FineWeb-Edu, 100M tokens per run | ✅ Best LR **1e-3** (val BPB 1.668), with 2e-3 close behind (1.681). But at 1B tokens 2e-3 wins clearly (see 1e), so this 100M-token sweep picked the wrong LR. Warmup matters: with only 20 warmup steps, every LR ≥ 1e-3 stalled early and the sweep wrongly favored 5e-4. |
-| 1c | Official baseline: FineWeb-Edu, 1B tokens, LR 1e-3, warmup 100 | ✅ val BPB **1.147** in 1.64 h. Its LR turned out too low: the same run at LR 2e-3 reaches **1.121** (see 1e). Writes fluent, on-topic encyclopedia-style text, but facts are often wrong, it sometimes repeats itself, and it cannot do math or code. |
+| 1c | Baseline: FineWeb-Edu, 1B tokens, warmup 100 | ✅ LR 1e-3: val BPB 1.147 in 1.64 h. That LR turned out too low (see 1e), so **the official baseline is `1e-v0-lr2e-3`: LR 2e-3, val BPB 1.1212**. Every later experiment is compared against it. Writes fluent, on-topic encyclopedia-style text, but facts are often wrong, it sometimes repeats itself, and it cannot do math or code. |
 | 1d | Inference: KV cache, temperature / top-k / top-p, CLI | ✅ built during setup |
-| 1e | Noise floor: the 1c config with 3 seeds, plus LR 2e-3 | ✅ Seeds 0 / 1 / 2: 1.1471 / 1.1442 / 1.1445, a spread of 0.003 (std 0.0016). A difference under about 0.005 between two runs does not count. LR 2e-3 reaches **1.1212**, 0.024 better than the seed mean, far above the noise. |
-| side | Mini scaling law: 5M / 10M / 20M / 50M models at about 20 tokens per parameter (`scripts/scaling.sh`; the 50M point is 1c / 1e) | ✅ With the best LR per size, val BPB ≈ 9.32 · C^-0.052 (C = training FLOPs): each doubling of compute lowers BPB by about 3.6%. Best LR is 4e-3 for 5M–19M (8e-3 is worse, and worse the bigger the model) and at least 2e-3 for 50M. Plot: `scripts/scaling.py`. |
+| 1e | Noise floor: the 1c config with 3 seeds, plus LR 2e-3 | ✅ Seeds 0 / 1 / 2: 1.1471 / 1.1442 / 1.1445, a spread of 0.003 (std 0.0016). A difference under about 0.005 between two runs does not count. LR 2e-3 reaches **1.1212**, 0.024 better than the seed mean, far above the noise; LR 4e-3 gives 1.1450, no better than 1e-3. So 2e-3 is the best LR and the new default. |
+| side | Mini scaling law: 5M / 10M / 20M / 50M models at about 20 tokens per parameter (`scripts/scaling.sh`; the 50M point is 1c / 1e) | ✅ With the best LR per size, val BPB ≈ 9.32 · C^-0.052 (C = training FLOPs): each doubling of compute lowers BPB by about 3.6%. Best LR is 4e-3 for 5M–19M (8e-3 is worse, and worse the bigger the model) and 2e-3 for 50M (1e-3 and 4e-3 both reach about 1.145). Plot: `scripts/scaling.py`. |
 
 What 1a taught us:
 - **BPB depends on the data.** The same model scores 0.517 on TinyStories but 2.58 on FineWeb-Edu, because TinyStories uses simple words and repetitive plots.
@@ -51,7 +51,7 @@ What 1a taught us:
 What the scaling law taught us:
 - **Small models want larger learning rates.** 5M–19M models did best at 4e-3, while 8e-3 hurt more the bigger the model.
 - **A sweep is done only when the best LR is inside the grid.** 2e-3 and then 4e-3 won at the edge; only 8e-3 losing closed the bracket.
-- **Four points fit one power law within ±0.008 BPB** (after the 50M LR fix; ±0.016 before). The ends still sit above the line and the middle below it, by 3–5× the seed noise. That may be the first sign of an irreducible-loss floor, or the 50M point may still be short of its best LR.
+- **Four points fit one power law within ±0.008 BPB** (after the 50M LR fix; ±0.016 before). The ends still sit above the line and the middle below it, by 3–5× the seed noise. That may be the first sign of an irreducible-loss floor, Now that the 50M LR is bracketed, an irreducible-loss floor is the likelier reason, but four points cannot prove it.
 
 ### Stage 2: v1, shape and optimizer ablations (M2): TODO
 - Same parameter count, different shapes: wide and shallow vs. deep and narrow.

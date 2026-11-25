@@ -2,7 +2,7 @@
 
     uv run python scripts/scaling.py [-o runs/scaling.png]
 
-Reads the finished runs in runs/results.tsv (the 50M runs 1c and 1e-v0-lr2e-3, and side-scaling-*) and their config.json.
+Reads the finished runs in runs/results.tsv (the 50M runs 1c and 1e-v0-lr*, and side-scaling-*) and their config.json.
 """
 
 import argparse
@@ -27,7 +27,7 @@ def load_runs():
     rows = csv.DictReader(open("runs/results.tsv"), delimiter="\t")
     runs = []
     for r in rows:
-        if not (r["run_id"] in ("1c-v0-fineweb-1b", "1e-v0-lr2e-3") or r["run_id"].startswith("side-scaling-")):
+        if not (r["run_id"] in ("1c-v0-fineweb-1b", "1e-v0-lr2e-3", "1e-v0-lr4e-3") or r["run_id"].startswith("side-scaling-")):
             continue
         cfg = json.loads((Path("runs") / r["run_id"] / "config.json").read_text())
         n, m, t = cfg["params"], cfg["model"], cfg["train"]
