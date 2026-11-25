@@ -64,11 +64,12 @@ Zero-shot benchmarks (`pinwheel/bench.py`; HellaSwag, ARC-Easy and PIQA use acc_
 | 50M, LR 1e-3, seeds 0 / 1 / 2 | 27.4 / 27.2 / 27.2 | 37.8 / 37.9 / 38.0 | 58.1 / 56.5 / 56.5 | 73.9 / 74.2 / 73.0 |
 | 50M, LR 4e-3 | 27.4 | 37.8 | 57.3 | 74.9 |
 | **50M, LR 2e-3 (baseline)** | **27.6** | **38.1** | **57.5** | **74.2** |
+| OpenAI GPT-2 124M (reference) | 29.9 | 40.5 | 62.5 | 82.5 |
 
 What the benchmarks taught us:
 - **Every score rises with model size**, and an untrained model gets chance (26.3 on HellaSwag), so the harness works.
 - **They are much noisier than val BPB.** Across seeds, PIQA moves 1.6 points and BLiMP 1.1. LR 2e-3 beats 1e-3 by 0.024 BPB, far above the noise, but by only 0.2–0.4 points on HellaSwag, within the noise. So val BPB stays the main metric and the benchmarks are a sanity check.
-- **HellaSwag is 27.6, so the stretch goal (29.5, GPT-2 124M) needs about 2 more points.** Our numbers use the raw HellaSwag context and length-normalize by bytes, close to llm.c's setup but not identical.
+- **HellaSwag is 27.6; GPT-2 124M scores 29.9 on the same harness, so the stretch goal needs 2.3 more points.** llm.c reports 29.55 for GPT-2 because it normalizes by tokens instead of bytes; our harness reproduces that number exactly under llm.c's protocol, so the two rulers differ only in that choice.
 - TinyStories teaches grammar (BLiMP 62.7) but no world knowledge (the other three are at chance).
 
 ### Stage 2: v1, shape and optimizer ablations (M2): TODO
@@ -86,7 +87,7 @@ What the benchmarks taught us:
 ### Stage 4: v3, data and distillation (M4): TODO
 - Overtrain to 5–10B tokens, then anneal on high-quality data.
 - Distillation: synthetic data first, then logit distillation from a larger teacher that shares our tokenizer.
-- Stretch goal: HellaSwag ≥ 29.5%, the level of GPT-2 124M (random guessing gets 25%).
+- Stretch goal: HellaSwag ≥ 29.9% on our harness, the level of GPT-2 124M (llm.c reports 29.55% with per-token normalization; random guessing gets 25%).
 
 ### Stage 5: v4, post-training (M5): TODO
 - Chat fine-tuning, then one narrow skill: verifiable reasoning with RL (GRPO), natural language to shell / SQL / JSON commands, or reading-comprehension answers from a given text.
