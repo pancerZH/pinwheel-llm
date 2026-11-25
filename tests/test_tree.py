@@ -286,3 +286,27 @@ def test_cooldown_from_shifts_val_curve_by_branch_tokens(tmp_path):
     assert math.isclose(art["token_offset_m"], 500.04, abs_tol=0.05)
     assert math.isclose(art["val_curve"][0][0], 500.04, abs_tol=0.05)
     assert math.isclose(art["val_curve"][-1][0], 599.92, abs_tol=0.05)
+
+
+def test_inspired_by_builds_bidirectional_dag_and_validates(tmp_path):
+    runs_dir = tmp_path / "runs"
+    ckpt_dir = tmp_path / "ckpt"
+    runs_dir.mkdir()
+    spec = tmp_path / "tree.toml"
+    spec.write_text(
+        '[nodes."a"]\nstatus = "root"\nlabel = "Root"\n'
+        '[nodes."b"]\nparent = "a"\nstatus = "branch"\nlabel = "Branch"\n'
+        '[nodes."c"]\nparent = "a"\nstatus = "adopted"\nlabel = "Adopted"\n'
+        'inspired_by = ["a", { from = "b", reason = "负结果启发", reason_en = "Negative result insight" }]\n',
+        encoding="utf-8",
+    )
+    payload = tree_mod.build_tree_payload(runs_dir, ckpt_dir, spec)
+    nodes = payload["nodes"]
+    assert [x["id"] for x in nodes["c"]["inspired_by"]] == ["a", "b"]
+    assert nodes["c"]["inspired_by"][1]["reason_en"] == "Negative result insight"
+    assert [x["id"] for x in nodes["b"]["inspired"]] == ["c"]
+
+    bad = tmp_path / "bad_inspire.toml"
+    bad.write_text('[nodes."a"]\nstatus = "root"\ninspired_by = ["missing"]\n', encoding="utf-8")
+    with pytest.raises(ValueError, match="missing inspired_by"):
+        tree_mod.build_tree_payload(runs_dir, ckpt_dir, bad)

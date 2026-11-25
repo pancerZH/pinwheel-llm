@@ -101,6 +101,7 @@
   .legend-item { display: inline-flex; align-items: center; gap: 5px; }
   .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
   .swatch-line { width: 16px; height: 0; border-top: 2px dashed var(--blue); display: inline-block; }
+  .swatch-inspire { width: 16px; height: 0; border-top: 2px dotted var(--amber); display: inline-block; }
 
   /* Detail drawer */
   aside.drawer {
@@ -238,6 +239,17 @@
   }
   .cross-arc.active { opacity: 0.95; stroke-width: 2.5; }
   .cross-label { font-size: 11px; font-weight: 600; fill: var(--blue); }
+  .inspire-arc {
+    fill: none; stroke: var(--amber); stroke-width: 2.0; stroke-dasharray: 2.5 4;
+    stroke-linecap: round; opacity: 0.92;
+  }
+  .inspire-label { font-size: 10.5px; font-weight: 600; fill: #9c6100; }
+  .inspire-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
+  .inspire-item {
+    padding: 7px 10px; background: var(--amber-bg); border: 1px solid #f0d799;
+    border-radius: 6px; font-size: 12px; color: #5c3a00;
+  }
+  .inspire-item .reason { display: block; margin-top: 2px; color: var(--ink-2); font-size: 11.5px; }
 
   .node-g { cursor: pointer; }
   .node-g.dim { opacity: 0.22; }
@@ -279,6 +291,9 @@
         <defs>
           <marker id="arrow-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#2a78d6"/>
+          </marker>
+          <marker id="arrow-amber" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#d98a00"/>
           </marker>
         </defs>
         <g id="viewport">
@@ -333,6 +348,7 @@ const I18N = {
     legendMilestone: "里程碑（大图标）",
     legendBranch: "树枝（未采用/校验）",
     legendArc: "跨配方单变量对照",
+    legendInspire: "灵感来源（选中显现）",
     tabOverview: "概览",
     tabBench: "基准",
     tabCurve: "曲线",
@@ -377,6 +393,9 @@ const I18N = {
     sectionDiff: (id) => `改了什么（自动对比 ${id}）`,
     noConfigDiff: "与对照节点的核心配置字段一致。",
     sectionComparedBy: "被以下实验作为对照（本节点相对优势）",
+    sectionInspiredBy: "灵感来源（受哪些前序实验启发）",
+    sectionInspired: "启发了以下后续实验",
+    inspireBadge: "灵感",
     thOther: "对照方",
     thThisDelta: "本节点 ΔBPB",
     sectionRunMeta: "运行记录",
@@ -435,6 +454,7 @@ const I18N = {
     legendMilestone: "Milestone (large icon)",
     legendBranch: "Branch (exploratory / rejected)",
     legendArc: "Cross-recipe single-var comparison",
+    legendInspire: "Inspired by (shown on select)",
     tabOverview: "Overview",
     tabBench: "Benchmarks",
     tabCurve: "Curve",
@@ -479,6 +499,9 @@ const I18N = {
     sectionDiff: (id) => `What Changed (auto-diff vs ${id})`,
     noConfigDiff: "Core config fields match the reference run.",
     sectionComparedBy: "Referenced By (this node's advantage)",
+    sectionInspiredBy: "Inspired By (prior experiments)",
+    sectionInspired: "Inspired Later Experiments",
+    inspireBadge: "inspired",
     thOther: "Compared run",
     thThisDelta: "This node ΔBPB",
     sectionRunMeta: "Run Metadata",
@@ -822,6 +845,47 @@ function renderTree() {
     }
   });
 
+  // 2b. Inspiration edges (amber dotted arcs; only shown when either endpoint is selected to avoid clutter)
+  function visibleAnchor(id) {
+    let cur = id;
+    while (cur && !state.layout[cur]) cur = DATA.nodes[cur]?.parent;
+    return cur;
+  }
+  const inspireEdges = [];
+  for (const n of Object.values(DATA.nodes)) {
+    for (const edge of (n.inspired_by || [])) {
+      if (state.selectedId === n.id || state.selectedId === edge.id) {
+        const srcVis = visibleAnchor(edge.id);
+        const dstVis = visibleAnchor(n.id);
+        if (srcVis && dstVis && srcVis !== dstVis) {
+          inspireEdges.push({ srcId: srcVis, dstId: dstVis, reason: pick(edge, "reason") });
+        }
+      }
+    }
+  }
+  inspireEdges.forEach((ie, idx) => {
+    const a = state.layout[ie.srcId], b = state.layout[ie.dstId];
+    const x1 = a.x + a.w * 0.5, y1 = a.y + a.h;
+    const x2 = b.x + b.w * 0.5, y2 = b.y + b.h;
+    const mx = (x1 + x2) / 2;
+    const dip = Math.max(y1, y2) + 46 + idx * 28;
+    const d = `M ${x1} ${y1} Q ${mx} ${dip}, ${x2} ${y2}`;
+    arcsFgLayer.appendChild(elNS("path", {
+      d, class: "inspire-arc", "marker-end": "url(#arrow-amber)",
+    }));
+    const ly = (y1 + y2) / 4 + dip / 2 + 8;
+    const rawTxt = ie.reason ? `${L.inspireBadge} · ${truncLang(ie.reason, 22, 36)}` : L.inspireBadge;
+    const charW = state.lang === "en" ? 6.2 : 8.4;
+    const pillW = Math.max(88, Math.round(rawTxt.length * charW + 18));
+    arcsFgLayer.appendChild(elNS("rect", {
+      x: mx - pillW / 2, y: ly - 13, width: pillW, height: 20, rx: 10,
+      fill: "#fef7e6", stroke: "#d98a00", "stroke-width": 1.1,
+    }));
+    arcsFgLayer.appendChild(elNS("text", {
+      x: mx, y: ly + 1, "text-anchor": "middle", class: "inspire-label",
+    }, rawTxt));
+  });
+
   // 3. Nodes
   for (const [id, p] of Object.entries(state.layout)) {
     const n = DATA.nodes[id];
@@ -1076,6 +1140,26 @@ function renderDrawer() {
   }
 }
 
+function renderInspirationBlocks(n) {
+  const L = t();
+  const out = [];
+  if (n.inspired_by && n.inspired_by.length) {
+    const items = n.inspired_by.map(x => {
+      const r = pick(x, "reason");
+      return `<div class="inspire-item">← <button class="link-btn" data-jump="${esc(x.id)}">${esc(pick(x, "label") || x.id)}</button>${r ? `<span class="reason">${esc(r)}</span>` : ""}</div>`;
+    }).join("");
+    out.push(`<div class="section-h">${esc(L.sectionInspiredBy)}</div><div class="inspire-list">${items}</div>`);
+  }
+  if (n.inspired && n.inspired.length) {
+    const items = n.inspired.map(x => {
+      const r = pick(x, "reason");
+      return `<div class="inspire-item">→ <button class="link-btn" data-jump="${esc(x.id)}">${esc(pick(x, "label") || x.id)}</button>${r ? `<span class="reason">${esc(r)}</span>` : ""}</div>`;
+    }).join("");
+    out.push(`<div class="section-h">${esc(L.sectionInspired)}</div><div class="inspire-list">${items}</div>`);
+  }
+  return out.join("");
+}
+
 function renderOverviewTab(n) {
   const L = t();
   const parts = [];
@@ -1105,6 +1189,7 @@ function renderOverviewTab(n) {
         <td>${r.delta_bpb != null ? fmtDelta(r.delta_bpb) : "—"}</td>
       </tr>`).join("");
     parts.push(`<div class="section-h">${L.sectionIncludedRuns}</div><table class="data"><thead><tr><th>${L.thNode}</th><th>val BPB</th><th>ΔBPB</th></tr></thead><tbody>${rows}</tbody></table>`);
+    parts.push(renderInspirationBlocks(n));
     return parts.join("");
   }
 
@@ -1176,6 +1261,8 @@ function renderOverviewTab(n) {
     parts.push(`<div class="section-h">${L.sectionComparedBy}</div>
       <table class="data"><thead><tr><th>${L.thOther}</th><th>${L.thThisDelta}</th></tr></thead><tbody>${items}</tbody></table>`);
   }
+
+  parts.push(renderInspirationBlocks(n));
 
   const cfg = n.config || {};
   parts.push(`<div class="section-h">${L.sectionRunMeta}</div>
@@ -1615,7 +1702,8 @@ function renderChrome() {
     <span class="legend-item"><span class="swatch" style="background:#1baf7a"></span>${L.legendTrunk}</span>
     <span class="legend-item"><span class="swatch" style="background:#d98a00"></span>${L.legendMilestone}</span>
     <span class="legend-item"><span class="swatch" style="background:#c3c2b7"></span>${L.legendBranch}</span>
-    <span class="legend-item"><span class="swatch-line"></span>${L.legendArc}</span>`;
+    <span class="legend-item"><span class="swatch-line"></span>${L.legendArc}</span>
+    <span class="legend-item"><span class="swatch-inspire"></span>${L.legendInspire}</span>`;
 
   const msgs = [];
   if (DATA.uncataloged?.length) {

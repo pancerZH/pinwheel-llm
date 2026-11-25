@@ -404,6 +404,10 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
         cmp_id = meta.get("compare_to")
         if cmp_id is not None and cmp_id != "" and cmp_id not in raw_nodes:
             raise ValueError(f"node {nid!r} references missing compare_to {cmp_id!r}")
+        for item in meta.get("inspired_by") or []:
+            src_id = item if isinstance(item, str) else (item.get("from") or "")
+            if src_id not in raw_nodes:
+                raise ValueError(f"node {nid!r} references missing inspired_by {src_id!r}")
     if len(roots) != 1:
         raise ValueError(f"expected exactly 1 root node (no parent), found {roots}")
     root_id = roots[0]
@@ -461,6 +465,8 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
             "config_diff": [],
             "paired_bench": [],
             "compared_by": [],
+            "inspired_by": [],
+            "inspired": [],
         }
 
     def nearest_run_ancestor(nid: str) -> str | None:
@@ -500,6 +506,36 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
                     "delta_from_other": round(-node["delta_bpb"], 4) if node["delta_bpb"] is not None else None,
                     "protocol": node["protocol"],
                     "protocol_en": node["protocol_en"],
+                }
+            )
+
+    # Resolve inspired_by links (multi-source DAG inspiration edges, works for both runs and groups).
+    for nid, meta in raw_nodes.items():
+        node = nodes[nid]
+        for item in meta.get("inspired_by") or []:
+            if isinstance(item, str):
+                src_id, reason, reason_en = item, "", ""
+            else:
+                src_id = item["from"]
+                reason = item.get("reason") or ""
+                reason_en = item.get("reason_en") or ""
+            src = nodes[src_id]
+            node["inspired_by"].append(
+                {
+                    "id": src_id,
+                    "label": src["label"],
+                    "label_en": src["label_en"],
+                    "reason": reason,
+                    "reason_en": reason_en,
+                }
+            )
+            src["inspired"].append(
+                {
+                    "id": nid,
+                    "label": node["label"],
+                    "label_en": node["label_en"],
+                    "reason": reason,
+                    "reason_en": reason_en,
                 }
             )
 
