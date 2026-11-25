@@ -42,7 +42,7 @@ class TrainConfig:
     max_tokens: float = 1e9
     batch_tokens: int = 131072  # tokens per optimizer step, reached by gradient accumulation (stage 2a)
     micro_batch: int = 32  # sequences per forward pass
-    lr: float = 1.4e-3  # best for v0 at batch 128k and 1B tokens (stage 2a)
+    lr: float = 2e-3  # v0, batch 128k, WSD, 1B tokens: 1.4e-3 / 2e-3 / 2.8e-3 give 1.0915 / 1.0850 / 1.0849
     min_lr_frac: float = 0.0  # final LR as a fraction of lr (stage 1 cosine runs used 0.1)
     warmup_steps: int = 100
     schedule: str = "wsd"  # "wsd" (warmup + constant + (1-sqrt) cooldown, stage 2b) or "cosine"

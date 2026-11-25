@@ -24,7 +24,7 @@ Each run writes `runs/<run>/` (config, log, samples) and `ckpt/<run>.pt`, and ad
 
 A Llama-style decoder with RMSNorm, RoPE, SwiGLU, grouped-query attention and tied embeddings:
 10 layers, width 640, 10 heads (5 KV heads), FFN 1728, vocab 8192, context 1024, **50.7M parameters**.
-It is trained with AdamW at batch 128k tokens and LR 1.4e-3, with a WSD schedule (warmup, constant, then a 20% (1 − sqrt) cooldown to 0), bf16 and `torch.compile`, at about 170k tokens/s (68% MFU). Stage 1 used batch 512k and cosine LR.
+It is trained with AdamW at batch 128k tokens and LR 2e-3, with a WSD schedule (warmup, constant, then a 20% (1 − sqrt) cooldown to 0), bf16 and `torch.compile`, at about 170k tokens/s (68% MFU). Stage 1 used batch 512k and cosine LR.
 
 ## Milestones
 
@@ -76,7 +76,7 @@ What the benchmarks taught us:
 Check published results before each experiment; where a reliable result exists, adopt it and run one confirmation instead of a sweep.
 - ✅ Batch size first: DeepSeek LLM's hyperparameter scaling law predicts about 160k tokens for v0's compute (v0 uses 524k), and LR 2e-3, which matches what 1e found. Result (1B tokens, cosine, best LR per batch): 512k / 256k / 128k reach 1.1212 / 1.1006 / 1.0996, at the same throughput. 128k and 256k are tied, and both beat 512k by 0.02, 4× the noise floor. New default: 128k, LR 1.4e-3.
 - ✅ WSD instead of cosine, with a (1 − sqrt) cooldown: adopted from Hägele et al. 2024 and confirmed with one run; it also lets one long run give results at several token budgets. Result: at 128k / 1.4e-3, a 20% cooldown to 0 reaches **1.0915**, 0.008 better than cosine. **New baseline: `2b-wsd-1b`**, 0.030 below the stage 1 baseline (HellaSwag 27.9 / ARC-Easy 38.9 / PIQA 58.6 / BLiMP 77.3). A 100M cooldown branched from the 500M point of the same run reaches 1.1252, with 60% of the tokens.
-- 🔄 The LR at 128k is not bracketed yet: 1.4e-3 beat 1e-3 at the edge of the grid, so 2e-3 is next.
+- ✅ LR at batch 128k with WSD: 1.4e-3 / 2e-3 / 2.8e-3 reach 1.0915 / **1.0850** / 1.0849, so the optimum is flat between 2e-3 and 2.8e-3. **New default and baseline: LR 2e-3 (`2b-wsd-lr2e-3`, 1.0850).** Shrinking the LR with √batch, a common rule, lost about 0.01 at both 256k and 128k: here the best LR barely depends on the batch size, as the DeepSeek scaling law says.
 - Lesson: on ARC-Easy and SciQ, the log-prob of the correct answer alone (`target_bpb`) mostly measures whether the model expects a bare phrase after "Answer:". It moves all options together and varies by about 0.035 between seeds (val BPB: 0.0016), so compare those tasks by accuracy and `prob`; `bench.py --compare` marks them.
 - Muon vs. a tuned AdamW. Expect about 1.3× (Wen et al. 2025), not the 2× often quoted.
 - Same parameter count, different shapes: v0 vs. one deep-and-narrow shape (d448/L20), as MobileLLM and SmolLM2 suggest.
