@@ -165,8 +165,10 @@ def test_build_tree_payload_cross_compare_disabled_and_html_escaping(tmp_path):
 
     spec_path = tmp_path / "tree.toml"
     spec_path.write_text(
+        'title = "实验树"\n'
+        'title_en = "Experiment Tree"\n'
         'noise_floor = 0.005\n'
-        '[nodes."root-gpt2"]\nstatus = "root"\ncompare_to = "head-wsd"\nlabel = "GPT-2"\ntakeaway = "root"\n'
+        '[nodes."root-gpt2"]\nstatus = "root"\ncompare_to = "head-wsd"\nlabel = "GPT-2 原版"\nlabel_en = "Vanilla GPT-2"\ntakeaway = "root"\ntakeaway_en = "root en"\n'
         '[nodes."v0-llama"]\nparent = "root-gpt2"\nstatus = "adopted"\ncompare_to = ""\nlabel = "v0"\ntakeaway = "v0"\n'
         '[nodes."head-wsd"]\nparent = "v0-llama"\nstatus = "adopted"\nlabel = "WSD"\ntakeaway = "head"\n'
         '[nodes."branch-ts"]\nparent = "v0-llama"\nstatus = "branch"\ncompare_to = ""\nlabel = "TS"\ntakeaway = "ts"\n'
@@ -177,11 +179,17 @@ def test_build_tree_payload_cross_compare_disabled_and_html_escaping(tmp_path):
     payload = tree_mod.build_tree_payload(runs_dir, ckpt_dir, spec_path)
     nodes = payload["nodes"]
 
+    # Bilingual fields pass through (optional *_en defaults to empty string)
+    assert payload["meta"]["title_en"] == "Experiment Tree"
+    assert nodes["root-gpt2"]["label_en"] == "Vanilla GPT-2"
+    assert nodes["root-gpt2"]["takeaway_en"] == "root en"
+    assert nodes["v0-llama"]["label_en"] == ""
+
     # Cross-recipe comparison on root -> head-wsd (+0.0222, paired bench computed)
     assert nodes["root-gpt2"]["cross_compare"] is True
     assert math.isclose(nodes["root-gpt2"]["delta_bpb"], 0.0222, abs_tol=1e-4)
     assert len(nodes["root-gpt2"]["paired_bench"]) == 1
-    assert any(d["key"] == "arch" and d["to"] == "gpt2" for d in nodes["root-gpt2"]["config_diff"])
+    assert any(d["key"] == "arch" and d["label_en"] == "Architecture" and d["to"] == "gpt2" for d in nodes["root-gpt2"]["config_diff"])
     assert nodes["head-wsd"]["compared_by"][0]["delta_from_other"] == -0.0222
 
     # Explicitly disabled compare_to must leave delta_bpb as None

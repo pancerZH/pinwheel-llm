@@ -34,24 +34,24 @@ from pinwheel.bench import (
 
 BENCH_TASKS = ("hellaswag", "arc_easy", "piqa", "blimp", "sciq", "lambada")
 DIFF_FIELDS = (
-    ("arch", "架构"),
-    ("n_layer", "层数"),
-    ("d_model", "宽度 d_model"),
-    ("n_head", "Q 头数"),
-    ("n_kv_head", "KV 头数"),
-    ("d_ff", "FFN 宽度"),
-    ("vocab_size", "词表"),
-    ("data", "数据集"),
-    ("max_tokens", "训练 tokens"),
-    ("batch_tokens", "Batch tokens"),
-    ("schedule", "LR 调度"),
-    ("lr", "峰值 LR"),
-    ("warmup_steps", "Warmup 步数"),
-    ("cooldown_frac", "退火比例"),
-    ("min_lr_frac", "最低 LR 比例"),
-    ("weight_decay", "Weight decay"),
-    ("seed", "Seed"),
-    ("cooldown_from", "分支退火起点"),
+    ("arch", "架构", "Architecture"),
+    ("n_layer", "层数", "Layers"),
+    ("d_model", "宽度 d_model", "Width d_model"),
+    ("n_head", "Q 头数", "Q heads"),
+    ("n_kv_head", "KV 头数", "KV heads"),
+    ("d_ff", "FFN 宽度", "FFN width"),
+    ("vocab_size", "词表", "Vocab size"),
+    ("data", "数据集", "Dataset"),
+    ("max_tokens", "训练 tokens", "Max tokens"),
+    ("batch_tokens", "Batch tokens", "Batch tokens"),
+    ("schedule", "LR 调度", "LR schedule"),
+    ("lr", "峰值 LR", "Peak LR"),
+    ("warmup_steps", "Warmup 步数", "Warmup steps"),
+    ("cooldown_frac", "退火比例", "Cooldown frac"),
+    ("min_lr_frac", "最低 LR 比例", "Min LR frac"),
+    ("weight_decay", "Weight decay", "Weight decay"),
+    ("seed", "Seed", "Seed"),
+    ("cooldown_from", "分支退火起点", "Cooldown from"),
 )
 PLACEHOLDER = "__PINWHEEL_TREE_DATA__"
 
@@ -148,11 +148,11 @@ def compute_config_diff(cur: dict | None, ref: dict | None) -> list[dict]:
     if not cur or not ref:
         return []
     diffs = []
-    for key, label in DIFF_FIELDS:
+    for key, label, label_en in DIFF_FIELDS:
         a, b = ref.get(key), cur.get(key)
         if a == b:
             continue
-        diffs.append({"key": key, "label": label, "from": _fmt_val(a), "to": _fmt_val(b)})
+        diffs.append({"key": key, "label": label, "label_en": label_en, "from": _fmt_val(a), "to": _fmt_val(b)})
     return diffs
 
 
@@ -331,9 +331,13 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
             "children": children_map[nid],
             "status": status,
             "milestone": meta.get("milestone") or "",
+            "milestone_en": meta.get("milestone_en") or "",
             "label": meta.get("label") or nid,
+            "label_en": meta.get("label_en") or "",
             "protocol": meta.get("protocol") or "",
+            "protocol_en": meta.get("protocol_en") or "",
             "takeaway": meta.get("takeaway") or "",
+            "takeaway_en": meta.get("takeaway_en") or "",
             "collapsed": bool(meta.get("collapsed", False)),
             "is_group": is_group,
             "run_id": None if is_group else nid,
@@ -393,8 +397,10 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
                 {
                     "id": nid,
                     "label": node["label"],
+                    "label_en": node["label_en"],
                     "delta_from_other": round(-node["delta_bpb"], 4) if node["delta_bpb"] is not None else None,
                     "protocol": node["protocol"],
+                    "protocol_en": node["protocol_en"],
                 }
             )
 
@@ -418,6 +424,7 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
             "count": len(desc),
             "best_id": best["id"] if best else None,
             "best_label": best["label"] if best else None,
+            "best_label_en": best["label_en"] if best else None,
             "best_bpb": best["val_bpb"] if best else None,
         }
 
@@ -458,7 +465,9 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
     return {
         "meta": {
             "title": spec.get("title", "pinwheel-llm 实验树"),
+            "title_en": spec.get("title_en", "pinwheel-llm Experiment Tree"),
             "subtitle": spec.get("subtitle", ""),
+            "subtitle_en": spec.get("subtitle_en", ""),
             "noise_floor": noise_floor,
             "root_id": root_id,
             "head_id": head_id,
