@@ -254,6 +254,70 @@ def compute_paired_bench(npz_ref: Path, npz_cur: Path) -> list[dict]:
     return rows
 
 
+def build_scaling_chart(run_ids: list[str], runs_dir: Path, results: dict[str, dict]) -> dict | None:
+    """Compute scaling-law points (params, compute FLOPs, LR, val BPB) and power-law fit BPB = a * C^-b."""
+    seen: set[str] = set()
+    points = []
+    for rid in run_ids:
+        if rid in seen or rid not in results or results[rid]["val_bpb"] is None:
+            continue
+        seen.add(rid)
+        cfg_path = runs_dir / rid / "config.json"
+        if not cfg_path.exists():
+            continue
+        cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        n = cfg.get("params")
+        m = cfg.get("model") or {}
+        t = cfg.get("train") or {}
+        if not (n and m.get("n_layer") and m.get("d_model") and t.get("seq_len") and t.get("max_tokens") and t.get("batch_tokens")):
+            continue
+        tokens = int(t["max_tokens"] // t["batch_tokens"]) * int(t["batch_tokens"])
+        flops_per_token = 6 * n + 12 * m["n_layer"] * m["d_model"] * t["seq_len"]
+        compute = float(flops_per_token * tokens)
+        points.append(
+            {
+                "id": rid,
+                "params": int(n),
+                "params_m": round(n / 1e6, 2),
+                "tokens_m": round(tokens / 1e6, 1),
+                "compute": compute,
+                "lr": float(t["lr"]),
+                "bpb": float(results[rid]["val_bpb"]),
+            }
+        )
+    if not points:
+        return None
+
+    by_size: dict[int, list[dict]] = {}
+    for pt in points:
+        by_size.setdefault(pt["params"], []).append(pt)
+    best = [min(rs, key=lambda r: r["bpb"]) for _, rs in sorted(by_size.items())]
+
+    fit = None
+    if len(best) >= 2:
+        c = np.array([r["compute"] for r in best], dtype=np.float64)
+        y = np.array([r["bpb"] for r in best], dtype=np.float64)
+        slope, intercept = np.polyfit(np.log(c), np.log(y), 1)
+        a = float(math.exp(intercept))
+        b = float(-slope)
+        fit = {
+            "a": round(a, 4),
+            "b": round(b, 5),
+            "drop_per_2x_pct": round((1.0 - 2.0 ** (-b)) * 100.0, 2),
+            "residuals": [
+                {"id": r["id"], "params_m": r["params_m"], "residual": round(r["bpb"] - a * (r["compute"] ** (-b)), 4)}
+                for r in best
+            ],
+        }
+    return {
+        "kind": "scaling",
+        "lrs": sorted({pt["lr"] for pt in points}),
+        "points": sorted(points, key=lambda r: (r["params"], r["lr"])),
+        "best_ids": [r["id"] for r in best],
+        "fit": fit,
+    }
+
+
 def load_run_artifacts(run_id: str, runs_dir: Path, ckpt_dir: Path) -> dict:
     """Gather config, training curve, final samples, and artifact paths for a single run."""
     rdir = runs_dir / run_id
@@ -427,6 +491,11 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
             "best_label_en": best["label_en"] if best else None,
             "best_bpb": best["val_bpb"] if best else None,
         }
+        meta = raw_nodes[nid]
+        if meta.get("chart") == "scaling":
+            extra = list(meta.get("chart_extra_runs") or [])
+            chart_ids = [d["id"] for d in desc] + extra
+            node["scaling_chart"] = build_scaling_chart(chart_ids, runs_dir, results)
 
     # Identify trunk path (root -> adopted chain) and mark HEAD.
     trunk: list[str] = [root_id]

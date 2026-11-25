@@ -218,3 +218,45 @@ def test_build_tree_payload_rejects_missing_parent(tmp_path):
     spec.write_text('[nodes."a"]\nparent = "ghost"\nstatus = "branch"\n', encoding="utf-8")
     with pytest.raises(ValueError, match="missing parent"):
         tree_mod.build_tree_payload(tmp_path, tmp_path, spec)
+
+
+def test_scaling_chart_power_law_fit(tmp_path):
+    runs_dir = tmp_path / "runs"
+    ckpt_dir = tmp_path / "ckpt"
+    runs_dir.mkdir()
+    (runs_dir / "results.tsv").write_text(
+        "run_id\tdate\tgit_sha\tchange\tparams\ttokens\twall_h\tval_bpb\thellaswag\tnotes\n"
+        "s-5m\t2026-11-24\taaa\t5m\t5.0M\t100M\t0.02\t1.4209\t\t\n"
+        "s-5m-hi\t2026-11-24\taaa\t5m\t5.0M\t100M\t0.02\t1.4310\t\t\n"
+        "s-50m\t2026-11-24\tbbb\t50m\t50.7M\t1000M\t1.64\t1.1212\t\t\n",
+        encoding="utf-8",
+    )
+    _write_run(runs_dir, ckpt_dir, "s-5m", {"n_layer": 4, "d_model": 256, "max_tokens": 1e8, "batch_tokens": 65536, "lr": 0.004})
+    _write_run(runs_dir, ckpt_dir, "s-5m-hi", {"n_layer": 4, "d_model": 256, "max_tokens": 1e8, "batch_tokens": 65536, "lr": 0.008})
+    # Adjust exact params for 5M runs so by_size separates 5M and 50M
+    for rid in ("s-5m", "s-5m-hi"):
+        p = runs_dir / rid / "config.json"
+        c = json.loads(p.read_text())
+        c["params"] = 5_000_000
+        c["train"]["seq_len"] = 1024
+        p.write_text(json.dumps(c))
+    _write_run(runs_dir, ckpt_dir, "s-50m", {"max_tokens": 1e9, "batch_tokens": 524288, "lr": 0.002})
+    p50 = runs_dir / "s-50m" / "config.json"
+    c50 = json.loads(p50.read_text())
+    c50["train"]["seq_len"] = 1024
+    p50.write_text(json.dumps(c50))
+
+    spec = tmp_path / "tree.toml"
+    spec.write_text(
+        '[nodes."s-50m"]\nstatus = "root"\nlabel = "50M"\n'
+        '[nodes."grp-scale"]\nparent = "s-50m"\nstatus = "group"\nchart = "scaling"\nchart_extra_runs = ["s-50m"]\nlabel = "Scaling"\n'
+        '[nodes."s-5m"]\nparent = "grp-scale"\nstatus = "branch"\n'
+        '[nodes."s-5m-hi"]\nparent = "grp-scale"\nstatus = "branch"\n',
+        encoding="utf-8",
+    )
+    payload = tree_mod.build_tree_payload(runs_dir, ckpt_dir, spec)
+    sc = payload["nodes"]["grp-scale"]["scaling_chart"]
+    assert sc["kind"] == "scaling"
+    assert len(sc["points"]) == 3
+    assert sc["best_ids"] == ["s-5m", "s-50m"]
+    assert sc["fit"]["b"] > 0 and sc["fit"]["drop_per_2x_pct"] > 0
