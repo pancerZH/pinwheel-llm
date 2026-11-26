@@ -121,6 +121,7 @@
   .badge-root { background: #f2eefc; color: var(--purple); border: 1px solid #d7cef7; }
   .badge-adopted { background: var(--green-bg); color: var(--green-dark); border: 1px solid #bfead7; }
   .badge-branch { background: var(--subtle); color: var(--ink-2); border: 1px solid var(--grid); }
+  .badge-rejected { background: #fdf0ef; color: #a33a2f; border: 1px solid #f0c4bf; }
   .badge-group { background: var(--amber-bg); color: #8c5800; border: 1px solid #f0d799; }
   .badge-milestone { background: var(--amber-bg); color: #8c5800; border: 1px solid #eab954; }
   .badge-ref { background: var(--teal-bg); color: var(--teal-dark); border: 1px solid #9fd6d7; }
@@ -390,7 +391,8 @@ const I18N = {
     btnFit: "适应画布",
     legendTrunk: "主干（采用）",
     legendMilestone: "里程碑（大图标）",
-    legendBranch: "树枝（未采用/校验）",
+    legendBranch: "树枝（探索/校验）",
+    legendRejected: "弃用（写明原因）",
     legendArc: "跨配方单变量对照",
     legendInspire: "灵感来源（选中显现）",
     legendRef: "外部参考 / 论文（选中显现）",
@@ -406,6 +408,7 @@ const I18N = {
     badgeAdopted: "主干（采用）",
     badgeGroup: "实验簇",
     badgeBranch: "树枝",
+    badgeRejected: "弃用",
     defaultTrunk: "主干",
     defaultMilestone: "里程碑",
     groupCountSubtitle: (n) => `包含 ${n} 个子实验`,
@@ -509,7 +512,8 @@ const I18N = {
     btnFit: "Fit view",
     legendTrunk: "Trunk (adopted)",
     legendMilestone: "Milestone (large icon)",
-    legendBranch: "Branch (exploratory / rejected)",
+    legendBranch: "Branch (exploratory / check)",
+    legendRejected: "Rejected (reason given)",
     legendArc: "Cross-recipe single-var comparison",
     legendInspire: "Inspired by (shown on select)",
     legendRef: "External refs / papers (on select)",
@@ -525,6 +529,7 @@ const I18N = {
     badgeAdopted: "Trunk (adopted)",
     badgeGroup: "Group",
     badgeBranch: "Branch",
+    badgeRejected: "Rejected",
     defaultTrunk: "Trunk",
     defaultMilestone: "Milestone",
     groupCountSubtitle: (n) => `${n} runs in group`,
@@ -1106,12 +1111,15 @@ function renderTree() {
     else if (n.is_head) { fill = "#f3fcf7"; stroke = "#1baf7a"; strokeW = 2.4; }
     else if (n.status === "adopted") { fill = "#f8fdfb"; stroke = "#1baf7a"; strokeW = 1.8; }
     else if (n.is_group) { fill = "#fffcf5"; stroke = "#d9a94e"; strokeW = 1.4; }
+    else if (n.status === "rejected") { fill = "#fdf8f7"; stroke = "#d39a92"; strokeW = 1.2; }
     else if (big) { fill = "#fffdf8"; stroke = "#d98a00"; strokeW = 1.8; }
 
-    g.appendChild(elNS("rect", {
+    const rect = elNS("rect", {
       class: "node-rect", x: 0, y: 0, width: p.w, height: p.h, rx: big ? 12 : 9,
       fill, stroke, "stroke-width": strokeW,
-    }));
+    });
+    if (n.status === "rejected") rect.setAttribute("stroke-dasharray", "5 3");
+    g.appendChild(rect);
 
     if (big) {
       let iconBg = "#1baf7a";
@@ -1357,6 +1365,7 @@ function renderDrawer() {
   else if (n.is_head) badges.push(`<span class="badge badge-adopted">${L.badgeHead}</span>`);
   else if (n.status === "adopted") badges.push(`<span class="badge badge-adopted">${L.badgeAdopted}</span>`);
   else if (n.is_group) badges.push(`<span class="badge badge-group">${L.badgeGroup}</span>`);
+  else if (n.status === "rejected") badges.push(`<span class="badge badge-rejected">${L.badgeRejected}</span>`);
   else badges.push(`<span class="badge badge-branch">${L.badgeBranch}</span>`);
   const ms = nodeMilestone(n);
   if (ms) badges.push(`<span class="badge badge-milestone">★ ${esc(ms)}</span>`);
@@ -1970,6 +1979,7 @@ function renderChrome() {
     <span class="legend-item"><span class="swatch" style="background:#1baf7a"></span>${L.legendTrunk}</span>
     <span class="legend-item"><span class="swatch" style="background:#d98a00"></span>${L.legendMilestone}</span>
     <span class="legend-item"><span class="swatch" style="background:#c3c2b7"></span>${L.legendBranch}</span>
+    <span class="legend-item"><span class="swatch" style="background:#d39a92"></span>${L.legendRejected}</span>
     <span class="legend-item"><span class="swatch-line"></span>${L.legendArc}</span>
     <span class="legend-item"><span class="swatch-inspire"></span>${L.legendInspire}</span>
     <span class="legend-item"><span class="swatch-ref"></span>${L.legendRef}</span>`;
