@@ -428,9 +428,16 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
     for nid, meta in raw_nodes.items():
         status = meta.get("status", "branch")
         is_group = status == "group"
-        res = None if is_group else results.get(nid)
-        bench = None if is_group else benches.get(nid)
-        art = None if is_group else load_run_artifacts(nid, runs_dir, ckpt_dir)
+        is_placeholder = bool(meta.get("placeholder", False))
+        no_run = is_group or is_placeholder
+        res = None if no_run else results.get(nid)
+        bench = None if no_run else benches.get(nid)
+        art = None if no_run else load_run_artifacts(nid, runs_dir, ckpt_dir)
+        val_bpb = (
+            float(meta["val_bpb"])
+            if (is_placeholder and meta.get("val_bpb") is not None)
+            else (res["val_bpb"] if res else None)
+        )
 
         nodes[nid] = {
             "id": nid,
@@ -447,14 +454,15 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
             "takeaway_en": meta.get("takeaway_en") or "",
             "collapsed": bool(meta.get("collapsed", False)),
             "is_group": is_group,
-            "run_id": None if is_group else nid,
+            "is_placeholder": is_placeholder,
+            "run_id": None if no_run else nid,
             "date": res["date"] if res else "",
             "git_sha": res["git_sha"] if res else "",
             "change": res["change"] if res else "",
-            "params": res["params"] if res else "",
-            "tokens": res["tokens"] if res else "",
+            "params": (meta.get("params") or "") if is_placeholder else (res["params"] if res else ""),
+            "tokens": (meta.get("tokens") or "") if is_placeholder else (res["tokens"] if res else ""),
             "wall_h": res["wall_h"] if res else None,
-            "val_bpb": res["val_bpb"] if res else None,
+            "val_bpb": val_bpb,
             "bench": bench,
             "config": art["config"] if art else None,
             "val_curve": art["val_curve"] if art else [],
@@ -496,14 +504,20 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
         if cmp_id and cmp_id in nodes:
             ref = nodes[cmp_id]
             node["cross_compare"] = cmp_id != node["parent"]
-            if node["val_bpb"] is not None and ref["val_bpb"] is not None:
+            if (
+                not node["is_placeholder"]
+                and not ref["is_placeholder"]
+                and node["val_bpb"] is not None
+                and ref["val_bpb"] is not None
+            ):
                 delta = round(node["val_bpb"] - ref["val_bpb"], 4)
                 node["delta_bpb"] = delta
                 node["in_noise"] = abs(delta) < noise_floor
             node["config_diff"] = compute_config_diff(node["config"], ref["config"])
-            npz_ref = runs_dir / "bench" / f"{cmp_id}.npz"
-            npz_cur = runs_dir / "bench" / f"{nid}.npz"
-            node["paired_bench"] = compute_paired_bench(npz_ref, npz_cur)
+            if not node["is_placeholder"] and not ref["is_placeholder"]:
+                npz_ref = runs_dir / "bench" / f"{cmp_id}.npz"
+                npz_cur = runs_dir / "bench" / f"{nid}.npz"
+                node["paired_bench"] = compute_paired_bench(npz_ref, npz_cur)
             ref["compared_by"].append(
                 {
                     "id": nid,
@@ -614,7 +628,7 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
         if not node["is_group"]:
             continue
         desc = collect_descendant_runs(nid)
-        valid = [d for d in desc if d["val_bpb"] is not None]
+        valid = [d for d in desc if d["val_bpb"] is not None and not d["is_placeholder"]]
         best = min(valid, key=lambda d: d["val_bpb"]) if valid else None
         node["group_stats"] = {
             "count": len(desc),
@@ -673,7 +687,7 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
             "root_id": root_id,
             "head_id": head_id,
             "trunk": trunk,
-            "total_runs": sum(1 for n in nodes.values() if not n["is_group"]),
+            "total_runs": sum(1 for n in nodes.values() if not n["is_group"] and not n["is_placeholder"]),
             "bench_tasks": list(BENCH_TASKS),
         },
         "nodes": nodes,

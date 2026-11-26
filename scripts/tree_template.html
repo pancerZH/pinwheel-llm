@@ -124,6 +124,7 @@
   .badge-rejected { background: #fdf0ef; color: #a33a2f; border: 1px solid #f0c4bf; }
   .badge-group { background: var(--amber-bg); color: #8c5800; border: 1px solid #f0d799; }
   .badge-milestone { background: var(--amber-bg); color: #8c5800; border: 1px solid #eab954; }
+  .badge-placeholder { background: #f7f4ff; color: var(--purple); border: 1px dashed #b4a5e8; }
   .badge-ref { background: var(--teal-bg); color: var(--teal-dark); border: 1px solid #9fd6d7; }
   .drawer-title { margin: 0; font-size: 17px; font-weight: 700; line-height: 1.3; }
   .drawer-runid {
@@ -421,6 +422,7 @@
   html[data-skin="sephiroth"] .badge-rejected { background: rgba(201,111,94,0.15); color: #df9081; border-color: rgba(201,111,94,0.4); }
   html[data-skin="sephiroth"] .badge-group { background: rgba(216,162,84,0.14); color: #e2b872; border-color: rgba(216,162,84,0.38); }
   html[data-skin="sephiroth"] .badge-milestone { background: rgba(201,166,107,0.18); color: #ebd099; border-color: rgba(201,166,107,0.48); }
+  html[data-skin="sephiroth"] .badge-placeholder { background: rgba(177,150,206,0.12); color: #d6c3ec; border: 1px dashed rgba(177,150,206,0.52); }
   html[data-skin="sephiroth"] .badge-ref { background: rgba(116,171,162,0.15); color: #98cbc2; border-color: rgba(116,171,162,0.4); }
   html[data-skin="sephiroth"] .tabs { background: #161310; border-bottom-color: #342d22; }
   html[data-skin="sephiroth"] .tab { font-weight: 300; letter-spacing: 0.06em; color: var(--muted); }
@@ -603,6 +605,14 @@ const I18N = {
     badgeGroup: "实验簇",
     badgeBranch: "树枝",
     badgeRejected: "弃用",
+    badgePlaceholder: "占位 · 待实测",
+    placeholderShort: "占位",
+    placeholderCardTag: "占位 · 待跑",
+    placeholderRunId: "占位节点（尚未运行实验）",
+    placeholderValSub: "占位估值（尚未实测）",
+    placeholderRefPending: "待对照实测",
+    placeholderDeltaSub: "对照节点为占位估值，暂不相减",
+    placeholderEmpty: "该节点为占位节点，尚未运行实验。",
     defaultTrunk: "主干",
     defaultMilestone: "里程碑",
     groupCountSubtitle: (n) => `包含 ${n} 个子实验`,
@@ -726,6 +736,14 @@ const I18N = {
     badgeGroup: "Group",
     badgeBranch: "Branch",
     badgeRejected: "Rejected",
+    badgePlaceholder: "Placeholder · pending",
+    placeholderShort: "placeholder",
+    placeholderCardTag: "placeholder",
+    placeholderRunId: "Placeholder node (not yet run)",
+    placeholderValSub: "Placeholder estimate (unmeasured)",
+    placeholderRefPending: "ref pending",
+    placeholderDeltaSub: "Reference is a placeholder; not subtracted",
+    placeholderEmpty: "This is a placeholder node (not yet run).",
     defaultTrunk: "Trunk",
     defaultMilestone: "Milestone",
     groupCountSubtitle: (n) => `${n} runs in group`,
@@ -1511,7 +1529,7 @@ function renderTree() {
       class: "node-rect", x: 0, y: 0, width: p.w, height: p.h, rx: big ? 12 : 9,
       fill, stroke, "stroke-width": strokeW,
     });
-    if (n.status === "rejected") rect.setAttribute("stroke-dasharray", "5 3");
+    if (n.status === "rejected" || n.is_placeholder) rect.setAttribute("stroke-dasharray", "5 3");
     g.appendChild(rect);
 
     if (big) {
@@ -1553,11 +1571,12 @@ function renderTree() {
           x: 12, y: 68, "font-size": 12, fill: "#52514e", "font-family": "var(--mono)",
         }, L.groupCardMeta(gs.count || 0, fmtBpb(gs.best_bpb))));
       } else {
+        const bpbText = n.is_placeholder && n.val_bpb != null ? `~${fmtBpb(n.val_bpb)}` : fmtBpb(n.val_bpb);
         g.appendChild(elNS("text", {
-          x: 12, y: 69, "font-size": 15.5, "font-weight": 700, fill: "#0b0b0b",
+          x: 12, y: 69, "font-size": 15.5, "font-weight": 700, fill: n.is_placeholder ? "#6d6b65" : "#0b0b0b",
           "font-family": "var(--mono)",
-        }, fmtBpb(n.val_bpb)));
-        drawDeltaTag(g, n, 94, 55);
+        }, bpbText));
+        drawDeltaTag(g, n, n.is_placeholder ? 102 : 94, 55);
       }
     } else {
       g.appendChild(elNS("text", {
@@ -1569,11 +1588,12 @@ function renderTree() {
           x: 11, y: 42, "font-size": 11.5, fill: "#52514e", "font-family": "var(--mono)",
         }, L.groupCardMeta(gs.count || 0, fmtBpb(gs.best_bpb))));
       } else {
+        const bpbText = n.is_placeholder && n.val_bpb != null ? `~${fmtBpb(n.val_bpb)}` : fmtBpb(n.val_bpb);
         g.appendChild(elNS("text", {
-          x: 11, y: 43, "font-size": 13.5, "font-weight": 700, fill: "#0b0b0b",
+          x: 11, y: 43, "font-size": 13.5, "font-weight": 700, fill: n.is_placeholder ? "#6d6b65" : "#0b0b0b",
           "font-family": "var(--mono)",
-        }, fmtBpb(n.val_bpb)));
-        drawDeltaTag(g, n, 80, 30);
+        }, bpbText));
+        drawDeltaTag(g, n, n.is_placeholder ? 88 : 80, 30);
       }
     }
 
@@ -2001,7 +2021,7 @@ function renderTreeSephiroth() {
       class: "node-rect", cx: 0, cy: 0, r, fill, stroke,
       "stroke-width": big ? 1.8 : 1.2,
     });
-    if (n.status === "rejected") outer.setAttribute("stroke-dasharray", "5 4");
+    if (n.status === "rejected" || n.is_placeholder) outer.setAttribute("stroke-dasharray", "5 4");
     else if (n.is_group && state.collapsed[id]) outer.setAttribute("stroke-dasharray", "6 3");
     if (n.is_head) outer.setAttribute("filter", "url(#gold-glow)");
     g.appendChild(outer);
@@ -2056,19 +2076,24 @@ function renderTreeSephiroth() {
         "font-size": 9.5, fill: "#9e917c",
       }, `${gs.count || 0} runs`));
     } else {
+      const bpbText = n.is_placeholder && n.val_bpb != null ? `~${fmtBpb(n.val_bpb)}` : fmtBpb(n.val_bpb);
       g.appendChild(elNS("text", {
         x: 0, y: big ? 11 : 10, "text-anchor": "middle",
-        "font-size": big ? 15 : 12.5, "font-weight": 400, fill: "#f4ead7", "font-family": "var(--mono)",
-      }, fmtBpb(n.val_bpb)));
+        "font-size": big ? 15 : 12.5, "font-weight": 400, fill: n.is_placeholder ? "#bfb39d" : "#f4ead7", "font-family": "var(--mono)",
+      }, bpbText));
 
       // Delicate delta inscription below BPB
       let dTxt = "", dCol = "#968a75";
-      if (n.delta_bpb != null) {
+      if (n.is_placeholder) {
+        dTxt = L.placeholderCardTag; dCol = "#cbb5e4";
+      } else if (n.delta_bpb != null) {
         dTxt = fmtDelta(n.delta_bpb);
         if (n.in_noise) { dCol = "#8a7f6c"; dTxt += " · " + L.deltaNoiseShort; }
         else if (n.delta_bpb < 0) dCol = "#dfbe82";
         else dCol = "#d98474";
-      } else if (n.status === "adopted" && n.parent === DATA.meta.root_id) {
+      } else if (n.compare_to && DATA.nodes[n.compare_to]?.is_placeholder) {
+        dTxt = L.placeholderRefPending; dCol = "#9e917c";
+      } else if (n.status === "adopted" && n.parent === DATA.meta.root_id && DATA.nodes[DATA.meta.root_id]?.cross_compare) {
         dTxt = L.deltaSeeArc; dCol = "#8eb4cc";
       } else if (n.compare_to == null && n.status !== "root") {
         dTxt = L.deltaStandalone; dCol = "#8a7f6c";
@@ -2149,12 +2174,16 @@ function drawLeafPillsSephiroth(g, n, y) {
 function drawDeltaTag(g, n, x, y) {
   const L = t();
   let text = "", bg = "#f2f1ec", fg = "#6d6b65";
-  if (n.delta_bpb != null) {
+  if (n.is_placeholder) {
+    text = L.placeholderCardTag; bg = "#f2eefc"; fg = "#6250d6";
+  } else if (n.delta_bpb != null) {
     text = fmtDelta(n.delta_bpb);
     if (n.in_noise) { bg = "#f0efe9"; fg = "#7a7872"; text += " " + L.deltaNoiseShort; }
     else if (n.delta_bpb < 0) { bg = "#e6f7ef"; fg = "#0e7a53"; }
     else { bg = "#fdeeee"; fg = "#c73534"; }
-  } else if (n.status === "adopted" && n.parent === DATA.meta.root_id) {
+  } else if (n.compare_to && DATA.nodes[n.compare_to]?.is_placeholder) {
+    text = L.placeholderRefPending; bg = "#f2f1ec"; fg = "#7a7872";
+  } else if (n.status === "adopted" && n.parent === DATA.meta.root_id && DATA.nodes[DATA.meta.root_id]?.cross_compare) {
     text = L.deltaSeeArc; bg = "#eef5fd"; fg = "#2a78d6";
   } else if (n.compare_to == null && n.status !== "root") {
     text = L.deltaStandalone; bg = "#f2f1ec"; fg = "#7a7872";
@@ -2303,11 +2332,14 @@ function renderDrawer() {
   else badges.push(`<span class="badge badge-branch">${L.badgeBranch}</span>`);
   const ms = nodeMilestone(n);
   if (ms) badges.push(`<span class="badge badge-milestone">★ ${esc(ms)}</span>`);
+  if (n.is_placeholder) badges.push(`<span class="badge badge-placeholder">${L.badgePlaceholder}</span>`);
   document.getElementById("d-badges").innerHTML = badges.join("");
   document.getElementById("d-title").textContent = nodeLabel(n);
   document.getElementById("d-runid").innerHTML = n.is_group
     ? `<span>${L.groupCountSubtitle(n.group_stats?.count || 0)}</span>`
-    : `<span>${esc(n.run_id)}</span>${n.date ? `<span>· ${esc(n.date)}</span>` : ""}${n.git_sha ? `<span>· ${esc(n.git_sha)}</span>` : ""}`;
+    : n.is_placeholder
+      ? `<span>${L.placeholderRunId}</span>`
+      : `<span>${esc(n.run_id)}</span>${n.date ? `<span>· ${esc(n.date)}</span>` : ""}${n.git_sha ? `<span>· ${esc(n.git_sha)}</span>` : ""}`;
 
   document.querySelectorAll("#d-tabs .tab").forEach(btn => {
     btn.classList.toggle("active", btn.dataset.tab === state.activeTab);
@@ -2406,6 +2438,8 @@ function renderOverviewTab(n) {
       ? L.verdictNoise(DATA.meta.noise_floor)
       : (n.delta_bpb < 0 ? L.verdictBetter : L.verdictWorse);
     deltaSub = `${verdict} · vs <button class="link-btn" data-jump="${esc(ref.id)}">${esc(nodeLabel(ref))}</button>`;
+  } else if (ref && ref.is_placeholder) {
+    deltaSub = `${L.placeholderDeltaSub} · vs <button class="link-btn" data-jump="${esc(ref.id)}">${esc(nodeLabel(ref))}</button>`;
   } else if (n.compare_to == null && n.parent) {
     deltaSub = L.noSubtractCross;
   }
@@ -2416,12 +2450,16 @@ function renderOverviewTab(n) {
   const tokLabel = n.token_offset_m > 0
     ? L.tokensWithOffset(n.tokens || "—", Math.round(n.token_offset_m))
     : `${n.tokens || "—"} tokens`;
+  const valKpiMain = n.is_placeholder && n.val_bpb != null ? `~${fmtBpb(n.val_bpb)}` : fmtBpb(n.val_bpb);
+  const valKpiSub = n.is_placeholder
+    ? `${L.placeholderValSub}${n.tokens ? " · " + n.tokens + " tokens" : ""}`
+    : `${tokLabel} · ${n.wall_h != null ? n.wall_h + " h" : "—"}`;
 
   parts.push(`<div class="kpi-grid">
     <div class="kpi">
       <div class="kpi-label">${L.kpiValBpb}</div>
-      <div class="kpi-val">${fmtBpb(n.val_bpb)}</div>
-      <div class="kpi-sub">${esc(tokLabel)} · ${n.wall_h != null ? n.wall_h + " h" : "—"}</div>
+      <div class="kpi-val">${valKpiMain}</div>
+      <div class="kpi-sub">${esc(valKpiSub)}</div>
     </div>
     <div class="kpi">
       <div class="kpi-label">${L.kpiDeltaBpb}</div>
@@ -2469,20 +2507,23 @@ function renderOverviewTab(n) {
 
   parts.push(renderInspirationBlocks(n));
 
-  const cfg = n.config || {};
-  parts.push(`<div class="section-h">${L.sectionRunMeta}</div>
-    <dl class="meta-list">
-      <dt>${L.metaChange}</dt><dd>${esc(n.change || "—")}</dd>
-      <dt>${L.metaShape}</dt><dd>${esc(cfg.arch || "—")} · L${cfg.n_layer ?? "?"} d${cfg.d_model ?? "?"} h${cfg.n_head ?? "?"}/${cfg.n_kv_head ?? "?"} ff${cfg.d_ff ?? "?"}</dd>
-      <dt>${L.metaRecipe}</dt><dd>${esc(cfg.schedule || "—")} · bs ${cfg.batch_tokens ?? "?"} · lr ${cfg.lr ?? "?"} · wu ${cfg.warmup_steps ?? "?"} · seed ${cfg.seed ?? "?"}</dd>
-      <dt>${L.metaDataGit}</dt><dd>${esc(cfg.data || "—")} · ${esc(n.date || "—")} · ${esc(n.git_sha || "—")}</dd>
-    </dl>`);
+  if (!n.is_placeholder) {
+    const cfg = n.config || {};
+    parts.push(`<div class="section-h">${L.sectionRunMeta}</div>
+      <dl class="meta-list">
+        <dt>${L.metaChange}</dt><dd>${esc(n.change || "—")}</dd>
+        <dt>${L.metaShape}</dt><dd>${esc(cfg.arch || "—")} · L${cfg.n_layer ?? "?"} d${cfg.d_model ?? "?"} h${cfg.n_head ?? "?"}/${cfg.n_kv_head ?? "?"} ff${cfg.d_ff ?? "?"}</dd>
+        <dt>${L.metaRecipe}</dt><dd>${esc(cfg.schedule || "—")} · bs ${cfg.batch_tokens ?? "?"} · lr ${cfg.lr ?? "?"} · wu ${cfg.warmup_steps ?? "?"} · seed ${cfg.seed ?? "?"}</dd>
+        <dt>${L.metaDataGit}</dt><dd>${esc(cfg.data || "—")} · ${esc(n.date || "—")} · ${esc(n.git_sha || "—")}</dd>
+      </dl>`);
+  }
   return parts.join("");
 }
 
 function renderBenchTab(n) {
   const L = t();
   if (n.is_group) return `<div class="empty-state">${L.benchGroupEmpty}</div>`;
+  if (n.is_placeholder) return `<div class="empty-state">${L.placeholderEmpty}</div>`;
   if (!n.bench) return `<div class="empty-state">${L.benchEmpty}</div>`;
 
   const ref = n.compare_to ? DATA.nodes[n.compare_to] : null;
@@ -2728,6 +2769,7 @@ function renderCurveTab(n) {
   const CT = chartTheme();
   if (n.scaling_chart) return renderScalingChart(n.scaling_chart);
   if (n.is_group) return renderGroupCurves(n);
+  if (n.is_placeholder) return `<div class="empty-state">${L.placeholderEmpty}</div>`;
   const curPts = (n.val_curve || []).filter(p => p[0] > 0);
   const ref = n.compare_to ? DATA.nodes[n.compare_to] : null;
   const refPts = ref ? (ref.val_curve || []).filter(p => p[0] > 0) : [];
@@ -2798,6 +2840,7 @@ function renderCurveTab(n) {
 function renderArtifactsTab(n) {
   const L = t();
   if (n.is_group) return `<div class="empty-state">${L.artifactsGroupEmpty}</div>`;
+  if (n.is_placeholder) return `<div class="empty-state">${L.placeholderEmpty}</div>`;
   const a = n.artifacts || {};
   const parts = [`<div class="section-h">${L.sectionArtifacts}</div>`];
   parts.push(`<div class="artifact-row">
@@ -2891,8 +2934,11 @@ function renderChrome() {
 
   const root = DATA.nodes[DATA.meta.root_id];
   const head = DATA.nodes[DATA.meta.head_id];
+  const rootBpbStr = root?.is_placeholder
+    ? (root.val_bpb != null ? `~${fmtBpb(root.val_bpb)} (${L.placeholderShort})` : L.placeholderShort)
+    : fmtBpb(root?.val_bpb);
   document.getElementById("trunk-summary").textContent =
-    L.trunkSummary(fmtBpb(root?.val_bpb), fmtBpb(head?.val_bpb), DATA.meta.total_runs);
+    L.trunkSummary(rootBpbStr, fmtBpb(head?.val_bpb), DATA.meta.total_runs);
 
   document.getElementById("search-input").placeholder = L.searchPlaceholder;
   document.getElementById("btn-trunk").textContent = L.btnTrunk;

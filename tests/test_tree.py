@@ -335,3 +335,45 @@ def test_external_refs_bidirectional_and_validation(tmp_path):
     bad.write_text('[nodes."a"]\nstatus = "root"\nrefs = ["ghost"]\n', encoding="utf-8")
     with pytest.raises(ValueError, match="missing ref"):
         tree_mod.build_tree_payload(runs_dir, ckpt_dir, bad)
+
+
+def test_placeholder_node_skips_delta_and_total_runs(tmp_path):
+    runs_dir = tmp_path / "runs"
+    ckpt_dir = tmp_path / "ckpt"
+    runs_dir.mkdir()
+    tsv_lines = [
+        "\t".join(["run_id", "date", "git_sha", "change", "params", "tokens", "wall_h", "val_bpb", "hellaswag", "notes"]),
+        "\t".join(["v0", "2026-11-24", "aaa", "v0", "50.7M", "1000M", "1.64", "1.1212", "0.2758", ""]),
+    ]
+    (runs_dir / "results.tsv").write_text("\n".join(tsv_lines) + "\n", encoding="utf-8")
+    _write_run(runs_dir, ckpt_dir, "v0", {"batch_tokens": 524288, "schedule": "cosine"})
+    spec = tmp_path / "tree.toml"
+    spec.write_text(
+        "\n".join(
+            [
+                '[nodes."gpt2-old"]',
+                'status = "root"',
+                "placeholder = true",
+                "val_bpb = 1.3",
+                'params = "50.7M"',
+                'tokens = "1000M"',
+                '[nodes."v0"]',
+                'parent = "gpt2-old"',
+                'status = "adopted"',
+                'label = "v0"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    payload = tree_mod.build_tree_payload(runs_dir, ckpt_dir, spec)
+    root = payload["nodes"]["gpt2-old"]
+    v0 = payload["nodes"]["v0"]
+    assert root["is_placeholder"] is True
+    assert root["val_bpb"] == 1.3
+    assert root["run_id"] is None
+    assert root["artifacts"] is None
+    assert payload["meta"]["total_runs"] == 1
+    assert v0["compare_to"] == "gpt2-old"
+    assert v0["delta_bpb"] is None
+    assert root["compared_by"][0]["delta_from_other"] is None
