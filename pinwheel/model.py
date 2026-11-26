@@ -1,5 +1,8 @@
 """A small Llama-style decoder: RMSNorm, RoPE, GQA, SwiGLU, tied embeddings.
 
+qk_norm=True adds an RMSNorm on every head's queries and keys (QK-Norm), so attention scores depend
+only on the angle between q and k and on the norms' gains, not on how large wq and wk grow.
+
 arch="gpt2" swaps three of them back to GPT-2: LayerNorm, learned absolute positions and a GELU MLP
 (pair it with n_kv_head = n_head for plain multi-head attention).
 """
@@ -23,6 +26,7 @@ class GPTConfig:
     max_seq_len: int = 1024
     rope_base: float = 10000.0
     arch: str = "llama"  # "llama" or "gpt2" (see the module docstring)
+    qk_norm: bool = False
 
 
 def rope_tables(head_dim, max_len, base):
@@ -64,12 +68,17 @@ class Attention(nn.Module):
         self.wk = nn.Linear(cfg.d_model, cfg.n_kv_head * self.head_dim, bias=False)
         self.wv = nn.Linear(cfg.d_model, cfg.n_kv_head * self.head_dim, bias=False)
         self.wo = nn.Linear(cfg.n_head * self.head_dim, cfg.d_model, bias=False)
+        # One 64-dim gain for queries and one for keys, shared by the heads of a layer.
+        self.q_norm = nn.RMSNorm(self.head_dim, eps=1e-6) if cfg.qk_norm else None
+        self.k_norm = nn.RMSNorm(self.head_dim, eps=1e-6) if cfg.qk_norm else None
 
     def forward(self, x, cos, sin, cache=None):
         B, T, _ = x.shape
         q = self.wq(x).view(B, T, self.n_head, self.head_dim).transpose(1, 2)
         k = self.wk(x).view(B, T, self.n_kv_head, self.head_dim).transpose(1, 2)
         v = self.wv(x).view(B, T, self.n_kv_head, self.head_dim).transpose(1, 2)
+        if self.q_norm is not None:  # norm 8 (= sqrt(head_dim)) times the gain, so |score| <= 8 * gain^2
+            q, k = self.q_norm(q), self.k_norm(k)
         if cos is not None:  # RoPE; gpt2 adds learned positions to the input instead
             q, k = apply_rope(q, cos, sin), apply_rope(k, cos, sin)
         if cache is not None:

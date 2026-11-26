@@ -41,3 +41,27 @@ def test_gpt2_arch_kv_cache_matches_full_forward():
     steps = [model(x[:, :8], caches=caches)]
     steps += [model(x[:, t : t + 1], caches=caches) for t in range(8, 16)]
     torch.testing.assert_close(torch.cat(steps, dim=1), model(x), atol=1e-5, rtol=1e-4)
+
+
+def test_qk_norm_kv_cache_matches_full_forward():
+    torch.manual_seed(0)
+    model = GPT(GPTConfig(**{**TINY.__dict__, "qk_norm": True})).eval()
+    x = torch.randint(0, TINY.vocab_size, (2, 16))
+    caches = [KVCache(16) for _ in model.blocks]
+    steps = [model(x[:, :8], caches=caches)]
+    steps += [model(x[:, t : t + 1], caches=caches) for t in range(8, 16)]
+    torch.testing.assert_close(torch.cat(steps, dim=1), model(x), atol=1e-5, rtol=1e-4)
+
+
+def test_qk_norm_makes_attention_ignore_the_size_of_wq_and_wk():
+    torch.manual_seed(0)
+    x = torch.randint(0, TINY.vocab_size, (2, 16))
+    for qk_norm in (False, True):
+        model = GPT(GPTConfig(**{**TINY.__dict__, "qk_norm": qk_norm})).eval()
+        before = model(x)
+        with torch.no_grad():
+            for block in model.blocks:
+                block.attn.wq.weight *= 3
+                block.attn.wk.weight *= 3
+        same = torch.allclose(model(x), before, atol=1e-4)
+        assert same == qk_norm  # only QK-Norm makes the scores independent of the weights' scale
