@@ -103,13 +103,16 @@ Check published results before each experiment; where a reliable result exists, 
 ## Code
 
 ```
-pinwheel/model.py      model, KV cache, sampling
-pinwheel/train.py      training loop; every config field is a command-line flag
-pinwheel/eval.py       val BPB
-pinwheel/bench.py      zero-shot HellaSwag, ARC-Easy, PIQA, BLiMP
-pinwheel/data.py       memmapped token shards
-pinwheel/tokenizer.py  BPE tokenizer and per-token byte counts
-pinwheel/sample.py     sample from a checkpoint
-scripts/prepare.py     train the tokenizer, tokenize datasets
-scripts/plot.py        plot runs
+pinwheel/model.py            model, KV cache, sampling
+pinwheel/train.py            training loop; every config field is a command-line flag
+pinwheel/eval.py             val BPB
+pinwheel/bench.py            zero-shot benchmarks (HellaSwag, ARC-Easy, PIQA, BLiMP, SciQ, LAMBADA) and paired tests
+pinwheel/data.py             memmapped token shards
+pinwheel/tokenizer.py        BPE tokenizer and per-token byte counts
+pinwheel/sample.py           sample from a checkpoint
+scripts/prepare.py           train the tokenizer, tokenize datasets
+scripts/plot.py              plot loss / BPB curves
+scripts/scaling.py           fit and plot the mini scaling law (run via scripts/scaling.sh)
+scripts/tree.py              build interactive experiment tree webpage (runs/tree.html)
+scripts/stage2_preflight.py  Stage 2 batch-size sweep and WSD confirmation runner
 ```
