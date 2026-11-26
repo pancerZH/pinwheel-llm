@@ -70,12 +70,9 @@ aside{position:sticky;top:12px;align-self:start;max-height:calc(100vh - 24px);ov
 .ctl{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .ctl button,.btn{border:1px solid var(--line);background:var(--card);border-radius:6px;padding:4px 10px;font-size:14px;min-height:32px}
 .ctl button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-.play{background:var(--teal)!important;color:var(--on)!important;border-color:var(--teal)!important;font-weight:700}
-.st{position:relative;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px 14px 46px;transition:box-shadow .3s}
+.st{position:relative;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px 14px 46px}
 .st::before{content:"";position:absolute;left:20px;top:0;bottom:0;border-left:4px solid var(--teal)}
-.st>.dot{position:absolute;left:13px;top:16px;width:18px;height:18px;border-radius:50%;border:4px solid var(--teal);background:var(--card);transition:background .2s,transform .2s}
-.st.go{box-shadow:0 0 0 3px var(--teal)}
-.st.go>.dot{background:var(--teal);transform:scale(1.25)}
+.st>.dot{position:absolute;left:13px;top:16px;width:18px;height:18px;border-radius:50%;border:4px solid var(--teal);background:var(--card)}
 .st.changed{box-shadow:0 0 0 2px var(--amber)}
 .st-h{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline;margin-bottom:6px}
 .st-h h3{font-size:20px;font-weight:800}
@@ -166,7 +163,6 @@ summary{cursor:pointer;font-weight:700;font-size:14px;color:var(--teal)}
 .nohints .how,.nohints .see,.nohints .guide{display:none}
 @media (max-width:980px){.wrap{grid-template-columns:minmax(0,1fr)}aside{position:static;max-height:none}.top{grid-template-columns:minmax(0,1fr)}.kpi{text-align:left}.top-ctl{justify-content:flex-start}}
 @media (max-width:600px){.st{padding:12px 12px 12px 38px}.st::before{left:15px}.st>.dot{left:8px}.edge{margin-left:15px;padding-left:16px}.lrow{grid-template-columns:4.6em minmax(0,1fr) minmax(0,7em) 3.6em;gap:6px}.bars .r{grid-template-columns:minmax(0,7em) minmax(0,1fr) 4.4em}}
-@media (prefers-reduced-motion:reduce){.st,.st>.dot{transition:none}}
 </style>
 </head>
 <body>
@@ -596,7 +592,7 @@ function renderInfo() {
 function renderTokbar() {
   const tgt = TGT[S.pos], ts = D.train_shape;
   document.getElementById('tokbar').innerHTML = `<div class="row"><div class="toks">${INP.map((id, i) => `<button class="${i === S.pos ? 'on' : i === S.pos + 1 ? 'tgt' : ''}" data-pos="${i}" title="${L('位置', 'position')} ${i} · id ${id}">${tokH(id)}</button>`).join('')}</div>
-    <div class="ctl"><button class="${S.big ? '' : 'on'}" data-big="0" title="${esc(L('这一页实际跑的形状：1 段、这句话的长度', 'The shapes this page actually ran: 1 piece of text, this sentence’s length'))}">${L('示例', 'Sample')} B=1 T=${T}</button><button class="${S.big ? 'on' : ''}" data-big="1" title="${esc(L('训练时每次前向的形状', 'The shapes of one forward pass during training'))}">${L('训练', 'Training')} B=${ts.micro_batch} T=${ts.seq_len}</button><button class="play" id="play">${L('▶ 走一步', '▶ Play one step')}</button></div></div>
+    <div class="ctl"><button class="${S.big ? '' : 'on'}" data-big="0" title="${esc(L('这一页实际跑的形状：1 段、这句话的长度', 'The shapes this page actually ran: 1 piece of text, this sentence’s length'))}">${L('示例', 'Sample')} B=1 T=${T}</button><button class="${S.big ? 'on' : ''}" data-big="1" title="${esc(L('训练时每次前向的形状', 'The shapes of one forward pass during training'))}">${L('训练', 'Training')} B=${ts.micro_batch} T=${ts.seq_len}</button></div></div>
     <div class="track">${L(`跟踪位置 ${S.pos}：输入 <b>${tokH(INP[S.pos])}</b>，要猜出下一个 <b>${tokH(tgt)}</b>（红框）。点别的 token 换一个跟踪。`, `Tracking position ${S.pos}: input <b>${tokH(INP[S.pos])}</b>, which should predict <b>${tokH(tgt)}</b> (red frame). Click another token to track it instead.`)}</div>`;
 }
 function guide() {
@@ -1053,9 +1049,8 @@ document.addEventListener('click', e => {
     if (row >= 0 && row < T && row !== S.pos) { S.pos = row; render(); }
     return;
   }
-  const b = e.target.closest('[data-go],[data-pos],[data-layer],[data-head],[data-big],[data-mat],[data-lang],[data-hints],#play');
+  const b = e.target.closest('[data-go],[data-pos],[data-layer],[data-head],[data-big],[data-mat],[data-lang],[data-hints]');
   if (!b) return tip(null);
-  if (b.id === 'play') return play();
   if (b.dataset.go != null) return go(+b.dataset.go);
   if (b.dataset.lang != null) { S.lang = b.dataset.lang; store('lang', S.lang); }
   if (b.dataset.hints != null) { S.hints = b.dataset.hints === '1'; store('hints', S.hints ? '1' : '0'); }
@@ -1071,19 +1066,6 @@ document.addEventListener('toggle', e => {
   const k = e.target.dataset && e.target.dataset.k;
   if (k && !!S.open[k] !== e.target.open) { S.open[k] = e.target.open; render(); }
 }, true);
-let timer = null;
-function play() {
-  clearTimeout(timer);
-  const sts = [...document.querySelectorAll('.st')], smooth = !matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const stepTo = i => {
-    sts.forEach(s => s.classList.remove('go'));
-    if (i >= sts.length) return;
-    sts[i].classList.add('go');
-    sts[i].scrollIntoView({block: 'start', behavior: smooth ? 'smooth' : 'auto'});
-    timer = setTimeout(() => stepTo(i + 1), 1100);
-  };
-  stepTo(0);
-}
 let rt = null;
 addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(render, 150); });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
