@@ -129,6 +129,7 @@ scripts/prepare.py           train the tokenizer, tokenize datasets
 scripts/plot.py              plot loss / BPB curves
 scripts/scaling.py           fit and plot the mini scaling law (run via scripts/scaling.sh)
 scripts/tree.py              build interactive experiment tree webpage (runs/tree.html)
+scripts/flow.py              build the training-step data-flow webpage from checkpoints (runs/flow.html)
 scripts/gpt2_ref.py          score OpenAI GPT-2 124M on our bench (the stretch-goal reference)
 scripts/stage2_preflight.py  Stage 2 batch-size sweep and WSD confirmation runner
 scripts/muon.sh              Stage 2e Muon check-up: 300M-token AdamW reference and Muon LR sweep
