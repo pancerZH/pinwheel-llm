@@ -1,6 +1,7 @@
 """Build a self-contained webpage that walks through one training step of pinwheel-llm (runs/flow.html).
 
     uv run python scripts/flow.py [--text "..."] [--serve --host 0.0.0.0]
+    uv run python scripts/flow.py --serve-only --host 0.0.0.0   # serve the page already built
 
 Every run in RUNS that has a checkpoint reads one short text on the CPU, and the page keeps what
 each stage produces: tokens, embeddings, every block's attention and MLP, the per-layer readout
@@ -425,12 +426,17 @@ def main():
     p.add_argument("-o", "--out", type=Path, default=Path("runs/flow.html"))
     p.add_argument("--threads", type=int, default=8, help="CPU threads (the GPU is left alone)")
     p.add_argument("--serve", action="store_true", help="serve only the generated HTML over HTTP")
-    p.add_argument("--host", default="127.0.0.1", help="bind address for --serve (0.0.0.0 for LAN)")
+    p.add_argument("--serve-only", action="store_true", help="serve the existing page without rebuilding it")
+    p.add_argument("--host", default="127.0.0.1", help="bind address for serving (0.0.0.0 for LAN)")
     p.add_argument("--port", type=int, default=8766)
     args = p.parse_args()
-    out = render_html(build_payload(args), Path(__file__).with_name("flow_template.html"), args.out)
-    print(f"wrote {out} ({out.stat().st_size / 1e6:.1f} MB)")
-    if args.serve:
+    out = args.out
+    if not args.serve_only:
+        out = render_html(build_payload(args), Path(__file__).with_name("flow_template.html"), out)
+        print(f"wrote {out} ({out.stat().st_size / 1e6:.1f} MB)")
+    elif not out.exists():
+        p.error(f"{out} does not exist yet: build it first without --serve-only")
+    if args.serve or args.serve_only:
         _serve_single_file(out.resolve(), args.host, args.port)
 
 
