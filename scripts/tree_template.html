@@ -590,8 +590,8 @@ const I18N = {
     legendBranch: "树枝（探索/校验）",
     legendRejected: "弃用（写明原因）",
     legendArc: "跨配方单变量对照",
-    legendInspire: "灵感来源（选中显现）",
-    legendRef: "外部参考 / 论文（选中显现）",
+    legendInspire: "灵感来源（全局 / 选中聚焦）",
+    legendRef: "外部参考 / 论文（全局 / 选中聚焦）",
     tabOverview: "概览",
     tabBench: "基准",
     tabCurve: "曲线",
@@ -606,6 +606,14 @@ const I18N = {
     badgeBranch: "树枝",
     badgeRejected: "弃用",
     badgePlaceholder: "占位 · 待实测",
+    badgeOverview: "全局视图",
+    overviewTitle: "实验树总览",
+    overviewSubtitle: "当前未选中节点 · 已展示全部链条",
+    overviewHint: "点击任意节点或参考卡片可聚焦其相关链条并查看详情；点击画布空白处或按 Esc 取消选中、恢复全部链条。",
+    overviewKpiRuns: "已记录实验",
+    overviewKpiHead: "当前 HEAD val BPB",
+    overviewKpiNoise: "单跑噪声门槛",
+    overviewTrunkSection: "主干演进路径（点击直达）",
     placeholderShort: "占位",
     placeholderCardTag: "占位 · 待跑",
     placeholderRunId: "占位节点（尚未运行实验）",
@@ -721,8 +729,8 @@ const I18N = {
     legendBranch: "Branch (exploratory / check)",
     legendRejected: "Rejected (reason given)",
     legendArc: "Cross-recipe single-var comparison",
-    legendInspire: "Inspired by (shown on select)",
-    legendRef: "External refs / papers (on select)",
+    legendInspire: "Inspired by (all / focus on select)",
+    legendRef: "External refs / papers (all / focus)",
     tabOverview: "Overview",
     tabBench: "Benchmarks",
     tabCurve: "Curve",
@@ -737,6 +745,14 @@ const I18N = {
     badgeBranch: "Branch",
     badgeRejected: "Rejected",
     badgePlaceholder: "Placeholder · pending",
+    badgeOverview: "Overview",
+    overviewTitle: "Experiment Tree Overview",
+    overviewSubtitle: "No node selected · showing all links",
+    overviewHint: "Click any node or reference card to focus its links and inspect details; click blank canvas or press Esc to clear selection and restore all links.",
+    overviewKpiRuns: "Recorded runs",
+    overviewKpiHead: "Current HEAD val BPB",
+    overviewKpiNoise: "Single-run noise floor",
+    overviewTrunkSection: "Main Trunk Progression (click to inspect)",
     placeholderShort: "placeholder",
     placeholderCardTag: "placeholder",
     placeholderRunId: "Placeholder node (not yet run)",
@@ -857,7 +873,7 @@ function savedSkin() {
 const state = {
   lang: savedLang(),
   skin: savedSkin(),
-  selectedId: DATA.meta.head_id,
+  selectedId: null,
   selectedRefId: null,
   activeTab: "overview",
   trunkOnly: false,
@@ -1454,6 +1470,7 @@ function renderTree() {
   }
 
   // 2. Cross-recipe & sibling comparison arcs (routed around cards; active arcs & pills render above nodes)
+  const noSel = !state.selectedId && !state.selectedRefId;
   const obstacles = collectCanvasObstacles(false);
   const placedPills = [];
   const allPos = Object.values(state.layout);
@@ -1480,6 +1497,7 @@ function renderTree() {
     const active = !state.selectedRefId && (state.selectedId === srcId || state.selectedId === dstId);
     const isRootArc = srcId === DATA.meta.root_id;
     const sameCol = Math.abs(a.x - b.x) < 10;
+    if (!noSel && !active && !isRootArc) return;
     const targetLayer = (active || isRootArc) ? arcsFgLayer : arcsBgLayer;
 
     let d, lx, ly, pillX, pillY, txt;
@@ -1577,30 +1595,42 @@ function renderTree() {
     }
   });
 
-  // 2b. Inspiration edges (amber dotted arcs; routed clear of all nodes and pills)
+  // 2b. Inspiration edges (amber dotted arcs; all shown subtly when nothing is selected, focused with pills on select)
   function visibleAnchor(id) {
     let cur = id;
     while (cur && !state.layout[cur]) cur = DATA.nodes[cur]?.parent;
     return cur;
   }
   const inspireEdges = [];
+  const seenInspire = new Set();
   if (state.showInspiration && !state.selectedRefId) {
     for (const n of Object.values(DATA.nodes)) {
       for (const edge of (n.inspired_by || [])) {
-        if (state.selectedId === n.id || state.selectedId === edge.id) {
+        if (noSel || state.selectedId === n.id || state.selectedId === edge.id) {
           const srcVis = visibleAnchor(edge.id);
           const dstVis = visibleAnchor(n.id);
-          if (srcVis && dstVis && srcVis !== dstVis) {
+          const key = `${srcVis}->${dstVis}`;
+          if (srcVis && dstVis && srcVis !== dstVis && (!noSel || !seenInspire.has(key))) {
+            seenInspire.add(key);
             inspireEdges.push({ srcId: srcVis, dstId: dstVis, reason: pick(edge, "reason") });
           }
         }
       }
     }
   }
-  inspireEdges.forEach(ie => {
+  inspireEdges.forEach((ie, idx) => {
     const a = state.layout[ie.srcId], b = state.layout[ie.dstId];
     const x1 = a.x + a.w * 0.5, y1 = a.y + a.h;
     const x2 = b.x + b.w * 0.5, y2 = b.y + b.h;
+    if (noSel) {
+      const ty = treeMaxY + 26 + (idx % 4) * 18;
+      const cy = 2 * ty - 0.5 * (y1 + y2);
+      const d = `M ${x1} ${y1} Q ${(x1 + x2) / 2} ${cy}, ${x2} ${y2}`;
+      arcsBgLayer.appendChild(elNS("path", {
+        d, class: "inspire-arc", opacity: 0.42, "marker-end": "url(#arrow-amber)",
+      }));
+      return;
+    }
     const rawTxt = ie.reason ? `${L.inspireBadge} · ${truncLang(ie.reason, 22, 36)}` : L.inspireBadge;
     const charW = state.lang === "en" ? 6.2 : 8.4;
     const pillW = Math.max(88, Math.round(rawTxt.length * charW + 18));
@@ -1673,15 +1703,18 @@ function renderTree() {
       refsLayer.appendChild(rg);
     }
 
-    // Draw teal external links only for the currently selected ref or selected experiment node
+    // Draw teal external links (all subtly when nothing is selected; focused in foreground on select)
     const refEdges = [];
+    const seenRef = new Set();
     for (const r of Object.values(DATA.refs || {})) {
       const rp = state.refLayout[r.id];
       if (!rp) continue;
       for (const u of (r.used_by || [])) {
-        if (state.selectedRefId === r.id || (!state.selectedRefId && state.selectedId === u.id)) {
+        if (noSel || state.selectedRefId === r.id || (!state.selectedRefId && state.selectedId === u.id)) {
           const dstVis = visibleAnchor(u.id);
-          if (dstVis && state.layout[dstVis]) {
+          const key = `${r.id}->${dstVis}`;
+          if (dstVis && state.layout[dstVis] && !seenRef.has(key)) {
+            seenRef.add(key);
             refEdges.push({ refId: r.id, dstId: dstVis, reason: pick(u, "reason") });
           }
         }
@@ -1693,9 +1726,10 @@ function renderTree() {
       const x2 = dp.x + dp.w * 0.5, y2 = dp.y;
       const midY = y1 + (y2 - y1) * (0.36 + (idx % 3) * 0.14);
       const d = `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
-      arcsFgLayer.appendChild(elNS("path", {
-        d, class: "ref-arc", "marker-end": "url(#arrow-teal)",
-      }));
+      const targetLayer = noSel ? arcsBgLayer : arcsFgLayer;
+      const attrs = { d, class: "ref-arc", "marker-end": "url(#arrow-teal)" };
+      if (noSel) attrs.opacity = 0.36;
+      targetLayer.appendChild(elNS("path", attrs));
     });
   }
 
@@ -1941,6 +1975,7 @@ function renderTreeSephiroth() {
   }
 
   // 2. Cross-recipe & sibling comparison arcs in vertical layout
+  const noSel = !state.selectedId && !state.selectedRefId;
   const obstacles = collectCanvasObstacles(true);
   const placedPills = [];
 
@@ -1967,6 +2002,7 @@ function renderTreeSephiroth() {
     const active = !state.selectedRefId && (state.selectedId === srcId || state.selectedId === dstId);
     const isRootArc = srcId === DATA.meta.root_id;
     const sameRow = Math.abs(a.cy - b.cy) < 12;
+    if (!noSel && !active && !isRootArc) return;
     const targetLayer = (active || isRootArc) ? arcsFgLayer : arcsBgLayer;
 
     if (sameRow) {
@@ -2052,35 +2088,55 @@ function renderTreeSephiroth() {
         d, fill: "none", stroke: "#7ea8c4",
         "stroke-width": 1.4,
         "stroke-dasharray": "5 5",
-        opacity: 0.25,
+        opacity: noSel ? 0.42 : 0.25,
         "marker-end": "url(#arrow-sep-blue)",
       }));
     }
   });
 
-  // 2b. Inspiration secret paths (amber dotted arcs on select, routed clear of all nodes and pills)
+  // 2b. Inspiration secret paths (all shown subtly when nothing is selected; focused with pills on select)
   function visibleAnchor(id) {
     let cur = id;
     while (cur && !state.layout[cur]) cur = DATA.nodes[cur]?.parent;
     return cur;
   }
   const inspireEdges = [];
+  const seenInspire = new Set();
   if (state.showInspiration && !state.selectedRefId) {
     for (const n of Object.values(DATA.nodes)) {
       for (const edge of (n.inspired_by || [])) {
-        if (state.selectedId === n.id || state.selectedId === edge.id) {
+        if (noSel || state.selectedId === n.id || state.selectedId === edge.id) {
           const srcVis = visibleAnchor(edge.id);
           const dstVis = visibleAnchor(n.id);
-          if (srcVis && dstVis && srcVis !== dstVis) {
+          const key = `${srcVis}->${dstVis}`;
+          if (srcVis && dstVis && srcVis !== dstVis && (!noSel || !seenInspire.has(key))) {
+            seenInspire.add(key);
             inspireEdges.push({ srcId: srcVis, dstId: dstVis, reason: pick(edge, "reason") });
           }
         }
       }
     }
   }
-  inspireEdges.forEach(ie => {
+  inspireEdges.forEach((ie, idx) => {
     const a = state.layout[ie.srcId], b = state.layout[ie.dstId];
     const preferRight = (a.cx + b.cx) >= 0;
+    if (noSel) {
+      const goRight = preferRight;
+      const sideIdx = goRight ? rightOuterIdx++ : leftOuterIdx++;
+      const x1 = goRight ? (a.cx + a.r + 4) : (a.cx - a.r - 4);
+      const x2 = goRight ? (b.cx + b.r + 4) : (b.cx - b.r - 4);
+      const y1 = a.cy, y2 = b.cy;
+      const outerX = goRight
+        ? Math.max(treeMaxX + 44, Math.max(x1, x2) + 84) + (sideIdx % 4) * 28
+        : Math.min(treeMinX - 44, Math.min(x1, x2) - 84) - (sideIdx % 4) * 28;
+      const d = `M ${x1} ${y1} C ${outerX} ${y1}, ${outerX} ${y2}, ${x2} ${y2}`;
+      arcsBgLayer.appendChild(elNS("path", {
+        d, fill: "none", stroke: "#d8a254", "stroke-width": 1.4,
+        "stroke-dasharray": "2.5 4.5", "stroke-linecap": "round", opacity: 0.42,
+        "marker-end": "url(#arrow-gold)",
+      }));
+      return;
+    }
     const rawTxt = ie.reason ? `${L.inspireBadge} · ${truncLang(ie.reason, 20, 34)}` : L.inspireBadge;
     const charW = state.lang === "en" ? 6.2 : 8.4;
     const pillW = Math.max(88, Math.round(rawTxt.length * charW + 18));
@@ -2151,15 +2207,20 @@ function renderTreeSephiroth() {
       refsLayer.appendChild(rg);
     }
 
-    // Teal light rays from crown refs to linked Sephiroth
+    // Teal light rays from crown refs to linked Sephiroth (all subtly when nothing is selected; focused on select)
     const refEdges = [];
+    const seenRef = new Set();
     for (const r of Object.values(DATA.refs || {})) {
       const rp = state.refLayout[r.id];
       if (!rp) continue;
       for (const u of (r.used_by || [])) {
-        if (state.selectedRefId === r.id || (!state.selectedRefId && state.selectedId === u.id)) {
+        if (noSel || state.selectedRefId === r.id || (!state.selectedRefId && state.selectedId === u.id)) {
           const dstVis = visibleAnchor(u.id);
-          if (dstVis && state.layout[dstVis]) refEdges.push({ refId: r.id, dstId: dstVis });
+          const key = `${r.id}->${dstVis}`;
+          if (dstVis && state.layout[dstVis] && !seenRef.has(key)) {
+            seenRef.add(key);
+            refEdges.push({ refId: r.id, dstId: dstVis });
+          }
         }
       }
     }
@@ -2169,9 +2230,10 @@ function renderTreeSephiroth() {
       const x2 = dp.cx, y2 = dp.cy - dp.r - 4;
       const midY = y1 + (y2 - y1) * (0.35 + (idx % 3) * 0.14);
       const d = `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
-      arcsFgLayer.appendChild(elNS("path", {
-        d, fill: "none", stroke: "#74aba2", "stroke-width": 1.6,
-        "stroke-dasharray": "6 3 2 3", opacity: 0.88,
+      const targetLayer = noSel ? arcsBgLayer : arcsFgLayer;
+      targetLayer.appendChild(elNS("path", {
+        d, fill: "none", stroke: "#74aba2", "stroke-width": noSel ? 1.2 : 1.6,
+        "stroke-dasharray": "6 3 2 3", opacity: noSel ? 0.34 : 0.88,
         "marker-end": "url(#arrow-sep-teal)",
       }));
     });
@@ -2475,6 +2537,57 @@ function selectRef(rid) {
   renderDrawer();
 }
 
+function clearSelection() {
+  if (state.selectedId === null && state.selectedRefId === null) return;
+  state.selectedId = null;
+  state.selectedRefId = null;
+  renderTree();
+  renderDrawer();
+}
+
+function renderOverviewDrawer() {
+  const L = t();
+  document.getElementById("d-badges").innerHTML = `<span class="badge badge-branch">${esc(L.badgeOverview)}</span>`;
+  document.getElementById("d-title").textContent = L.overviewTitle;
+  document.getElementById("d-runid").innerHTML = `<span>${esc(L.overviewSubtitle)}</span>`;
+  document.getElementById("d-tabs").style.display = "none";
+
+  const head = DATA.nodes[DATA.meta.head_id];
+  const trunkRows = (DATA.meta.trunk || []).map(tid => {
+    const tn = DATA.nodes[tid];
+    if (!tn) return "";
+    const bpb = tn.is_placeholder && tn.val_bpb != null ? `~${fmtBpb(tn.val_bpb)}` : fmtBpb(tn.val_bpb);
+    const delta = tn.delta_bpb != null ? fmtDelta(tn.delta_bpb) : (tn.is_placeholder ? L.placeholderShort : "—");
+    return `<tr>
+      <td><button class="link-btn" data-jump="${esc(tid)}">${esc(nodeLabel(tn))}</button></td>
+      <td style="font-family:var(--mono)">${esc(bpb)}</td>
+      <td style="font-family:var(--mono)">${esc(delta)}</td>
+    </tr>`;
+  }).join("");
+
+  const body = document.getElementById("d-body");
+  body.innerHTML = `
+    <div class="takeaway-box branch">${esc(L.overviewHint)}</div>
+    <div class="kpi-grid">
+      <div class="kpi">
+        <div class="kpi-label">${esc(L.overviewKpiHead)}</div>
+        <div class="kpi-val">${fmtBpb(head?.val_bpb)}</div>
+        <div class="kpi-sub">${head ? `<button class="link-btn" data-jump="${esc(head.id)}">${esc(nodeLabel(head))}</button>` : "—"}</div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">${esc(L.overviewKpiRuns)}</div>
+        <div class="kpi-val">${DATA.meta.total_runs}</div>
+        <div class="kpi-sub">${esc(L.overviewKpiNoise)}: ±${DATA.meta.noise_floor}</div>
+      </div>
+    </div>
+    <div class="section-h">${esc(L.overviewTrunkSection)}</div>
+    <table class="data"><thead><tr><th>${L.thNode}</th><th>val BPB</th><th>ΔBPB</th></tr></thead><tbody>${trunkRows}</tbody></table>`;
+
+  body.querySelectorAll("[data-jump]").forEach(el => {
+    el.addEventListener("click", () => selectNode(el.dataset.jump));
+  });
+}
+
 function renderRefDrawer(r) {
   const L = t();
   document.getElementById("d-badges").innerHTML = `<span class="badge badge-ref">📚 ${esc(refKindLabel(r.kind))}</span>`;
@@ -2521,9 +2634,12 @@ function renderDrawer() {
     renderRefDrawer(DATA.refs[state.selectedRefId]);
     return;
   }
+  const n = state.selectedId ? DATA.nodes[state.selectedId] : null;
+  if (!n) {
+    renderOverviewDrawer();
+    return;
+  }
   document.getElementById("d-tabs").style.display = "flex";
-  const n = DATA.nodes[state.selectedId];
-  if (!n) return;
   const L = t();
 
   const badges = [];
@@ -3218,21 +3334,31 @@ function setLang(lang) {
 
 function initInteractions() {
   const wrap = document.getElementById("canvas-wrap");
-  let dragging = false, sx = 0, sy = 0, ox = 0, oy = 0;
+  let dragging = false, moved = false, sx = 0, sy = 0, ox = 0, oy = 0;
 
   wrap.addEventListener("mousedown", e => {
-    if (e.target.closest(".node-g") || e.target.closest(".ref-node-g")) return;
-    dragging = true; sx = e.clientX; sy = e.clientY; ox = state.pan.x; oy = state.pan.y;
+    if (
+      e.target.closest(".node-g")
+      || e.target.closest(".ref-node-g")
+      || e.target.closest(".legend")
+      || e.target.closest("button")
+    ) return;
+    dragging = true; moved = false; sx = e.clientX; sy = e.clientY; ox = state.pan.x; oy = state.pan.y;
     wrap.classList.add("dragging");
   });
   window.addEventListener("mousemove", e => {
     if (!dragging) return;
+    if (Math.hypot(e.clientX - sx, e.clientY - sy) > 4) moved = true;
     state.pan.x = ox + (e.clientX - sx);
     state.pan.y = oy + (e.clientY - sy);
     applyTransform();
   });
   window.addEventListener("mouseup", () => {
-    dragging = false; wrap.classList.remove("dragging");
+    if (dragging && !moved) clearSelection();
+    dragging = false; moved = false; wrap.classList.remove("dragging");
+  });
+  window.addEventListener("keydown", e => {
+    if (e.key === "Escape" && document.activeElement?.id !== "search-input") clearSelection();
   });
   wrap.addEventListener("wheel", e => {
     e.preventDefault();
