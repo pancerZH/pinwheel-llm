@@ -429,9 +429,11 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
         status = meta.get("status", "branch")
         is_group = status == "group"
         is_placeholder = bool(meta.get("placeholder", False))
-        no_run = is_group or is_placeholder
+        # A target is an outside reference model scored on our bench (e.g. GPT-2 124M): no training run.
+        is_target = status == "target"
+        no_run = is_group or is_placeholder or is_target
         res = None if no_run else results.get(nid)
-        bench = None if no_run else benches.get(nid)
+        bench = None if (is_group or is_placeholder) else benches.get(nid)
         art = None if no_run else load_run_artifacts(nid, runs_dir, ckpt_dir)
         val_bpb = (
             float(meta["val_bpb"])
@@ -455,12 +457,14 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
             "collapsed": bool(meta.get("collapsed", False)),
             "is_group": is_group,
             "is_placeholder": is_placeholder,
+            "is_target": is_target,
+            "target_metric": (meta.get("target_metric") or "hellaswag") if is_target else "",
             "run_id": None if no_run else nid,
             "date": res["date"] if res else "",
             "git_sha": res["git_sha"] if res else "",
             "change": res["change"] if res else "",
-            "params": (meta.get("params") or "") if is_placeholder else (res["params"] if res else ""),
-            "tokens": (meta.get("tokens") or "") if is_placeholder else (res["tokens"] if res else ""),
+            "params": (meta.get("params") or "") if (is_placeholder or is_target) else (res["params"] if res else ""),
+            "tokens": (meta.get("tokens") or "") if (is_placeholder or is_target) else (res["tokens"] if res else ""),
             "wall_h": res["wall_h"] if res else None,
             "val_bpb": val_bpb,
             "bench": bench,
@@ -491,6 +495,16 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
             cur = nodes[cur]["parent"]
         return None
 
+    def closest_to_target(target: dict) -> str | None:
+        """Our run with the best score on the target's metric (the one chasing it most closely)."""
+        metric = target["target_metric"]
+        scored = [
+            n for n in nodes.values()
+            if not (n["is_group"] or n["is_placeholder"] or n["is_target"])
+            and n["bench"] and n["bench"]["scores"].get(metric) is not None
+        ]
+        return max(scored, key=lambda n: n["bench"]["scores"][metric])["id"] if scored else None
+
     # Resolve compare_to, deltas, diffs, and paired bench tests.
     for nid, meta in raw_nodes.items():
         node = nodes[nid]
@@ -498,6 +512,8 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
             continue
         if "compare_to" in meta:
             cmp_id = meta["compare_to"] or None
+        elif node["is_target"]:
+            cmp_id = closest_to_target(node)
         else:
             cmp_id = nearest_run_ancestor(nid)
         node["compare_to"] = cmp_id
@@ -687,7 +703,9 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
             "root_id": root_id,
             "head_id": head_id,
             "trunk": trunk,
-            "total_runs": sum(1 for n in nodes.values() if not n["is_group"] and not n["is_placeholder"]),
+            "total_runs": sum(
+                1 for n in nodes.values() if not (n["is_group"] or n["is_placeholder"] or n["is_target"])
+            ),
             "bench_tasks": list(BENCH_TASKS),
         },
         "nodes": nodes,

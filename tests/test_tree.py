@@ -377,3 +377,63 @@ def test_placeholder_node_skips_delta_and_total_runs(tmp_path):
     assert v0["compare_to"] == "gpt2-old"
     assert v0["delta_bpb"] is None
     assert root["compared_by"][0]["delta_from_other"] is None
+
+
+def test_target_node_scores_from_bench_and_tracks_closest_run(tmp_path):
+    runs_dir = tmp_path / "runs"
+    ckpt_dir = tmp_path / "ckpt"
+    runs_dir.mkdir()
+    tsv_lines = [
+        "\t".join(["run_id", "date", "git_sha", "change", "params", "tokens", "wall_h", "val_bpb", "hellaswag", "notes"]),
+        "\t".join(["root", "2026-11-24", "aaa", "root", "50.7M", "1000M", "1.6", "1.15", "0.2760", ""]),
+        "\t".join(["best", "2026-11-26", "bbb", "4B", "50.7M", "4000M", "6.7", "1.025", "0.2939", ""]),
+    ]
+    (runs_dir / "results.tsv").write_text("\n".join(tsv_lines) + "\n", encoding="utf-8")
+    bench_lines = [
+        "\t".join(["ckpt", "date", "hellaswag", "arc_easy", "piqa", "blimp"]),
+        "\t".join(["root", "2026-11-24", "0.2760", "0.37", "0.56", "0.72"]),
+        "\t".join(["best", "2026-11-26", "0.2939", "0.42", "0.60", "0.80"]),
+        "\t".join(["gpt2-124m", "2026-11-26", "0.2989", "0.41", "0.63", "0.83"]),
+    ]
+    (runs_dir / "bench.tsv").write_text("\n".join(bench_lines) + "\n", encoding="utf-8")
+    _write_run(runs_dir, ckpt_dir, "root")
+    _write_run(runs_dir, ckpt_dir, "best")
+    bench_dir = runs_dir / "bench"
+    bench_dir.mkdir()
+    rng = np.random.default_rng(0)
+    for name in ("best", "gpt2-124m"):
+        np.savez_compressed(
+            bench_dir / f"{name}.npz",
+            hellaswag__correct=rng.random(200) < 0.3,
+            hellaswag__prob=rng.random(200),
+            hellaswag__target_bpb=rng.random(200),
+        )
+    spec = tmp_path / "tree.toml"
+    spec.write_text(
+        "\n".join(
+            [
+                '[nodes."root"]',
+                'status = "root"',
+                '[nodes."best"]',
+                'parent = "root"',
+                '[nodes."gpt2-124m"]',
+                'parent = "root"',
+                'status = "target"',
+                'params = "124M"',
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    payload = tree_mod.build_tree_payload(runs_dir, ckpt_dir, spec)
+    target = payload["nodes"]["gpt2-124m"]
+    assert target["is_target"] is True
+    assert target["target_metric"] == "hellaswag"
+    assert target["run_id"] is None and target["artifacts"] is None
+    assert target["params"] == "124M"
+    assert math.isclose(target["bench"]["scores"]["hellaswag"], 0.2989)
+    assert target["compare_to"] == "best"  # highest HellaSwag among our runs
+    assert target["delta_bpb"] is None and target["config_diff"] == []
+    assert [r["task"] for r in target["paired_bench"]] == ["hellaswag"]
+    assert payload["meta"]["total_runs"] == 2
+    assert [c["id"] for c in payload["nodes"]["best"]["compared_by"]] == ["gpt2-124m"]

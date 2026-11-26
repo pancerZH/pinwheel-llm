@@ -70,6 +70,7 @@ What the benchmarks taught us:
 - **Every score rises with model size**, and an untrained model gets chance (26.3 on HellaSwag), so the harness works.
 - **They are much noisier than val BPB.** Across seeds, PIQA moves 1.6 points and BLiMP 1.1. LR 2e-3 beats 1e-3 by 0.024 BPB, far above the noise, but by only 0.2–0.4 points on HellaSwag, within the noise. So val BPB stays the main metric and the benchmarks are a sanity check.
 - **HellaSwag is 27.6; GPT-2 124M scores 29.9 on the same harness, so the stretch goal needs 2.3 more points.** llm.c reports 29.55 for GPT-2 because it normalizes by tokens instead of bytes; our harness reproduces that number exactly under llm.c's protocol, so the two rulers differ only in that choice.
+- GPT-2 is scored in fp32, the precision it was trained in (`scripts/gpt2_ref.py`, which also adds SciQ 68.2 and LAMBADA 33.7). Under the bf16 autocast our runs use, its HellaSwag rises to 30.3, while our bf16-trained models move by under 0.1 point between the two precisions; fp32 keeps the comparison fair.
 - TinyStories teaches grammar (BLiMP 62.7) but no world knowledge (the other three are at chance).
 
 ### Stage 2: v1, shape and optimizer ablations (M2) 🔄
@@ -122,5 +123,6 @@ scripts/prepare.py           train the tokenizer, tokenize datasets
 scripts/plot.py              plot loss / BPB curves
 scripts/scaling.py           fit and plot the mini scaling law (run via scripts/scaling.sh)
 scripts/tree.py              build interactive experiment tree webpage (runs/tree.html)
+scripts/gpt2_ref.py          score OpenAI GPT-2 124M on our bench (the stretch-goal reference)
 scripts/stage2_preflight.py  Stage 2 batch-size sweep and WSD confirmation runner
 ```

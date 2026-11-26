@@ -134,6 +134,7 @@
   .sw-card { width: 14px; height: 10px; border-radius: 3px; display: inline-block; border: 1px solid var(--axis); background: var(--card); }
   .sw-head { background: var(--green); border-color: var(--green-dark); }
   .sw-rejected { border: 1px dashed var(--red); }
+  .sw-target { border: 1.5px dashed var(--blue); }
   .sw-chip { font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 8px; font-variant-numeric: tabular-nums; }
   .sw-good { background: var(--green-bg); color: var(--green-dark); }
   .sw-bad { background: var(--red-bg); color: var(--red); }
@@ -162,6 +163,7 @@
   .badge-milestone { background: transparent; color: var(--ink-2); border-color: var(--axis); }
   .badge-placeholder { background: transparent; color: var(--muted); border: 1px dashed var(--axis); }
   .badge-ref { background: var(--ref-bg); color: var(--ref-dark); }
+  .badge-target { background: var(--blue-bg); color: var(--blue); }
   .drawer-title { margin: 0; font-size: 21px; font-weight: 800; line-height: 1.2; letter-spacing: -0.015em; }
   .drawer-runid {
     margin-top: 4px; font-family: var(--mono); font-size: 12px; color: var(--muted);
@@ -304,12 +306,14 @@
   .card-head { fill: var(--green); stroke: var(--green-dark); stroke-width: 1.6; }
   .card-rejected { stroke: var(--red); stroke-dasharray: 5 3; }
   .card-placeholder { stroke: var(--muted); stroke-dasharray: 5 3; }
+  .card-target { stroke: var(--blue); stroke-width: 1.5; stroke-dasharray: 6 3; }
   .card-stack { fill: var(--subtle); stroke: var(--axis); stroke-width: 1; }
   .sel-ring { fill: none; stroke: var(--ink); stroke-width: 2.2; }
 
   .tx { font-family: var(--sans); fill: var(--ink); }
   .tx-ms { font-size: 12px; font-weight: 700; fill: var(--green); }
   .tx-ms-side { font-size: 11.5px; font-weight: 700; fill: var(--amber); }
+  .tx-ms-target { fill: var(--blue); }
   .tx-id { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
   .tx-label { font-size: 13.5px; font-weight: 600; }
   .tx-label-lg { font-size: 15px; font-weight: 700; }
@@ -719,6 +723,19 @@ const I18N = {
     legendInspire: "灵感来源",
     legendRef: "外部参考",
     legendLinksNote: "关系线在选中节点后显示",
+    legendTarget: "越级目标（外部参照）",
+    badgeTarget: "越级目标",
+    targetSource: "外部参照模型，没有在本机训练",
+    targetNoRun: "外部参照模型：没有本地训练曲线和产出物。",
+    targetKpi: (m) => `越级目标 ${m}`,
+    targetKpiSub: "同一套零样本 bench 实测",
+    targetClosestKpi: (m) => `我们最接近的 ${m}`,
+    targetGapShort: (g) => (g > 0 ? `差 ${g.toFixed(2)} 分` : `已超过 ${(-g).toFixed(2)} 分`),
+    targetGap: (rv, g) => `我们最好 ${rv}% · ${g > 0 ? `差 ${g.toFixed(2)} 分` : `已超过 ${(-g).toFixed(2)} 分`}`,
+    targetArcLabel: (id, rv, g) => `最接近：${id} ${rv}%，${g > 0 ? `差 ${g.toFixed(2)} 分` : `已超 ${(-g).toFixed(2)} 分`}`,
+    targetDeltaCore: "我们最接近的 run 减目标 ΔCORE",
+    targetBenchNote: "Δ 列是我们最接近的 run 减去目标：负数表示还落后，正数表示已经超过。",
+    kpiParams: "模型参数",
     tabOverview: "概览",
     tabBench: "基准",
     tabCurve: "曲线",
@@ -868,6 +885,19 @@ const I18N = {
     legendInspire: "Inspired by",
     legendRef: "External reference",
     legendLinksNote: "Links appear when a node is selected",
+    legendTarget: "Stretch target (outside reference)",
+    badgeTarget: "Stretch target",
+    targetSource: "Outside reference model, not trained here",
+    targetNoRun: "Outside reference model: no local training curve or artifacts.",
+    targetKpi: (m) => `Target ${m}`,
+    targetKpiSub: "Measured on the same zero-shot bench",
+    targetClosestKpi: (m) => `Our closest ${m}`,
+    targetGapShort: (g) => (g > 0 ? `${g.toFixed(2)} pts behind` : `${(-g).toFixed(2)} pts ahead`),
+    targetGap: (rv, g) => `our best ${rv}% · ${g > 0 ? `${g.toFixed(2)} pts behind` : `${(-g).toFixed(2)} pts ahead`}`,
+    targetArcLabel: (id, rv, g) => `closest: ${id} ${rv}%, ${g > 0 ? `${g.toFixed(2)} pts behind` : `${(-g).toFixed(2)} pts ahead`}`,
+    targetDeltaCore: "ΔCORE, our closest run minus target",
+    targetBenchNote: "Δ columns are our closest run minus the target: negative means still behind, positive means ahead.",
+    kpiParams: "Params",
     tabOverview: "Overview",
     tabBench: "Benchmarks",
     tabCurve: "Curve",
@@ -1083,6 +1113,19 @@ function nodeMilestone(n) { return pick(n, "milestone"); }
 function nodeProtocol(n) { return pick(n, "protocol"); }
 function nodeTakeaway(n) { return pick(n, "takeaway"); }
 function truncLang(s, zhMax, enMax) { return trunc(s, state.lang === "en" ? enMax : zhMax); }
+
+// A target node's metric, and how far our closest run (its compare_to) is from it, in points.
+function targetInfo(n) {
+  const key = n.target_metric || "hellaswag";
+  const v = n.bench?.scores?.[key];
+  const ref = n.compare_to ? DATA.nodes[n.compare_to] : null;
+  const rv = ref?.bench?.scores?.[key];
+  return {
+    key, label: TASK_LABELS[key] || key, v, ref, rv,
+    gap: v != null && rv != null ? (v - rv) * 100 : null,
+  };
+}
+function pctText(v) { return v == null ? "—" : `${(v * 100).toFixed(2)}%`; }
 
 function isMilestoneNode(n) {
   return Boolean(n.milestone || n.milestone_en) || n.status === "root" || n.status === "adopted";
@@ -1611,9 +1654,15 @@ function collectLinks() {
       if (!n.cross_compare || !n.compare_to || !state.layout[n.compare_to]) continue;
       const isRootArc = id === DATA.meta.root_id;
       if (!(sel === id || sel === n.compare_to || isRootArc)) continue;
-      const label = n.delta_bpb != null
-        ? (isRootArc ? L.arcRootLabel(fmtDelta(-n.delta_bpb)) : L.arcOtherLabel(n.compare_to, fmtDelta(n.delta_bpb)))
-        : L.arcFallback(n.compare_to);
+      let label;
+      if (n.is_target) {
+        const ti = targetInfo(n);
+        label = ti.gap != null ? L.targetArcLabel(n.compare_to, (ti.rv * 100).toFixed(2), ti.gap) : L.arcFallback(n.compare_to);
+      } else {
+        label = n.delta_bpb != null
+          ? (isRootArc ? L.arcRootLabel(fmtDelta(-n.delta_bpb)) : L.arcOtherLabel(n.compare_to, fmtDelta(n.delta_bpb)))
+          : L.arcFallback(n.compare_to);
+      }
       add("compare", { type: "node", id }, n.compare_to, label, false);
     }
     for (const n of Object.values(DATA.nodes)) {
@@ -1779,7 +1828,7 @@ function renderTreeLab() {
   for (const lk of collectLinks()) {
     let pillTxt = "", pillW = 0;
     if (!lk.overview && lk.label) {
-      pillTxt = fitText(lk.label, 260, pillFont);
+      pillTxt = fitText(lk.label, 300, pillFont);
       pillW = Math.ceil(textWidth(pillTxt, pillFont)) + 22;
     }
     const routed = (lk.overview ? faintRoute : focusRoute)(lk.from, lk.to, pillW);
@@ -1822,6 +1871,7 @@ function renderTreeLab() {
 }
 
 function labNodeRole(n, p) {
+  if (n.is_target) return "target";
   if (n.status === "root") return "root";
   if (n.is_head) return "head";
   if (p.trunk) return "trunk";
@@ -1873,7 +1923,9 @@ function drawLabNode(n, p, { dim, selected }) {
 
   const ms = nodeMilestone(n);
   const o = ms ? LAB.MILESTONE_EXTRA : 0;
-  if (ms) g.appendChild(elNS("text", { class: "tx tx-ms-side", x: padX, y: 19 }, fitText(ms, inner, labFont(11.5, 700))));
+  if (ms) {
+    g.appendChild(elNS("text", { class: `tx tx-ms-side${n.is_target ? " tx-ms-target" : ""}`, x: padX, y: 19 }, fitText(ms, inner, labFont(11.5, 700))));
+  }
   g.appendChild(elNS("text", { class: "tx tx-label", x: padX, y: 22 + o }, fitText(nodeLabel(n), inner, labFont(13.5, 600))));
 
   if (n.is_group) {
@@ -1891,6 +1943,14 @@ function drawLabNode(n, p, { dim, selected }) {
       renderTree();
     });
     g.appendChild(tg);
+  } else if (n.is_target) {
+    const ti = targetInfo(n);
+    const num = pctText(ti.v);
+    g.appendChild(elNS("text", { class: "tx tx-num", x: padX, y: 49 + o }, num));
+    g.appendChild(elNS("text", { class: "tx tx-meta", x: padX + textWidth(num, labFont(18, 700)) + 7, y: 49 + o }, ti.label));
+    if (ti.gap != null) {
+      g.appendChild(elNS("text", { class: "tx tx-meta", x: padX, y: 70 + o }, fitText(L.targetGap((ti.rv * 100).toFixed(2), ti.gap), inner, labFont(12))));
+    }
   } else {
     g.appendChild(elNS("text", { class: numCls, x: padX, y: 49 + o }, bpbText));
     const numW = textWidth(bpbText, labFont(18, 700));
@@ -2167,11 +2227,14 @@ function renderTreeSephiroth() {
 
     const showPill = active || isRootArc;
     if (showPill) {
-      const txt = src.delta_bpb != null
-        ? (isRootArc
-            ? L.arcRootLabel(fmtDelta(-src.delta_bpb))
-            : L.arcOtherLabel(src.compare_to, fmtDelta(src.delta_bpb)))
-        : L.arcFallback(src.compare_to);
+      const ti = src.is_target ? targetInfo(src) : null;
+      const txt = ti && ti.gap != null
+        ? L.targetArcLabel(src.compare_to, (ti.rv * 100).toFixed(2), ti.gap)
+        : src.delta_bpb != null
+          ? (isRootArc
+              ? L.arcRootLabel(fmtDelta(-src.delta_bpb))
+              : L.arcOtherLabel(src.compare_to, fmtDelta(src.delta_bpb)))
+          : L.arcFallback(src.compare_to);
       const charW = state.lang === "en" ? 6.4 : 8.4;
       const pillW = Math.max(176, Math.round(txt.length * charW + 24));
       const routed = routeVerticalArc({
@@ -2386,6 +2449,8 @@ function renderTreeSephiroth() {
       fill = "#231e15"; stroke = "#e2c48c"; innerStroke = "rgba(226,196,140,0.45)"; accent = "#f0d7a2";
     } else if (n.status === "adopted") {
       fill = "#1f1b14"; stroke = "#c9a66b"; innerStroke = "rgba(201,166,107,0.35)"; accent = "#dfbe82";
+    } else if (n.is_target) {
+      fill = "#171d22"; stroke = "#7ea8c4"; innerStroke = "rgba(126,168,196,0.32)"; accent = "#a9c8dc";
     } else if (n.status === "rejected") {
       fill = "#211715"; stroke = "#b56354"; innerStroke = "rgba(181,99,84,0.3)"; accent = "#d98879";
     } else if (n.is_group) {
@@ -2408,6 +2473,7 @@ function renderTreeSephiroth() {
       "stroke-width": big ? 1.8 : 1.2,
     });
     if (n.status === "rejected" || n.is_placeholder) outer.setAttribute("stroke-dasharray", "5 4");
+    else if (n.is_target) outer.setAttribute("stroke-dasharray", "2 3");
     else if (n.is_group && state.collapsed[id]) outer.setAttribute("stroke-dasharray", "6 3");
     if (n.is_head) outer.setAttribute("filter", "url(#gold-glow)");
     g.appendChild(outer);
@@ -2462,7 +2528,9 @@ function renderTreeSephiroth() {
         "font-size": 9.5, fill: "#9e917c",
       }, `${gs.count || 0} runs`));
     } else {
-      const bpbText = n.is_placeholder && n.val_bpb != null ? `~${fmtBpb(n.val_bpb)}` : fmtBpb(n.val_bpb);
+      const bpbText = n.is_target
+        ? pctText(targetInfo(n).v)
+        : (n.is_placeholder && n.val_bpb != null ? `~${fmtBpb(n.val_bpb)}` : fmtBpb(n.val_bpb));
       g.appendChild(elNS("text", {
         x: 0, y: big ? 11 : 10, "text-anchor": "middle",
         "font-size": big ? 15 : 12.5, "font-weight": 400, fill: n.is_placeholder ? "#bfb39d" : "#f4ead7", "font-family": "var(--mono)",
@@ -2470,7 +2538,10 @@ function renderTreeSephiroth() {
 
       // Delicate delta inscription below BPB
       let dTxt = "", dCol = "#968a75";
-      if (n.is_placeholder) {
+      if (n.is_target) {
+        const ti = targetInfo(n);
+        if (ti.gap != null) { dTxt = L.targetGapShort(ti.gap); dCol = "#8eb4cc"; }
+      } else if (n.is_placeholder) {
         dTxt = L.placeholderCardTag; dCol = "#cbb5e4";
       } else if (n.delta_bpb != null) {
         dTxt = fmtDelta(n.delta_bpb);
@@ -2607,6 +2678,23 @@ function renderOverviewDrawer() {
     </tr>`;
   }).join("");
 
+  const target = Object.values(DATA.nodes).find(x => x.is_target);
+  let targetKpis = "";
+  if (target) {
+    const ti = targetInfo(target);
+    targetKpis = `
+      <div class="kpi">
+        <div class="kpi-label">${esc(L.targetKpi(ti.label))}</div>
+        <div class="kpi-val">${pctText(ti.v)}</div>
+        <div class="kpi-sub"><button class="link-btn" data-jump="${esc(target.id)}">${esc(nodeLabel(target))}</button></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-label">${esc(L.targetClosestKpi(ti.label))}</div>
+        <div class="kpi-val">${pctText(ti.rv)}</div>
+        <div class="kpi-sub">${ti.ref ? `${ti.gap != null ? esc(L.targetGapShort(ti.gap)) + " · " : ""}<button class="link-btn" data-jump="${esc(ti.ref.id)}">${esc(nodeLabel(ti.ref))}</button>` : "—"}</div>
+      </div>`;
+  }
+
   const body = document.getElementById("d-body");
   body.innerHTML = `
     <div class="takeaway-box branch">${esc(L.overviewHint)}</div>
@@ -2621,6 +2709,7 @@ function renderOverviewDrawer() {
         <div class="kpi-val">${DATA.meta.total_runs}</div>
         <div class="kpi-sub">${esc(L.overviewKpiNoise)}: ±${DATA.meta.noise_floor}</div>
       </div>
+      ${targetKpis}
     </div>
     <div class="section-h">${esc(L.overviewTrunkSection)}</div>
     <table class="data"><thead><tr><th>${L.thNode}</th><th>val BPB</th><th>ΔBPB</th></tr></thead><tbody>${trunkRows}</tbody></table>`;
@@ -2685,7 +2774,8 @@ function renderDrawer() {
   const L = t();
 
   const badges = [];
-  if (n.status === "root") badges.push(`<span class="badge badge-root">${L.badgeRoot}</span>`);
+  if (n.is_target) badges.push(`<span class="badge badge-target">${L.badgeTarget}</span>`);
+  else if (n.status === "root") badges.push(`<span class="badge badge-root">${L.badgeRoot}</span>`);
   else if (n.is_head) badges.push(`<span class="badge badge-adopted">${L.badgeHead}</span>`);
   else if (n.status === "adopted") badges.push(`<span class="badge badge-adopted">${L.badgeAdopted}</span>`);
   else if (n.is_group) badges.push(`<span class="badge badge-group">${L.badgeGroup}</span>`);
@@ -2698,6 +2788,8 @@ function renderDrawer() {
   document.getElementById("d-title").textContent = nodeLabel(n);
   document.getElementById("d-runid").innerHTML = n.is_group
     ? `<span>${L.groupCountSubtitle(n.group_stats?.count || 0)}</span>`
+    : n.is_target
+      ? `<span>${esc(n.id)}</span><span>· ${esc(L.targetSource)}</span>`
     : n.is_placeholder
       ? `<span>${L.placeholderRunId}</span>`
       : `<span>${esc(n.run_id)}</span>${n.date ? `<span>· ${esc(n.date)}</span>` : ""}${n.git_sha ? `<span>· ${esc(n.git_sha)}</span>` : ""}`;
@@ -2769,6 +2861,22 @@ function renderOverviewTab(n) {
   const protocol = nodeProtocol(n);
   if (protocol) {
     parts.push(`<div class="protocol-box"><strong>${L.protocolPrefix}</strong>${esc(protocol)}</div>`);
+  }
+
+  if (n.is_target) {
+    const ti = targetInfo(n);
+    const core = n.bench?.core != null ? (n.bench.core >= 0 ? "+" : "") + n.bench.core.toFixed(4) : "—";
+    const closest = ti.ref
+      ? `${ti.gap != null ? esc(L.targetGapShort(ti.gap)) + " · " : ""}<button class="link-btn" data-jump="${esc(ti.ref.id)}">${esc(nodeLabel(ti.ref))}</button>`
+      : "—";
+    parts.push(`<div class="kpi-grid">
+      <div class="kpi"><div class="kpi-label">${esc(L.targetKpi(ti.label))}</div><div class="kpi-val">${pctText(ti.v)}</div><div class="kpi-sub">${esc(L.targetKpiSub)}</div></div>
+      <div class="kpi"><div class="kpi-label">${esc(L.targetClosestKpi(ti.label))}</div><div class="kpi-val">${pctText(ti.rv)}</div><div class="kpi-sub">${closest}</div></div>
+      <div class="kpi"><div class="kpi-label">${esc(L.kpiParams)}</div><div class="kpi-val">${esc(n.params || "—")}</div></div>
+      <div class="kpi"><div class="kpi-label">${esc(L.kpiCoreAvg)}</div><div class="kpi-val">${core}</div><div class="kpi-sub">${n.bench ? (n.bench.tier === "tier2" ? L.tier2Label : L.defaultBenchLabel) : L.noBenchShort}</div></div>
+    </div>`);
+    parts.push(renderInspirationBlocks(n));
+    return parts.join("");
   }
 
   if (n.is_group) {
@@ -2891,6 +2999,8 @@ function renderBenchTab(n) {
   const refScores = ref?.bench?.scores || {};
   const pairedMap = {};
   for (const r of (n.paired_bench || [])) pairedMap[r.task] = r;
+  // A target is read from our side: our closest run minus the target, so negative means behind.
+  const sign = n.is_target ? -1 : 1;
 
   const rows = DATA.meta.bench_tasks.map(tKey => {
     const val = n.bench.scores[tKey];
@@ -2899,17 +3009,18 @@ function renderBenchTab(n) {
     const pr = pairedMap[tKey];
     let diffHtml = "—";
     if (pr) {
-      const pp = (pr.d_acc * 100).toFixed(2);
-      const cls = pr.p_acc != null && pr.p_acc < 0.05 ? (pr.d_acc > 0 ? "delta-good" : "delta-bad") : "delta-noise";
-      diffHtml = `<span class="${cls}">${pr.d_acc >= 0 ? "+" : ""}${pp} pp</span><br><span style="font-size:10.5px;color:var(--muted)">p=${fmtP(pr.p_acc)}</span>`;
+      const d = sign * pr.d_acc;
+      const cls = pr.p_acc != null && pr.p_acc < 0.05 ? (d > 0 ? "delta-good" : "delta-bad") : "delta-noise";
+      diffHtml = `<span class="${cls}">${d >= 0 ? "+" : "−"}${Math.abs(d * 100).toFixed(2)} pp</span><br><span style="font-size:10.5px;color:var(--muted)">p=${fmtP(pr.p_acc)}</span>`;
     } else if (val != null && rval != null) {
-      const pp = ((val - rval) * 100).toFixed(2);
-      diffHtml = `${val >= rval ? "+" : ""}${pp} pp`;
+      const d = sign * (val - rval);
+      diffHtml = `${d >= 0 ? "+" : "−"}${Math.abs(d * 100).toFixed(2)} pp`;
     }
     let probHtml = "—";
     if (pr) {
-      const cls = pr.p_prob != null && pr.p_prob < 0.05 ? (pr.d_prob > 0 ? "delta-good" : "delta-bad") : "delta-noise";
-      probHtml = `<span class="${cls}">${pr.d_prob >= 0 ? "+" : ""}${pr.d_prob.toFixed(4)}</span><br><span style="font-size:10.5px;color:var(--muted)">p=${fmtP(pr.p_prob)}</span>`;
+      const d = sign * pr.d_prob;
+      const cls = pr.p_prob != null && pr.p_prob < 0.05 ? (d > 0 ? "delta-good" : "delta-bad") : "delta-noise";
+      probHtml = `<span class="${cls}">${d >= 0 ? "+" : "−"}${Math.abs(d).toFixed(4)}</span><br><span style="font-size:10.5px;color:var(--muted)">p=${fmtP(pr.p_prob)}</span>`;
     }
     const star = pr?.short_answer ? " *" : "";
     return `<tr>
@@ -2921,7 +3032,7 @@ function renderBenchTab(n) {
   }).filter(Boolean).join("");
 
   const coreRef = ref?.bench?.core;
-  const coreDelta = (n.bench.core != null && coreRef != null) ? (n.bench.core - coreRef) : null;
+  const coreDelta = (n.bench.core != null && coreRef != null) ? sign * (n.bench.core - coreRef) : null;
   let html = `<div class="kpi-grid">
     <div class="kpi">
       <div class="kpi-label">${L.kpiCoreTitle}</div>
@@ -2929,8 +3040,8 @@ function renderBenchTab(n) {
       <div class="kpi-sub">${L.kpiCoreSub}</div>
     </div>
     <div class="kpi">
-      <div class="kpi-label">${L.kpiDeltaCore}</div>
-      <div class="kpi-val ${coreDelta == null ? "" : (coreDelta >= 0 ? "delta-good" : "delta-bad")}">${coreDelta == null ? "—" : (coreDelta >= 0 ? "+" : "") + coreDelta.toFixed(4)}</div>
+      <div class="kpi-label">${n.is_target ? L.targetDeltaCore : L.kpiDeltaCore}</div>
+      <div class="kpi-val ${coreDelta == null ? "" : (coreDelta >= 0 ? "delta-good" : "delta-bad")}">${coreDelta == null ? "—" : (coreDelta >= 0 ? "+" : "−") + Math.abs(coreDelta).toFixed(4)}</div>
       <div class="kpi-sub">${ref ? `vs ${esc(nodeLabel(ref))}` : L.noRefShort}</div>
     </div>
   </div>
@@ -2939,6 +3050,7 @@ function renderBenchTab(n) {
     <tbody>${rows}</tbody>
   </table>`;
 
+  if (n.is_target) html += `<div class="note-small">${esc(L.targetBenchNote)}</div>`;
   if (n.paired_bench && n.paired_bench.length) {
     html += `<div class="note-small">${L.benchPairedNote}</div>`;
   } else if (ref) {
@@ -3130,6 +3242,7 @@ function renderCurveTab(n) {
   const CT = chartTheme();
   if (n.scaling_chart) return renderScalingChart(n.scaling_chart);
   if (n.is_group) return renderGroupCurves(n);
+  if (n.is_target) return `<div class="empty-state">${esc(L.targetNoRun)}</div>`;
   if (n.is_placeholder) return `<div class="empty-state">${L.placeholderEmpty}</div>`;
   const curPts = (n.val_curve || []).filter(p => p[0] > 0);
   const ref = n.compare_to ? DATA.nodes[n.compare_to] : null;
@@ -3201,6 +3314,7 @@ function renderCurveTab(n) {
 function renderArtifactsTab(n) {
   const L = t();
   if (n.is_group) return `<div class="empty-state">${L.artifactsGroupEmpty}</div>`;
+  if (n.is_target) return `<div class="empty-state">${esc(L.targetNoRun)}</div>`;
   if (n.is_placeholder) return `<div class="empty-state">${L.placeholderEmpty}</div>`;
   const a = n.artifacts || {};
   const parts = [`<div class="section-h">${L.sectionArtifacts}</div>`];
@@ -3375,6 +3489,7 @@ function renderChrome() {
     `<span class="legend-item"><span class="sw-card sw-head"></span>${esc(L.legendHead)}</span>`,
     `<span class="legend-item"><span class="sw-card"></span>${esc(L.legendBranch)}</span>`,
     `<span class="legend-item"><span class="sw-card sw-rejected"></span>${esc(L.legendRejected)}</span>`,
+    `<span class="legend-item"><span class="sw-card sw-target"></span>${esc(L.legendTarget)}</span>`,
     `<span class="legend-item"><span class="sw-chip sw-good">−</span><span class="sw-chip sw-bad">+</span>${esc(L.legendDelta)}</span>`,
     `<span class="legend-item"><span class="swatch-line"></span>${esc(L.legendArc)}</span>`,
     `<span class="legend-item"><span class="swatch-inspire"></span>${esc(L.legendInspire)}</span>`,

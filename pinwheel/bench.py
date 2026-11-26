@@ -189,14 +189,14 @@ def score_item(scores, answers, label, exact=False, use_norm=True):
     }
 
 
-def run_task(model, tok, items, use_norm=True, return_items=False):
+def run_task(model, tok, items, use_norm=True, return_items=False, batch_size=64):
     pairs = [(ctx, a) for ctx, answers, _ in items for a in answers]
     need_exact = any(len(answers) == 1 for _, answers, _ in items)
     if need_exact:
-        logp_t, exact_t = answer_logprobs(model, tok, pairs, return_exact=True)
+        logp_t, exact_t = answer_logprobs(model, tok, pairs, batch_size=batch_size, return_exact=True)
         logp, exacts = logp_t.tolist(), exact_t.tolist()
     else:
-        logp = answer_logprobs(model, tok, pairs).tolist()
+        logp = answer_logprobs(model, tok, pairs, batch_size=batch_size).tolist()
         exacts = [False] * len(pairs)
 
     n = len(items)
@@ -229,7 +229,7 @@ def run_task(model, tok, items, use_norm=True, return_items=False):
     return summary
 
 
-def run_benchmarks(model, tok, tasks=SUITES["default"], limit=None, save_items_path=None):
+def run_benchmarks(model, tok, tasks=SUITES["default"], limit=None, save_items_path=None, batch_size=64):
     """{task: {"acc", "acc_norm", "prob", "margin", "brier", "target_bpb", "n"}}."""
     model.eval()
     results, per_item = {}, {}
@@ -238,11 +238,11 @@ def run_benchmarks(model, tok, tasks=SUITES["default"], limit=None, save_items_p
             items = TASKS[name](limit=limit)
             use_norm = name != "blimp"
             if save_items_path is not None:
-                results[name], item_data = run_task(model, tok, items, use_norm=use_norm, return_items=True)
+                results[name], item_data = run_task(model, tok, items, use_norm=use_norm, return_items=True, batch_size=batch_size)
                 for field, arr in item_data.items():
                     per_item[f"{name}__{field}"] = arr
             else:
-                results[name] = run_task(model, tok, items, use_norm=use_norm)
+                results[name] = run_task(model, tok, items, use_norm=use_norm, batch_size=batch_size)
     if save_items_path is not None:
         save_items_path = Path(save_items_path)
         save_items_path.parent.mkdir(parents=True, exist_ok=True)
