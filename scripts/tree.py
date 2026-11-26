@@ -440,6 +440,9 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
             if (is_placeholder and meta.get("val_bpb") is not None)
             else (res["val_bpb"] if res else None)
         )
+        ref_json = runs_dir / nid / "ref.json"  # a target's val BPB on our val text (scripts/gpt2_ref.py --bpb)
+        if is_target and ref_json.exists():
+            val_bpb = json.loads(ref_json.read_text(encoding="utf-8")).get("val_bpb")
 
         nodes[nid] = {
             "id": nid,

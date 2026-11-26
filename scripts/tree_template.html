@@ -736,6 +736,11 @@ const I18N = {
     targetDeltaCore: "我们最接近的 run 减目标 ΔCORE",
     targetBenchNote: "Δ 列是我们最接近的 run 减去目标：负数表示还落后，正数表示已经超过。",
     kpiParams: "模型参数",
+    targetBpbLine: (b, o, noise) => `val BPB ${b} · 我们 ${o}${noise ? " · 持平" : ""}`,
+    targetBpbKpi: "val BPB（我们的验证集）",
+    targetBpbSub: "同一段文本，GPT-2 用自己的分词器重切",
+    targetOurBpbKpi: "我们最接近的 run 的 val BPB",
+    targetBpbDelta: (d, noise) => `我们减目标 ${d}${noise ? " · 噪声内" : ""}`,
     tabOverview: "概览",
     tabBench: "基准",
     tabCurve: "曲线",
@@ -898,6 +903,11 @@ const I18N = {
     targetDeltaCore: "ΔCORE, our closest run minus target",
     targetBenchNote: "Δ columns are our closest run minus the target: negative means still behind, positive means ahead.",
     kpiParams: "Params",
+    targetBpbLine: (b, o, noise) => `val BPB ${b} · ours ${o}${noise ? " · tie" : ""}`,
+    targetBpbKpi: "val BPB (our val text)",
+    targetBpbSub: "Same text, re-tokenized by GPT-2's own tokenizer",
+    targetOurBpbKpi: "val BPB of our closest run",
+    targetBpbDelta: (d, noise) => `ours minus target ${d}${noise ? " · within noise" : ""}`,
     tabOverview: "Overview",
     tabBench: "Benchmarks",
     tabCurve: "Curve",
@@ -1302,7 +1312,8 @@ const LAB = {
 };
 
 function labBranchHeight(n) {
-  return LAB.BRANCH_H + (nodeMilestone(n) ? LAB.MILESTONE_EXTRA : 0);
+  const targetBpb = n.is_target && n.val_bpb != null ? 18 : 0;
+  return LAB.BRANCH_H + (nodeMilestone(n) ? LAB.MILESTONE_EXTRA : 0) + targetBpb;
 }
 
 function trunkChain() {
@@ -1950,6 +1961,10 @@ function drawLabNode(n, p, { dim, selected }) {
     g.appendChild(elNS("text", { class: "tx tx-meta", x: padX + textWidth(num, labFont(18, 700)) + 7, y: 49 + o }, ti.label));
     if (ti.gap != null) {
       g.appendChild(elNS("text", { class: "tx tx-meta", x: padX, y: 70 + o }, fitText(L.targetGap((ti.rv * 100).toFixed(2), ti.gap), inner, labFont(12))));
+    }
+    if (n.val_bpb != null) {
+      const line = L.targetBpbLine(fmtBpb(n.val_bpb), fmtBpb(ti.ref?.val_bpb), n.in_noise);
+      g.appendChild(elNS("text", { class: "tx tx-meta", x: padX, y: 88 + o }, fitText(line, inner, labFont(12))));
     }
   } else {
     g.appendChild(elNS("text", { class: numCls, x: padX, y: 49 + o }, bpbText));
@@ -2872,6 +2887,9 @@ function renderOverviewTab(n) {
     parts.push(`<div class="kpi-grid">
       <div class="kpi"><div class="kpi-label">${esc(L.targetKpi(ti.label))}</div><div class="kpi-val">${pctText(ti.v)}</div><div class="kpi-sub">${esc(L.targetKpiSub)}</div></div>
       <div class="kpi"><div class="kpi-label">${esc(L.targetClosestKpi(ti.label))}</div><div class="kpi-val">${pctText(ti.rv)}</div><div class="kpi-sub">${closest}</div></div>
+      ${n.val_bpb != null ? `
+      <div class="kpi"><div class="kpi-label">${esc(L.targetBpbKpi)}</div><div class="kpi-val">${fmtBpb(n.val_bpb)}</div><div class="kpi-sub">${esc(L.targetBpbSub)}</div></div>
+      <div class="kpi"><div class="kpi-label">${esc(L.targetOurBpbKpi)}</div><div class="kpi-val">${fmtBpb(ti.ref?.val_bpb)}</div><div class="kpi-sub">${n.delta_bpb != null ? esc(L.targetBpbDelta(fmtDelta(-n.delta_bpb), n.in_noise)) : "—"}</div></div>` : ""}
       <div class="kpi"><div class="kpi-label">${esc(L.kpiParams)}</div><div class="kpi-val">${esc(n.params || "—")}</div></div>
       <div class="kpi"><div class="kpi-label">${esc(L.kpiCoreAvg)}</div><div class="kpi-val">${core}</div><div class="kpi-sub">${n.bench ? (n.bench.tier === "tier2" ? L.tier2Label : L.defaultBenchLabel) : L.noBenchShort}</div></div>
     </div>`);

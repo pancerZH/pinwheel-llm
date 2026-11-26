@@ -408,6 +408,8 @@ def test_target_node_scores_from_bench_and_tracks_closest_run(tmp_path):
             hellaswag__prob=rng.random(200),
             hellaswag__target_bpb=rng.random(200),
         )
+    (runs_dir / "gpt2-124m").mkdir()
+    (runs_dir / "gpt2-124m" / "ref.json").write_text(json.dumps({"val_bpb": 1.0287}), encoding="utf-8")
     spec = tmp_path / "tree.toml"
     spec.write_text(
         "\n".join(
@@ -433,7 +435,10 @@ def test_target_node_scores_from_bench_and_tracks_closest_run(tmp_path):
     assert target["params"] == "124M"
     assert math.isclose(target["bench"]["scores"]["hellaswag"], 0.2989)
     assert target["compare_to"] == "best"  # highest HellaSwag among our runs
-    assert target["delta_bpb"] is None and target["config_diff"] == []
+    assert target["val_bpb"] == 1.0287
+    assert math.isclose(target["delta_bpb"], 0.0037) and target["in_noise"] is True
+    assert target["config_diff"] == []
+    assert payload["uncataloged"] == [] and payload["in_progress"] == []
     assert [r["task"] for r in target["paired_bench"]] == ["hellaswag"]
     assert payload["meta"]["total_runs"] == 2
     assert [c["id"] for c in payload["nodes"]["best"]["compared_by"]] == ["gpt2-124m"]
