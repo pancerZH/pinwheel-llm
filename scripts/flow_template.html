@@ -27,7 +27,8 @@ p{margin:6px 0}
 .top h1{font-size:clamp(28px,3.4vw,42px);font-weight:800;letter-spacing:-.02em;line-height:1.05}
 .lede{max-width:68ch;color:var(--ink2);font-size:16px;margin-top:10px}
 .kpi{text-align:right}
-.lang{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden;margin-bottom:10px}
+.top-ctl{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-bottom:10px}
+.lang{display:inline-flex;border:1px solid var(--line);border-radius:6px;overflow:hidden}
 .lang button{border:0;background:var(--card);padding:3px 12px;font-size:13px;min-height:30px}
 .lang button.on{background:var(--ink);color:var(--bg);font-weight:700}
 .kpi .big{font-size:clamp(34px,4vw,52px);font-weight:800;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
@@ -142,10 +143,25 @@ table.xy{border-collapse:collapse}
 details{margin-top:10px;border-top:1px solid var(--line);padding-top:8px}
 summary{cursor:pointer;font-weight:700;font-size:14px;color:var(--teal)}
 #tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--bg);font:13px var(--mono);padding:4px 8px;border-radius:4px;display:none;z-index:30;white-space:pre}
+#tip.wide{white-space:normal;max-width:min(340px,90vw);font:14px/1.5 var(--sans);padding:8px 10px}
 #probe{position:absolute;width:0;height:0;overflow:hidden}
 .two .bars{grid-template-columns:repeat(2,minmax(0,1fr));column-gap:24px}
 .two .bars .r{grid-template-columns:4.8em minmax(0,1fr) 3em}
-@media (max-width:980px){.wrap{grid-template-columns:minmax(0,1fr)}aside{position:static;max-height:none}.top{grid-template-columns:minmax(0,1fr)}.kpi{text-align:left}}
+.gist{font-size:17px;font-weight:600;color:var(--ink);margin:2px 0 8px;max-width:70ch}
+.how,.see{border-radius:8px;padding:8px 12px;margin:10px 0 4px;font-size:14px;line-height:1.55;max-width:90ch}
+.how{background:var(--teal2)}
+.see{background:color-mix(in srgb,var(--amber) 13%,transparent)}
+.how>b,.see>b{display:block;font-size:13px;margin-bottom:2px}
+.how>b{color:var(--teal)}
+.see>b{color:var(--amber)}
+.see ul{margin:0;padding-left:18px}
+.term{border-bottom:1.5px dotted var(--teal);cursor:help}
+.guide{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 16px;margin-bottom:14px;font-size:14px}
+.guide h3{font-size:16px;font-weight:800;margin-bottom:4px}
+.guide ul{margin:4px 0 0;padding-left:18px}
+.guide li{margin:3px 0}
+.nohints .how,.nohints .see,.nohints .guide{display:none}
+@media (max-width:980px){.wrap{grid-template-columns:minmax(0,1fr)}aside{position:static;max-height:none}.top{grid-template-columns:minmax(0,1fr)}.kpi{text-align:left}.top-ctl{justify-content:flex-start}}
 @media (max-width:600px){.st{padding:12px 12px 12px 38px}.st::before{left:15px}.st>.dot{left:8px}.edge{margin-left:15px;padding-left:16px}.lrow{grid-template-columns:4.6em minmax(0,1fr) minmax(0,7em) 3.6em;gap:6px}.bars .r{grid-template-columns:minmax(0,7em) minmax(0,1fr) 4.4em}}
 @media (prefers-reduced-motion:reduce){.st,.st>.dot{transition:none}}
 </style>
@@ -156,7 +172,7 @@ summary{cursor:pointer;font-weight:700;font-size:14px;color:var(--teal)}
     <h1 id="h1"></h1>
     <p class="lede" id="lede"></p>
   </div>
-  <div class="kpi"><div class="lang" id="lang"></div><div id="kpi"></div></div>
+  <div class="kpi"><div class="top-ctl"><div class="lang" id="lang"></div><div class="lang" id="hints"></div></div><div id="kpi"></div></div>
 </header>
 <div class="wrap">
   <aside>
@@ -177,15 +193,17 @@ const D = JSON.parse(document.getElementById('data').textContent);
 const V = D.variants, VOC = D.vocab, T = D.ids.length - 1;
 const INP = D.ids.slice(0, -1), TGT = D.ids.slice(1);
 const SP = D.spectra;
-const LANG_KEY = 'pinwheel-flow-lang';
-let saved = null;
-try { saved = localStorage.getItem(LANG_KEY); } catch (e) { /* storage may be off for file:// pages */ }
-const S = {v: Math.max(0, V.findIndex(v => v.run !== 'init')), prev: null, pos: T - 1, layer: 0, head: 0, mat: 'wv', big: false, open: {}, changed: new Set(), lang: saved === 'en' ? 'en' : 'zh'};
+const KEY = {lang: 'pinwheel-flow-lang', hints: 'pinwheel-flow-hints'};
+const load = k => { try { return localStorage.getItem(KEY[k]); } catch (e) { return null; } };
+const store = (k, v) => { try { localStorage.setItem(KEY[k], v); } catch (e) { /* file:// pages may refuse storage */ } };
+const S = {v: Math.max(0, V.findIndex(v => v.run !== 'init')), prev: null, pos: T - 1, layer: 0, head: 0, mat: 'wv', big: false,
+  open: {}, changed: new Set(), lang: load('lang') === 'en' ? 'en' : 'zh', hints: load('hints') !== '0'};
 const L = (zh, en) => S.lang === 'en' ? en : zh;
 
 const esc = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
 const tok = id => VOC[id] === '<|bos|>' ? '<bos>' : VOC[id];
 const tokH = id => esc(tok(id)).replace(/ /g, '<i class="sp">·</i>').replace(/\n/g, '<i class="sp">↵</i>');
+const q = id => `‹${tokH(id)}›`;
 const f = (x, d = 3) => x == null ? '—' : Number(x).toFixed(d);
 const pct = p => p >= 0.1 ? (p * 100).toFixed(0) + '%' : p >= 0.01 ? (p * 100).toFixed(1) + '%' : (p * 100).toPrecision(1) + '%';
 const fTok = n => n == null ? '—' : n === 0 ? '0' : n >= 1e9 ? +(n / 1e9).toPrecision(2) + 'B' : +(n / 1e6).toPrecision(3) + 'M';
@@ -195,21 +213,85 @@ const fM = n => (n / 1e6).toFixed(2) + 'M';
 const fInt = n => Number(n).toLocaleString('en-US');
 const numel = s => s.reduce((a, b) => a * b, 1);
 const sum = a => a.reduce((x, y) => x + y, 0);
+const mean = a => sum(a) / a.length;
 const DS = {'fineweb-edu': 'FineWeb-Edu', tinystories: 'TinyStories'};
 const onOff = v => v ? L('开', 'on') : L('关', 'off');
 
+// ---------- glossary: dotted terms show these on hover or tap ----------
+const GL = {
+  token: ['token', 'token', '模型读写文字的最小单位：一个词、半个词或一个标点。', 'The smallest unit the model reads and writes: a word, part of a word, or a punctuation mark.'],
+  bpe: ['BPE', 'BPE', '一种切词方法：从单个字节开始，反复把语料里最常挨在一起的两块合并，合到 8192 块为止。常见词是一整块，生僻词会被拆开。', 'A way of cutting text: start from single bytes and keep merging the two pieces that most often sit together in the corpus, until there are 8192. Common words become one piece; rare words get split.'],
+  bos: ['<bos>', '<bos>', '每篇文档开头的特殊 token，意思是“新的一篇开始了”。', 'A special token at the start of every document, meaning "a new document starts here".'],
+  shape: ['形状', 'shape', '(B, T, 640) 表示 B 段文字 × 每段 T 个 token × 每个 token 用 640 个数表示。', '(B, T, 640) means B pieces of text × T tokens each × 640 numbers per token.'],
+  batch: ['batch', 'batch', '一步用多少 token 来估计“该往哪改”。越大方向越准，但每个 token 换来的进步越少。', 'How many tokens one step uses to estimate which way to move. Bigger gives a more accurate direction, but less progress per token.'],
+  accum: ['梯度累积', 'gradient accumulation', '显存一次放不下整个 batch，就分几次算，把梯度加起来再更新一次，效果等于一个大 batch。', 'The whole batch does not fit in GPU memory, so it is computed in several passes and the gradients are added up before one update; the effect is the same as one big batch.'],
+  emb: ['嵌入表', 'embedding table', '一张 8192 行 × 640 列的表，每个 token 一行。查表 = 把编号换成这一行的 640 个数。', 'An 8192-row × 640-column table, one row per token. Looking up = replacing the id with that row of 640 numbers.'],
+  tied: ['权重共享', 'tied weights', '输入的嵌入表和最后的输出头是同一张表，省下一整张表的参数。', 'The input embedding table and the final output head are the same table, which saves a whole table of parameters.'],
+  channel: ['通道', 'channel', '640 个数里的某一个位置（某一维）。', 'One of the 640 positions (dimensions) in a token’s vector.'],
+  residual: ['残差流', 'residual stream', '每个 token 一块写着 640 个数的“黑板”。每层读黑板、算出一点修改、加回去（不擦掉），再交给下一层。', 'A 640-number "blackboard" for each token. Every layer reads it, works out a small change and adds it on (nothing is erased), then hands it on.'],
+  rms: ['RMS', 'RMS', '一组数的典型大小：平方、取平均、再开根号。用来比较向量有多“响”。', 'The typical size of a set of numbers: square them, average, take the square root. Used to compare how "loud" vectors are.'],
+  norm: ['归一化', 'normalization', '像调音量：先把 x 缩放到固定大小，再乘 640 个可学习的“音量旋钮”（增益 γ），然后才交给注意力或 MLP。', 'Like a volume control: scale x to a fixed size, then multiply by 640 learnable volume knobs (the gain γ), before handing it to attention or the MLP.'],
+  attention: ['注意力', 'attention', '每个 token 给它前面的每个 token 打分，按分数加权，把它们的信息搬到自己身上。', 'Every token scores each token before it, and pulls their information over, weighted by those scores.'],
+  qkv: ['q、k、v', 'q, k, v', 'q：我在找什么；k：我这里有什么（像书脊上的目录）；v：真正被搬走的内容（像书的正文）。q·k 越大，越关注。', 'q: what I am looking for; k: what I hold (like the title on a book’s spine); v: the content that actually gets moved (the book itself). The larger q·k, the more attention.'],
+  head: ['头', 'head', '注意力分成 10 组同时做，每组 64 维，各学一种“看哪里”：看前一个词、看主语、照抄……', 'Attention is split into 10 groups run side by side, 64 dims each, and each learns its own idea of where to look: the previous word, the subject, copying…'],
+  gqa: ['GQA', 'GQA', '几个 q 头共用一组 k、v。效果几乎不变，推理时要存的 KV cache 少一半。', 'Several q heads share one set of k and v. Quality barely changes, and the KV cache kept during inference halves.'],
+  kvcache: ['KV cache', 'KV cache', '生成文字时把已有 token 的 k、v 存起来，下一个 token 直接拿来用，不用重算。', 'While generating, the k and v of earlier tokens are kept so the next token can reuse them instead of recomputing.'],
+  rope: ['RoPE', 'RoPE', '按位置把 q、k 的每对通道转一个角度，像钟表的指针。q 和 k 一起转，点积里就只剩“隔了多远”。', 'Rotates each channel pair of q and k by an angle that depends on position, like clock hands. q and k turn together, so their dot product only keeps how far apart they are.'],
+  causal: ['因果掩码', 'causal mask', '不许看后面的 token：训练时后面就是答案，看了等于作弊。', 'No token may look ahead: during training the later tokens are the answers, so looking would be cheating.'],
+  softmax: ['softmax', 'softmax', '把一组分数变成加起来为 1 的概率：每个取 e 的指数再除以总和。分数差 2 → 概率差 7.4 倍；差 10 → 2.2 万倍。', 'Turns scores into probabilities that sum to 1: exponentiate each, divide by the total. A score gap of 2 → 7.4× more weight; a gap of 10 → 22,000×.'],
+  qknorm: ['QK-Norm', 'QK-Norm', '打分前把每个头的 q、k 都缩放到相同模长，打分就只看方向，不会因为权重越长越大而失控。', 'Before scoring, each head’s q and k are scaled to the same magnitude, so the score depends only on direction and cannot blow up as the weights grow.'],
+  induction: ['归纳头', 'induction head', '看到 A 时，回头找 A 上次出现的地方，把它后面那个 token 抄过来：A B … A → B。像开卷考试。', 'On seeing A, look back for the last place A appeared and copy the token that followed it: A B … A → B. Like an open-book exam.'],
+  sink: ['注意力汇点', 'attention sink', '头这次没什么要看的时候，就把注意力“停”在开头的 <bos> 上，相当于这次不搬信息。', 'When a head has nothing useful to look at, it parks its attention on the opening <bos>, which amounts to moving nothing this time.'],
+  massive: ['巨大激活', 'massive activation', '残差流里极少数通道的值比其他大几十到上百倍，常和注意力汇点一起出现在开头 token 上。', 'A handful of channels in the residual stream that are tens to hundreds of times larger than the rest, often on the opening token, together with the attention sink.'],
+  mlp: ['MLP', 'MLP', '每个 token 各自过的小网络：先放宽到上千维、过一个非线性，再压回 640 维。大部分“知识”记在这里。', 'A small network each token goes through on its own: widen to over a thousand dims, apply a non-linearity, squeeze back to 640. Most of the stored "knowledge" lives here.'],
+  swiglu: ['SwiGLU', 'SwiGLU', '两路相乘：一路算“门开多大”（silu），一路算“内容”。门关着，内容就过不去。', 'Two paths multiplied: one decides how far the gate opens (silu), the other carries the content. If the gate is shut, nothing gets through.'],
+  gelu: ['GELU', 'GELU', '一个平滑的开关：负数基本关掉，正数基本原样通过，像调光开关。', 'A smooth switch: negatives mostly blocked, positives mostly passed through, like a dimmer.'],
+  lens: ['logit lens', 'logit lens', '把中间某层的黑板直接接到最后的 norm 和输出头上，看“要是现在就停，模型会猜什么”。', 'Feed an intermediate layer’s blackboard straight into the final norm and output head, to see what the model would guess if it stopped here.'],
+  logit: ['logit', 'logit', '输出头给词表里每个 token 打的原始分数，可正可负，越大越可能。', 'The raw score the output head gives every token in the vocabulary; it can be negative, and bigger means more likely.'],
+  entropy: ['熵', 'entropy', '模型有多拿不准：H bit ≈ 在 2^H 个答案之间犹豫。1 bit ≈ 二选一。', 'How unsure the model is: H bits ≈ hesitating between 2^H answers. 1 bit ≈ a coin flip between two.'],
+  ce: ['交叉熵', 'cross-entropy', '正确答案的概率越低罚得越重：−log₂ p。给 50% 罚 1 bit，给 1% 罚 6.6 bit，乱猜（1/8192）罚 13 bit。', 'The lower the probability of the right answer, the bigger the penalty: −log₂ p. 50% costs 1 bit, 1% costs 6.6 bits, a blind guess (1/8192) costs 13 bits.'],
+  bits: ['bit / nat', 'bit / nat', '信息量的单位。用 log₂ 算是 bit，用自然对数算是 nat；1 nat ≈ 1.44 bit。', 'Units of information: log base 2 gives bits, the natural log gives nats; 1 nat ≈ 1.44 bits.'],
+  bpb: ['BPB', 'BPB', '每个字节平均要花几 bit。和切词方式无关，所以不同词表的模型也能比；越低越好。', 'Bits per byte: how many bits each byte of text costs on average. It does not depend on how text is cut into tokens, so models with different vocabularies compare fairly; lower is better.'],
+  valbpb: ['val BPB', 'val BPB', '在一段固定的、训练时没见过的验证文本上算的 BPB，是这个项目的主指标，越低越好。', 'BPB on a fixed stretch of validation text the model never trained on: this project’s main metric. Lower is better.'],
+  grad: ['梯度', 'gradient', '每个参数“往哪边改一点，loss 降得最快”，形状和参数一模一样。', 'For each parameter, which small change lowers the loss fastest; it has exactly the parameter’s shape.'],
+  clip: ['梯度裁剪', 'gradient clipping', '所有梯度合起来的模长超过 1 就整体等比缩小，防止某一步迈得太大。', 'If the combined magnitude of all gradients exceeds 1, they are all scaled down together, so no single step is too big.'],
+  momentum: ['动量', 'momentum', '梯度的滑动平均：方向更稳，不会被单个 batch 带偏。', 'A running average of gradients: a steadier direction that one noisy batch cannot throw off.'],
+  sv: ['奇异值', 'singular value', '把一个矩阵拆成若干“方向 × 力度”，力度就是奇异值。最大的几个说明这次更新主要往哪几个方向推。', 'A matrix can be split into "direction × strength" pairs; the strengths are the singular values. The largest few tell you where the update mainly pushes.'],
+  ns: ['Newton–Schulz', 'Newton–Schulz', '只用矩阵乘法、把所有奇异值推到 1 附近的迭代，代替昂贵的 SVD 分解。', 'An iteration that uses only matrix multiplies to push every singular value towards 1, instead of an expensive SVD.'],
+  wd: ['weight decay', 'weight decay', '每步把权重往 0 拉一点点，防止它们越长越大。', 'Each step pulls the weights slightly towards 0, so they do not keep growing.'],
+  adamw: ['AdamW', 'AdamW', '逐个参数调步长：一直被同一方向推的参数迈稳步，梯度忽大忽小的参数步子缩小。', 'Sets the step size per parameter: parameters pushed steadily one way take confident steps, those with jumpy gradients take smaller ones.'],
+  muon: ['Muon', 'Muon', '把一整块矩阵的更新当一个整体：拆成若干方向，让每个方向走一样远。陡的方向不再抢走全部步长。', 'Treats a whole matrix update as one object: split it into directions and move the same distance along each, so the steepest direction no longer takes the whole step.'],
+  lr: ['学习率', 'learning rate', '沿梯度走多远，像蒙眼下山时一步迈多大。太小走得慢，太大在山谷两边来回跳。', 'How far to move along the gradient, like stride length walking downhill blindfolded. Too small is slow; too big bounces between the valley walls.'],
+  warmup: ['warmup', 'warmup', '开头一两百步把学习率从 0 慢慢升到峰值：刚开始梯度很乱，先小步走。', 'For the first hundred or so steps the learning rate climbs from 0 to its peak: early gradients are chaotic, so start with small steps.'],
+  cooldown: ['退火', 'cooldown', '最后一段把学习率降到 0：步子越来越小，落进谷底，loss 会明显再降一截。', 'At the end the learning rate falls to 0: smaller and smaller steps settle into the valley floor, and the loss drops noticeably once more.'],
+  wsd: ['WSD', 'WSD', 'warmup → 恒定（stable）→ 退火（decay）。恒定段的任何 checkpoint 都能拿出来单独退火，得到一次更短的训练。', 'Warmup → stable → decay. Any checkpoint from the stable phase can be cooled down on its own, giving a shorter training run.'],
+  cosine: ['cosine', 'cosine', '学习率沿余弦曲线从峰值一路慢慢降下来。', 'The learning rate slides down from its peak along a cosine curve.'],
+  noise: ['噪声', 'noise', '同样配置、只换随机种子，结果也会差一点。两次实验的差别比这还小，就不能说谁更好。', 'Same settings with a different random seed still give slightly different results. A gap smaller than that does not show either run is better.'],
+  controlled: ['单变量对照', 'one change', '两次实验只差这一项，结果的差别才能算到这一项头上。', 'The two runs differ in this one setting only, so the difference in results can be put down to it.'],
+  arch: ['结构', 'Architecture', 'Llama 式 = RMSNorm + RoPE + SwiGLU + GQA；GPT-2 式 = LayerNorm + 可学习位置表 + GELU + 多头注意力。这四项只一起换过，所以是一个开关。', 'Llama-style = RMSNorm + RoPE + SwiGLU + GQA; GPT-2-style = LayerNorm + learned positions + GELU + multi-head attention. The four were only ever swapped together, so they share one switch.'],
+  zeroinit: ['零初始化', 'Zero init', '把写回残差流的矩阵（wo、w_down）初始化为 0：每层一开始什么都不改，像新员工先旁听再发言。', 'The matrices that write back into the residual stream (wo, w_down) start at 0: every layer begins by changing nothing, like a new hire who listens before speaking.'],
+  optimizer: ['优化器', 'Optimizer', 'AdamW 逐个参数调步长；Muon 对整块矩阵按方向调步长。', 'AdamW sets step sizes per parameter; Muon sets them per direction of a whole matrix.'],
+  schedule: ['LR 调度', 'Schedule', 'cosine：一路慢慢降；WSD：先恒定，最后一段退火。', 'cosine: a slow slide all the way; WSD: constant, then a final cooldown.'],
+  tokens: ['训练量', 'Tokens', '这次训练一共看了多少 token。「未退火」= 训练中途、学习率还在峰值时存下的 checkpoint。', 'How many tokens the run trained on. "Pre-cooldown" = a checkpoint saved mid-run while the learning rate was still at its peak.'],
+  dataset: ['数据集', 'Dataset', 'FineWeb-Edu：教育类网页；TinyStories：给小孩的简单故事（词汇少，BPB 低得多，不能和 FineWeb 直接比）。', 'FineWeb-Edu: educational web pages. TinyStories: simple children’s stories (small vocabulary, much lower BPB, not comparable with FineWeb).'],
+};
+const g = (k, label) => `<span class="term" data-g="${k}" tabindex="0">${label ?? esc(L(GL[k][0], GL[k][1]))}</span>`;
+const gist = t => `<p class="gist">${t}</p>`;
+const how = t => `<div class="how"><b>${L('怎么看', 'How to read it')}</b>${t}</div>`;
+const see = items => { items = items.filter(Boolean); return items.length ? `<div class="see"><b>${L('这次能看到', 'What this data shows')}</b><ul>${items.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''; };
+
 const SLOTS = [
-  {k: 'arch', zh: '结构', en: 'Architecture', w: 6, lab: v => ({llama: L('Llama 式', 'Llama-style'), gpt2: L('GPT-2 式', 'GPT-2-style')})[v] || v},
-  {k: 'qk_norm', zh: 'QK-Norm', en: 'QK-Norm', w: 3, lab: onOff},
-  {k: 'zero_init', zh: '零初始化', en: 'Zero init', w: 3, lab: onOff},
-  {k: 'optimizer', zh: '优化器', en: 'Optimizer', w: 5, lab: v => ({adamw: 'AdamW', muon: 'Muon'})[v] || v},
-  {k: 'lr', zh: '峰值 LR', en: 'Peak LR', w: 1, lab: fLR},
-  {k: 'schedule', zh: 'LR 调度', en: 'Schedule', w: 3, lab: v => ({cosine: 'cosine', wsd: 'WSD'})[v] || v},
-  {k: 'batch', zh: 'Batch', en: 'Batch', w: 2, lab: fB},
-  {k: 'tokens', zh: '训练量', en: 'Tokens', w: 4, lab: v => v === 0 ? L('0（初始化）', '0 (init)') : fTok(v) + (V.some(x => x.recipe.tokens === v && x.stable) ? L(' 未退火', ' pre-cooldown') : '')},
-  {k: 'data', zh: '数据集', en: 'Dataset', w: 8, lab: v => DS[v] || v},
+  {k: 'arch', gk: 'arch', w: 6, lab: v => ({llama: L('Llama 式', 'Llama-style'), gpt2: L('GPT-2 式', 'GPT-2-style')})[v] || v},
+  {k: 'qk_norm', gk: 'qknorm', w: 3, lab: onOff},
+  {k: 'zero_init', gk: 'zeroinit', w: 3, lab: onOff},
+  {k: 'optimizer', gk: 'optimizer', w: 5, lab: v => ({adamw: 'AdamW', muon: 'Muon'})[v] || v},
+  {k: 'lr', gk: 'lr', name: ['峰值 LR', 'Peak LR'], w: 1, lab: fLR},
+  {k: 'schedule', gk: 'schedule', w: 3, lab: v => ({cosine: 'cosine', wsd: 'WSD'})[v] || v},
+  {k: 'batch', gk: 'batch', name: ['Batch', 'Batch'], w: 2, lab: fB},
+  {k: 'tokens', gk: 'tokens', w: 4, lab: v => v === 0 ? L('0（初始化）', '0 (init)') : fTok(v) + (V.some(x => x.recipe.tokens === v && x.stable) ? L(' 未退火', ' pre-cooldown') : '')},
+  {k: 'data', gk: 'dataset', w: 8, lab: v => DS[v] || v},
 ];
-const nm = s => L(s.zh, s.en);
+const nm = s => s.name ? L(...s.name) : L(GL[s.gk][0], GL[s.gk][1]);
 for (const s of SLOTS) s.vals = [...new Set(V.map(v => v.recipe[s.k]).filter(x => x != null))].sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
 const SHOWN = SLOTS.filter(s => s.vals.length > 1);
 const slot = k => SLOTS.find(s => s.k === k);
@@ -268,14 +350,14 @@ function heatHTML(h, total) {
   TIPS[id] = {h};
   later(() => drawHeat(id, h));
   return `<div class="heat" id="${id}" style="--rows:${T}"><canvas width="${h.w}" height="${T}"></canvas><div class="selrow" style="top:${S.pos / T * 100}%;height:${100 / T}%"></div></div>
-    <p class="cap">${L(`行 = ${T} 个 token，列 = 前 ${h.w} / ${total} 个通道；颜色满格 = ±${h.s}（更大的值饱和）`, `Rows = ${T} tokens, columns = the first ${h.w} of ${total} channels; full colour = ±${h.s} (larger values saturate)`)}</p>`;
+    <p class="cap">${L(`行 = ${T} 个 token，列 = 前 ${h.w} / ${total} 个通道。红 = 正、蓝 = 负、白 ≈ 0；满格 = ±${h.s}，更大的值也只画满格。黑框 = 跟踪的 token。`, `Rows = ${T} tokens, columns = the first ${h.w} of ${total} channels. Red = positive, blue = negative, white ≈ 0; full colour = ±${h.s}, larger values saturate. Black frame = the tracked token.`)}</p>`;
 }
 function drawHeat(id, h) {
   const cv = document.querySelector(`#${id} canvas`); if (!cv) return;
-  const ctx = cv.getContext('2d'), img = ctx.createImageData(h.w, T), q = i8(h);
+  const ctx = cv.getContext('2d'), img = ctx.createImageData(h.w, T), qq = i8(h);
   const z = rgb('--card'), p = rgb('--pos'), n = rgb('--neg');
-  for (let i = 0; i < q.length; i++) {
-    const t = q[i] / 127, c = mix(z, t > 0 ? p : n, Math.min(1, Math.abs(t)));
+  for (let i = 0; i < qq.length; i++) {
+    const t = qq[i] / 127, c = mix(z, t > 0 ? p : n, Math.min(1, Math.abs(t)));
     img.data.set([c[0], c[1], c[2], 255], i * 4);
   }
   ctx.putImageData(img, 0, 0);
@@ -319,22 +401,26 @@ function attnBig(id, a, head) {
   cv.onmouseleave = () => tip(null);
 }
 const tipEl = document.getElementById('tip');
-function tip(e, text) {
+function tip(e, text, wide) {
   if (!e) { tipEl.style.display = 'none'; return; }
+  tipEl.className = wide ? 'wide' : '';
   tipEl.textContent = text; tipEl.style.display = 'block';
-  tipEl.style.left = Math.min(e.clientX + 14, innerWidth - tipEl.offsetWidth - 8) + 'px';
-  tipEl.style.top = (e.clientY + 16) + 'px';
+  const w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+  tipEl.style.left = Math.max(8, Math.min(e.clientX + 14, innerWidth - w - 8)) + 'px';
+  tipEl.style.top = (e.clientY + 16 + h > innerHeight ? e.clientY - h - 10 : e.clientY + 16) + 'px';
 }
+const termTip = (el, e) => tip(e, L(GL[el.dataset.g][2], GL[el.dataset.g][3]), true);
+document.addEventListener('mouseover', e => { const t = e.target.closest && e.target.closest('.term'); if (t) termTip(t, e); });
 document.addEventListener('mousemove', e => {
   const cv = e.target.closest && e.target.closest('.heat canvas');
   if (!cv) return;
   const box = cv.parentElement, t = TIPS[box.id]; if (!t) return;
   const r = cv.getBoundingClientRect(), c = Math.floor((e.clientX - r.left) / r.width * t.h.w), row = Math.floor((e.clientY - r.top) / r.height * T);
   if (c < 0 || c >= t.h.w || row < 0 || row >= T) return tip(null);
-  const q = i8(t.h)[row * t.h.w + c], v = (Math.abs(q) === 127 ? (q > 0 ? '≥ ' : '≤ ') : '≈ ') + (q / 127 * t.h.s).toPrecision(3);
+  const qq = i8(t.h)[row * t.h.w + c], v = (Math.abs(qq) === 127 ? (qq > 0 ? '≥ ' : '≤ ') : '≈ ') + (qq / 127 * t.h.s).toPrecision(3);
   tip(e, L(`‹${tok(INP[row])}› 通道 ${c}：${v}`, `‹${tok(INP[row])}› channel ${c}: ${v}`));
 });
-document.addEventListener('mouseout', e => { if (e.target.closest && e.target.closest('.heat canvas')) tip(null); });
+document.addEventListener('mouseout', e => { if (e.target.closest && e.target.closest('.heat canvas, .term')) tip(null); });
 
 function bars(rows, max) {
   max = max || Math.max(...rows.map(r => r.v), 1e-12);
@@ -346,8 +432,8 @@ function topBars(R, k) {
   if (!ids.includes(tgt)) rows.push({label: tokH(tgt), v: R.tp[S.pos], text: pct(R.tp[S.pos]), hit: true});
   return bars(rows, Math.max(...rows.map(r => r.v)));
 }
-const rankText = R => L(`正确答案 ‹${tokH(TGT[S.pos])}› 概率 ${pct(R.tp[S.pos])}，排第 ${R.rank[S.pos] + 1}`,
-  `The right answer ‹${tokH(TGT[S.pos])}› gets ${pct(R.tp[S.pos])}, rank ${R.rank[S.pos] + 1}`);
+const rankText = R => L(`正确答案 ${q(TGT[S.pos])} 拿到 ${pct(R.tp[S.pos])}，排第 ${R.rank[S.pos] + 1}`,
+  `The right answer ${q(TGT[S.pos])} gets ${pct(R.tp[S.pos])}, rank ${R.rank[S.pos] + 1}`);
 
 function ticks(a, b, n = 4) {
   const s0 = (b - a) / n || 1, mag = 10 ** Math.floor(Math.log10(s0)), st = [1, 2, 2.5, 5, 10].map(k => k * mag).find(s => s >= s0);
@@ -413,28 +499,30 @@ function swap(k, names) {
   const target = pick(k, other); if (target == null) return '';
   const extra = diffs(S.v, target).filter(x => x.k !== k).map(nm);
   const parts = s.vals.map(x => x === now ? `<b>${esc(names[x] ?? s.lab(x))}</b>` : esc(names[x] ?? s.lab(x)));
-  const title = L(`换到 ${V[target].run}`, `Switch to ${V[target].run}`) + (extra.length ? L(`；同时变：${extra.join('、')}`, `; also changes: ${extra.join(', ')}`) : '');
+  const title = L(`点击换成另一种，页面切到 ${V[target].run}`, `Click to swap; the page moves to ${V[target].run}`) + (extra.length ? L(`；同时变：${extra.join('、')}`, `; also changes: ${extra.join(', ')}`) : '');
   return `<button class="swap" data-go="${target}" title="${esc(title)}">${parts.join(' ⇄ ')}</button>`;
 }
 function station(id, title, io, body, more, swaps = '') {
   const ch = S.changed.has(id);
   return `<section class="st${ch ? ' changed' : ''}" id="st-${id}"><span class="dot"></span>
-    <div class="st-h"><h3>${title}</h3><span class="io">${io}</span>${swaps}${ch ? `<span class="tag">${L('已替换', 'swapped')}</span>` : ''}</div>
-    ${body}${more ? `<details data-k="${id}"${S.open[id] ? ' open' : ''}><summary>${L('细节', 'Details')}</summary>${more}</details>` : ''}</section>`;
+    <div class="st-h"><h3>${title}</h3><span class="io">${io}</span>${swaps}${ch ? `<span class="tag">${L('刚换过', 'just swapped')}</span>` : ''}</div>
+    ${body}${more ? `<details data-k="${id}"${S.open[id] ? ' open' : ''}><summary>${L('更多细节', 'More detail')}</summary>${more}</details>` : ''}</section>`;
 }
 const edge = t => `<div class="edge">${t}</div>`;
 
 function renderStatic() {
   document.documentElement.lang = L('zh-CN', 'en');
+  document.body.classList.toggle('nohints', !S.hints);
   document.title = L('pinwheel-llm 数据流', 'pinwheel-llm data flow');
   document.getElementById('h1').textContent = L('一个训练步里的数据流', 'Data flow through one training step');
   document.getElementById('lede').textContent = L(
-    'pinwheel-llm 的真实 checkpoint 读同一段文字，每一站的形状和数值都取自实验。点上方的 token 跟着它走一遍网络；左边换部件，页面换成做过那个实验的 checkpoint。',
-    'Real pinwheel-llm checkpoints read the same text, and every shape and number at each station comes from an experiment. Click a token above to follow it through the network; swap a part on the left and the page moves to the checkpoint of the run that made that change.');
-  document.getElementById('recipe-h').textContent = L('配方', 'Recipe');
-  document.getElementById('hint').textContent = L('没有完全对应的实验时，换到最接近的一次；上标数字是连带要变的项数。',
-    'When no run matches exactly, the page moves to the closest one; the superscript counts the other settings that change with it.');
+    '训练 = 把下面这一步重复几千次：给模型一段文字，让它猜每个位置的下一个 token，看猜错多少，再把所有参数往“猜得更准”的方向挪一点。这里每个数字都来自真实的实验 checkpoint。',
+    'Training repeats the step below thousands of times: show the model some text, have it guess the next token at every position, measure how wrong it was, and nudge every parameter towards guessing better. Every number here comes from a real experiment checkpoint.');
+  document.getElementById('recipe-h').textContent = L('配方：可以换的部件', 'Recipe: parts you can swap');
+  document.getElementById('hint').textContent = L('每个按钮对应真实跑过的实验。没有完全对应的组合时，会换到最接近的一次；上标数字 = 还有几项跟着变了。',
+    'Every button maps to a run that really happened. When no run matches exactly, the page moves to the closest one; the superscript counts the other settings that change with it.');
   document.getElementById('lang').innerHTML = `<button class="${S.lang === 'zh' ? 'on' : ''}" data-lang="zh">中文</button><button class="${S.lang === 'en' ? 'on' : ''}" data-lang="en">EN</button>`;
+  document.getElementById('hints').innerHTML = `<button class="${S.hints ? 'on' : ''}" data-hints="1">${L('提示 开', 'Hints on')}</button><button class="${S.hints ? '' : 'on'}" data-hints="0">${L('关', 'off')}</button>`;
 }
 function renderKPI() {
   const v = cur(), p = prev();
@@ -445,12 +533,12 @@ function renderKPI() {
   }
   const nats = cur().trace.nats;
   document.getElementById('kpi').innerHTML = v.val_bpb != null
-    ? `<div class="lab">val BPB${v.stable ? L('（训练日志里这一点）', ' (training log at this point)') : ''}</div><div class="big">${f(v.val_bpb, 4)}</div><div>${d}</div><div class="run">${esc(v.run)}</div>`
-    : `<div class="lab">${L('还没训练：本例平均 loss', 'Untrained: mean loss on the sample')}</div><div class="big">${f(sum(nats) / nats.length, 2)}</div><div class="note">${L(`≈ ln 8192 = ${f(Math.log(VOC.length), 2)}，即均匀乱猜`, `≈ ln 8192 = ${f(Math.log(VOC.length), 2)}, a uniform guess`)}</div><div class="run">${esc(v.run)}</div>`;
+    ? `<div class="lab">${g('valbpb')}${v.stable ? L('（训练日志里这一点）', ' (training log at this point)') : ''} · ${L('越低越好', 'lower is better')}</div><div class="big">${f(v.val_bpb, 4)}</div><div>${d}</div><div class="run">${esc(v.run)}</div>`
+    : `<div class="lab">${L('还没训练：这句话上的平均 loss', 'Untrained: mean loss on the sample')}</div><div class="big">${f(sum(nats) / nats.length, 2)}</div><div class="note">${L(`≈ ln 8192 = ${f(Math.log(VOC.length), 2)}：在 8192 个 token 里均匀乱猜`, `≈ ln 8192 = ${f(Math.log(VOC.length), 2)}: a uniform guess over 8192 tokens`)}</div><div class="run">${esc(v.run)}</div>`;
 }
 function renderSlots() {
   const r = cur().recipe;
-  document.getElementById('slots').innerHTML = SHOWN.map(s => `<div class="slot"><span>${esc(nm(s))}</span><div class="seg">${s.vals.map(x => {
+  document.getElementById('slots').innerHTML = SHOWN.map(s => `<div class="slot"><span>${g(s.gk, esc(nm(s)))}</span><div class="seg">${s.vals.map(x => {
     const on = r[s.k] === x, t = on ? S.v : pick(s.k, x), extra = on ? [] : diffs(S.v, t).filter(y => y.k !== s.k);
     const list = extra.map(y => `${nm(y)} ${y.lab(V[S.v].recipe[y.k]) ?? '—'}→${y.lab(V[t].recipe[y.k]) ?? '—'}`);
     const title = on ? L('当前', 'current') : L(`换到 ${V[t].run}`, `Switch to ${V[t].run}`) + (extra.length ? L(`；同时变：${list.join('，')}`, `; also changes: ${list.join(', ')}`) : '');
@@ -459,16 +547,16 @@ function renderSlots() {
 }
 function renderCmp() {
   const el = document.getElementById('cmp'), v = cur(), p = prev(), N = D.noise;
-  const noise = N ? `<p class="note">${L(`噪声参照：${esc(N.runs.join('、'))} 这 ${N.runs.length} 个 seed 的 std 是 ${N.std}，所以单跑对单跑差 ${N.threshold} 以内不算数。`,
-    `Noise reference: the ${N.runs.length} seeds ${esc(N.runs.join(', '))} have std ${N.std}, so a gap under ${N.threshold} between two single runs does not count.`)}</p>` : '';
+  const noise = N ? `<p class="note">${L(`${g('noise', '噪声')}参照：${esc(N.runs.join('、'))} 只差随机种子，val BPB 的标准差是 ${N.std}。所以两次单独的实验差不到 ${N.threshold}，就不能说谁更好。`,
+    `${g('noise', 'Noise')} reference: ${esc(N.runs.join(', '))} differ only in the random seed, and their val BPB has a standard deviation of ${N.std}. So two single runs closer than ${N.threshold} cannot be ranked.`)}</p>` : '';
   const head = `<h2>${L('切换前后', 'Before and after')}</h2>`;
-  if (!p) { el.innerHTML = `${head}<p class="note">${L('换一个部件后，这里对比切换前后两次实验。', 'Swap a part and this panel compares the run before with the run after.')}</p>${noise}`; return; }
+  if (!p) { el.innerHTML = `${head}<p class="note">${L('在左边或站点上换一个部件，这里会对比切换前后两次实验。', 'Swap a part on the left or on a station, and this panel compares the run before with the run after.')}</p>${noise}`; return; }
   const ds = diffs(S.prev, S.v), dd = v.val_bpb != null && p.val_bpb != null ? v.val_bpb - p.val_bpb : null;
-  const verdict = dd == null ? '' : N && Math.abs(dd) < N.threshold ? `<span class="pill warn">${L('在噪声内', 'within noise')}</span>` : `<span class="pill ok">${L('超出噪声', 'beyond noise')}</span>`;
+  const verdict = dd == null ? '' : N && Math.abs(dd) < N.threshold ? `<span class="pill warn">${L('在噪声内', 'within noise')}</span>` : `<span class="pill ok">${dd < 0 ? L('确实更好', 'really better') : L('确实更差', 'really worse')}</span>`;
   el.innerHTML = `${head}
     <dl class="kv"><dt>${L('之前', 'Before')}</dt><dd class="mono">${esc(p.run)} · ${f(p.val_bpb, 4)}</dd><dt>${L('现在', 'Now')}</dt><dd class="mono">${esc(v.run)} · ${f(v.val_bpb, 4)}</dd>
     <dt>${L('差', 'Δ')}</dt><dd>${dd == null ? '—' : (dd > 0 ? '+' : '') + dd.toFixed(4)} ${verdict}</dd></dl>
-    <p>${ds.length === 1 ? `<span class="pill ok">${L('单变量对照', 'one change')}</span>` : `<span class="pill warn">${L(`变了 ${ds.length} 项`, `${ds.length} changes`)}</span>`}</p>
+    <p>${ds.length === 1 ? `<span class="pill ok">${g('controlled')}</span>` : `<span class="pill warn">${L(`变了 ${ds.length} 项，差别不能只算到一项头上`, `${ds.length} settings changed; the gap is not down to one of them`)}</span>`}</p>
     <div class="note">${ds.map(s => `${esc(nm(s))}${L('：', ': ')}${esc(s.lab(p.recipe[s.k]) ?? '—')} → ${esc(s.lab(v.recipe[s.k]) ?? '—')}`).join('<br>')}</div>${noise}`;
 }
 function renderInfo() {
@@ -480,64 +568,118 @@ function renderInfo() {
       ${v.date ? `<dt>${L('日期', 'Date')}</dt><dd>${esc(v.date)}${v.wall_h ? ` · ${esc(v.wall_h)} h` : ''}</dd>` : ''}
       ${v.tok_s ? `<dt>${L('吞吐', 'Throughput')}</dt><dd>${fInt(Math.round(v.tok_s / 1000))}k tok/s</dd>` : ''}
       ${v.seed != null ? `<dt>seed</dt><dd>${v.seed}</dd>` : ''}
-      ${bench ? `<dt>${L('基准', 'Benchmarks')}</dt><dd>${bench}</dd>` : ''}
+      ${bench ? `<dt>${L('基准（准确率 %）', 'Benchmarks (accuracy %)')}</dt><dd>${bench}</dd>` : ''}
       ${v.seeds && v.seeds.length ? `<dt>${L('其他 seed', 'Other seeds')}</dt><dd>${v.seeds.map(s => `<span class="mono">${esc(s[0])}</span> ${f(s[2], 4)}`).join('<br>')}</dd>` : ''}
     </dl>`;
 }
 function renderTokbar() {
   const tgt = TGT[S.pos], ts = D.train_shape;
   document.getElementById('tokbar').innerHTML = `<div class="row"><div class="toks">${INP.map((id, i) => `<button class="${i === S.pos ? 'on' : i === S.pos + 1 ? 'tgt' : ''}" data-pos="${i}" title="${L('位置', 'position')} ${i} · id ${id}">${tokH(id)}</button>`).join('')}</div>
-    <div class="ctl"><button class="${S.big ? '' : 'on'}" data-big="0">${L('示例', 'Sample')} B=1 T=${T}</button><button class="${S.big ? 'on' : ''}" data-big="1">${L('训练', 'Training')} B=${ts.micro_batch} T=${ts.seq_len}</button><button class="play" id="play">${L('▶ 走一步', '▶ Play one step')}</button></div></div>
-    <div class="track">${L(`跟踪位置 ${S.pos}：输入 <b>${tokH(INP[S.pos])}</b>，要预测 <b>${tokH(tgt)}</b>（红框）`, `Tracking position ${S.pos}: input <b>${tokH(INP[S.pos])}</b>, predicting <b>${tokH(tgt)}</b> (red frame)`)}</div>`;
+    <div class="ctl"><button class="${S.big ? '' : 'on'}" data-big="0" title="${esc(L('这一页实际跑的形状：1 段、这句话的长度', 'The shapes this page actually ran: 1 piece of text, this sentence’s length'))}">${L('示例', 'Sample')} B=1 T=${T}</button><button class="${S.big ? 'on' : ''}" data-big="1" title="${esc(L('训练时每次前向的形状', 'The shapes of one forward pass during training'))}">${L('训练', 'Training')} B=${ts.micro_batch} T=${ts.seq_len}</button><button class="play" id="play">${L('▶ 走一步', '▶ Play one step')}</button></div></div>
+    <div class="track">${L(`跟踪位置 ${S.pos}：输入 <b>${tokH(INP[S.pos])}</b>，要猜出下一个 <b>${tokH(tgt)}</b>（红框）。点别的 token 换一个跟踪。`, `Tracking position ${S.pos}: input <b>${tokH(INP[S.pos])}</b>, which should predict <b>${tokH(tgt)}</b> (red frame). Click another token to track it instead.`)}</div>`;
+}
+function guide() {
+  return `<section class="guide"><h3>${L('怎么读这一页', 'How to read this page')}</h3><ul>
+    <li>${L('从上往下就是训练中的一步：切词 → 取数据 → 模型算出预测 → 算猜错多少 → 倒推每个参数该怎么改 → 改参数 → 下一步。',
+      'Top to bottom is one training step: cut text into tokens → take a batch → the model predicts → measure how wrong → work out how each parameter should change → change them → next step.')}</li>
+    <li>${L('上方 token 条里黑底的是你在跟踪的 token，每一站都会标出它；它要猜的下一个 token 有红框。',
+      'In the token bar above, the black one is the token you are tracking; every station marks it, and the token it should predict has a red frame.')}</li>
+    <li>${L(`站与站之间的小字是传下去的数据${g('shape', '形状')}：B = 一次几段文字，T = 每段几个 token，640 = 每个 token 用几个数表示。`,
+      `The small text between stations is the ${g('shape', 'shape')} of the data passed on: B = how many pieces of text at once, T = tokens per piece, 640 = numbers per token.`)}</li>
+    <li>${L('带虚线下划线的词，鼠标停上去（手机上点一下）有解释。每站的「怎么看」「这次能看到」可以用右上角的「提示」开关隐藏。',
+      'Words with a dotted underline explain themselves on hover (tap on a phone). The "How to read it" and "What this data shows" boxes can be hidden with the Hints switch at the top right.')}</li></ul></section>`;
 }
 
+function stTok() {
+  const nb = sum(TGT.map(id => D.token_bytes[id]));
+  // group the text's tokens into words: a piece without a leading space continues the word before it
+  const words = [];
+  for (const id of INP.slice(1).concat(TGT.slice(-1))) {
+    const s = VOC[id], last = words[words.length - 1];
+    if (last && /^[A-Za-z]+$/.test(s) && /[A-Za-z]$/.test(VOC[last[last.length - 1]])) last.push(id); else words.push([id]);
+  }
+  const split = words.reduce((a, b) => b.length > a.length ? b : a);
+  const whole = words.filter(w => w.length === 1 && /^ [A-Za-z]+$/.test(VOC[w[0]])).reduce((a, b) => !a || VOC[b[0]].length > VOC[a[0]].length ? b : a, null);
+  const body = gist(L(`把文字切成模型认识的小块（${g('token')}），每块换成一个编号。`, `Cut the text into pieces the model knows (${g('token')}) and turn each piece into a number.`))
+    + `<p>${L(`切法是 ${g('bpe')}，词表 8192 个 token；训练数据早就切好、存成 uint16 了。这一页让每个模型都读同一段文字（开头加 ${g('bos')}，共 ${T + 1} 个 token、${nb} 个字节要猜）：`,
+      `The cutter is a ${g('bpe')} with 8192 tokens; the training data was cut long ago and stored as uint16. On this page every model reads the same text (with ${g('bos')} in front: ${T + 1} tokens, ${nb} bytes to predict):`)}</p>
+    <p class="formula" style="white-space:normal">${esc(D.text)}</p>
+    <div class="scroll"><table class="xy"><tr><th>id</th>${INP.map((id, i) => `<td${i === S.pos ? ' style="outline:2px solid var(--ink)"' : ''}>${id}</td>`).join('')}</tr><tr><th>${L('字节', 'bytes')}</th>${INP.map(id => `<td>${D.token_bytes[id]}</td>`).join('')}</tr></table></div>`
+    + how(L('上排是每个 token 在词表里的编号，下排是它代表几个字节（英文字母 1 个字节；开头的 · 是空格）。最后评分（BPB）就按这些字节来算。',
+      'The top row is each token’s number in the vocabulary; the bottom row is how many bytes it stands for (one per English letter; a leading · is a space). The final score (BPB) is counted over these bytes.'))
+    + see([
+      split.length > 1 && L(`生僻词被拆开：‹${esc(split.map(id => VOC[id]).join('').trim())}› 切成 ${split.length} 块（${split.map(id => tokH(id)).join(' + ')}）。`,
+        `Rare words get split: ‹${esc(split.map(id => VOC[id]).join('').trim())}› becomes ${split.length} pieces (${split.map(id => tokH(id)).join(' + ')}).`),
+      whole && L(`常见词一块就够，比如 ${q(whole[0])}。`, `Common words fit in one piece, such as ${q(whole[0])}.`),
+      L(`平均每个 token 代表 ${f(nb / T, 1)} 个字节。`, `On average a token stands for ${f(nb / T, 1)} bytes.`),
+    ]);
+  return station('tok', L('分词', 'Tokenize'), `${L('文本', 'text')} → ids ${shp('B', 'T')}`, body, '');
+}
 function stData() {
   const v = cur(), r = v.recipe, ts = D.train_shape, ds = r.data || 'fineweb-edu', w = D.windows[ds] || D.windows['fineweb-edu'];
   const batch = r.batch || ts.batch_tokens, accum = batch / (ts.micro_batch * ts.seq_len), steps = r.tokens ? Math.round(r.tokens / batch) : 0;
   const xs = w.ids.slice(0, -1), ys = w.ids.slice(1), n = 16, name = esc(DS[ds] || ds);
-  const body = `<p>${L(`从 ${name} 的 train.bin（${fTok(w.train_tokens)} token）随机切 B 段、每段 T+1 个 token。x 是前 T 个，y 是错开一位的后 T 个：每个位置的答案都是下一个 token。下面是一段真实窗口的开头。`,
-      `Cut B random windows of T+1 tokens from ${name}'s train.bin (${fTok(w.train_tokens)} tokens). x is the first T, y the same window shifted by one: at every position the answer is the next token. Below is the start of a real window.`)}</p>
-    <div class="scroll"><table class="xy"><tr><th>x</th>${xs.slice(0, n).map(id => `<td>${tokH(id)}</td>`).join('')}<td>…</td></tr><tr><th>y</th>${ys.slice(0, n).map(id => `<td>${tokH(id)}</td>`).join('')}<td>…</td></tr></table></div>
-    <p class="note">${L(`一步 ${fB(batch)} token = micro batch ${ts.micro_batch} × T ${ts.seq_len} × 梯度累积 ${accum} 次${steps ? `；训练 ${fTok(r.tokens)} 共 ${fInt(steps)} 步` : ''}。`,
-      `One step is ${fB(batch)} tokens = micro batch ${ts.micro_batch} × T ${ts.seq_len} × ${accum} gradient-accumulation passes${steps ? `; ${fTok(r.tokens)} of training is ${fInt(steps)} steps` : ''}.`)}</p>`;
+  const body = gist(L('随机抽一批文字，同时备好“标准答案”：每个位置的下一个 token。', 'Pick a random batch of text, together with the answer key: the next token at every position.'))
+    + `<p>${L(`从 ${name} 的 train.bin（${fTok(w.train_tokens)} token）里随机切出 B 段，每段 T+1 个 token。x 是前 T 个，y 是同一段往后错一位：模型读 x，要在每个位置猜出 y。`,
+      `Cut B random pieces of T+1 tokens out of ${name}'s train.bin (${fTok(w.train_tokens)} tokens). x is the first T, y the same piece shifted by one: the model reads x and has to guess y at every position.`)}</p>
+    <div class="scroll"><table class="xy"><tr><th>x</th>${xs.slice(0, n).map(id => `<td>${tokH(id)}</td>`).join('')}<td>…</td></tr><tr><th>y</th>${ys.slice(0, n).map(id => `<td>${tokH(id)}</td>`).join('')}<td>…</td></tr></table></div>`
+    + how(L(`上下两行是一段真实训练数据的开头。竖着看：x 里的 ${q(xs[0])} 对应的答案就是 y 里同一列的 ${q(ys[0])}。一段 1024 个 token 就是 1024 道“猜下一个”的题，一次全做完。`,
+      `These two rows are the start of a real training window. Read down a column: the answer for ${q(xs[0])} in x is ${q(ys[0])} in y. A 1024-token window is 1024 "guess the next one" questions, all answered at once.`))
+    + see([L(`一步用 ${fB(batch)} token = ${ts.micro_batch} 段 × ${ts.seq_len} token × ${g('accum')} ${accum} 次${steps ? `；这次实验训练 ${fTok(r.tokens)}，共 ${fInt(steps)} 步` : ''}。`,
+      `One step uses ${fB(batch)} tokens = ${ts.micro_batch} pieces × ${ts.seq_len} tokens × ${accum} rounds of ${g('accum')}${steps ? `; this run trained on ${fTok(r.tokens)}, ${fInt(steps)} steps in all` : ''}.`)]);
   return station('data', L('取一个 batch', 'Sample a batch'), `train.bin → x, y ${shp('B', 'T')} int64`, body, '', swap('data', {}));
-}
-function stTok() {
-  const nb = sum(TGT.map(id => D.token_bytes[id]));
-  const body = `<p>${L(`文本先被 8192 词表的 byte-level BPE 切成 token；训练数据是提前切好、存成 uint16 的。这页让每个模型读同一段文字（开头加 &lt;bos&gt;，共 ${T + 1} 个 token、${nb} 个字节要预测）：`,
-      `Text is first cut into tokens by a byte-level BPE with 8192 entries; the training data was tokenized ahead of time and stored as uint16. On this page every model reads the same text (with &lt;bos&gt; in front: ${T + 1} tokens, ${nb} bytes to predict):`)}</p>
-    <p class="formula" style="white-space:normal">${esc(D.text)}</p>
-    <div class="scroll"><table class="xy"><tr><th>id</th>${INP.map((id, i) => `<td${i === S.pos ? ' style="outline:2px solid var(--ink)"' : ''}>${id}</td>`).join('')}</tr><tr><th>${L('字节', 'bytes')}</th>${INP.map(id => `<td>${D.token_bytes[id]}</td>`).join('')}</tr></table></div>`;
-  return station('tok', L('分词', 'Tokenize'), `${L('文本', 'text')} → ids ${shp('B', 'T')}`, body, '');
 }
 function stEmb() {
   const v = cur(), tr = v.trace, c = v.cfg, P = v.params.shapes, gpt2 = c.arch === 'gpt2';
-  const e = numel(P['tok_emb.weight']);
-  const pos = gpt2 ? L('再按位置加上 pos_emb 的一行（GPT-2 的可学习位置表）。', "Then the pos_emb row for its position is added (GPT-2's learned position table). ")
-    : L('这里不加位置信息：Llama 式的位置在注意力里用 RoPE 转进 q、k。', 'No position is added here: in the Llama style, RoPE rotates position into q and k inside attention. ');
-  const body = `<p>${L(`查表：每个 token id 取 tok_emb（${c.vocab_size} × ${c.d_model}）的一行。`, `Lookup: each token id takes one row of tok_emb (${c.vocab_size} × ${c.d_model}). `)}${pos}${L(`选中 token 的向量 RMS = ${f(tr.x0_rms[S.pos])}。`, `RMS of the tracked token's vector = ${f(tr.x0_rms[S.pos])}.`)}</p>
+  const e = numel(P['tok_emb.weight']), last = tr.layers[tr.layers.length - 1];
+  const body = gist(L(`查表：每个编号换成 ${c.d_model} 个数，就像在 ${c.vocab_size} 行 × ${c.d_model} 列的表格里取一行。`, `Lookup: each id becomes ${c.d_model} numbers, like taking one row of a ${c.vocab_size} × ${c.d_model} spreadsheet.`))
+    + `<p>${L(`这张${g('emb')}是学出来的：意思相近的 token，行里的数也相近。`, `This ${g('emb')} is learned: tokens with similar meanings end up with similar rows.`)}${gpt2
+      ? L('GPT-2 式还要再加上一行“位置向量”，告诉模型这是第几个 token。', ' The GPT-2 style also adds a "position vector" row that tells the model which slot the token is in.')
+      : L(`Llama 式在这里不加位置，位置信息到注意力里再用 ${g('rope')} 加进去。`, ` The Llama style adds no position here; ${g('rope')} brings position in later, inside attention.`)}</p>
     ${heatHTML(tr.emb, c.d_model)}
-    ${gpt2 && tr.pos ? `<p style="margin-top:10px">${L('+ 位置向量 pos_emb[t]', '+ position vector pos_emb[t]')}</p>${heatHTML(tr.pos, c.d_model)}` : ''}`;
+    ${gpt2 && tr.pos ? `<p style="margin-top:10px">${L('+ 位置向量 pos_emb[t]', '+ position vector pos_emb[t]')}</p>${heatHTML(tr.pos, c.d_model)}` : ''}`
+    + how(L('每一行是一个 token 查出来的向量（只画了前 128 个数）。鼠标停在格子上能看到具体数值。', 'Each row is the vector one token looked up (only the first 128 numbers are drawn). Hover over a cell to see its value.'))
+    + see([
+      L(`跟踪的 token 的向量 ${g('rms')} 只有 ${f(tr.x0_rms[S.pos])}，很“安静”；后面 ${c.n_layer} 层一层层往上加东西，到最后变成 ${f(last.out_rms[S.pos], 1)}。`,
+        `The tracked token’s vector has an ${g('rms')} of just ${f(tr.x0_rms[S.pos])}, very quiet; the ${c.n_layer} layers that follow keep adding to it, and it ends at ${f(last.out_rms[S.pos], 1)}.`),
+      tr.lens0.ids[S.pos][0] === INP[S.pos] && L(`要是直接拿这个向量去猜下一个 token，会猜成 ${q(INP[S.pos])} 自己（${pct(tr.lens0.p[S.pos][0])}）：输入表和输出头是同一张表（${g('tied')}），一个向量和自己最像。`,
+        `If you guessed the next token straight from this vector, you would get ${q(INP[S.pos])} itself (${pct(tr.lens0.p[S.pos][0])}): input table and output head are the same table (${g('tied')}), and a vector looks most like itself.`),
+    ]);
   const share = (e / v.params.total * 100).toFixed(1);
   const more = `<dl class="kv"><dt>tok_emb</dt><dd>${P['tok_emb.weight'].join(' × ')} = ${fM(e)}${L(`（全模型 ${share}%）`, ` (${share}% of the model)`)}</dd>
     ${gpt2 ? `<dt>pos_emb</dt><dd>${P['pos_emb.weight'].join(' × ')} = ${fM(numel(P['pos_emb.weight']))}</dd>` : ''}
-    <dt>${L('初始化', 'Init')}</dt><dd>${L('正态', 'normal')}, std ${c.emb_std}</dd><dt>${L('权重共享', 'Tied')}</dt><dd>${L('同一张表在最后当输出头再用一次', 'the same table is reused as the output head')}</dd></dl>`;
+    <dt>${L('初始化', 'Init')}</dt><dd>${L('正态分布', 'normal')}, std ${c.emb_std}</dd><dt>${g('tied')}</dt><dd>${L('最后的输出头再用一次这张表', 'the output head reuses this table')}</dd></dl>`;
   return station('emb', L('词嵌入', 'Embedding'), `${shp('B', 'T')} → ${shp('B', 'T', c.d_model)}`, body, more, swap('arch', {llama: 'RoPE', gpt2: L('可学习位置表', 'learned positions')}));
 }
 function stBlocks() {
   const v = cur(), tr = v.trace, c = v.cfg;
   const rows = [{name: L('嵌入', 'Embed'), rms: tr.x0_rms[S.pos], R: tr.lens0, l: -1}].concat(tr.layers.map((x, i) => ({name: `Block ${i + 1}`, rms: x.out_rms[S.pos], R: x.lens, l: i})));
   const mx = Math.max(...rows.map(r => r.rms));
-  const body = `<p>${L(`${c.n_layer} 个 Block 依次改写残差流 x。每个 Block 两次「读 x → 算增量 → 加回 x」：先注意力（token 之间搬信息），再 MLP（每个 token 自己加工）。右边两列是把这一层的 x 直接接上输出头读出的预测（logit lens），可以看到答案在第几层成形。点一行放大那一层。`,
-      `${c.n_layer} blocks rewrite the residual stream x in turn. Each block twice reads x, computes an update and adds it back: attention first (moves information between tokens), then the MLP (works on each token alone). The two right-hand columns read this layer's x straight through the output head (logit lens), so you can see at which layer the answer forms. Click a row to zoom into that layer.`)}</p>
-    <div class="lrows"><div class="lrow" style="color:var(--muted);font-size:13px"><span>${L('层', 'Layer')}</span><span>${L('选中 token 的 RMS', 'RMS of tracked token')}</span><span>${L('此处读出第 1 名', 'Top-1 read out here')}</span><span class="n">${L('答案排名', 'Answer rank')}</span></div>
+  const firstHit = rows.findIndex(r => r.l >= 0 && r.R.ids[S.pos][0] === TGT[S.pos]);
+  const early = rows.slice(1, firstHit < 0 ? rows.length : firstHit).map(r => r.R.ids[S.pos][0]);
+  const common = early.length ? early.reduce((a, b, _, arr) => arr.filter(x => x === b).length > arr.filter(x => x === a).length ? b : a) : null;
+  const end = rows[rows.length - 1];
+  const body = gist(L(`${c.n_layer} 层依次在每个 token 的“黑板”上添改，把它从“这个词是什么”一点点改成“下一个词是什么”。`,
+      `${c.n_layer} layers in turn edit each token’s "blackboard", step by step changing it from "what this word is" into "what the next word is".`))
+    + `<p>${L(`这块黑板叫${g('residual')}。每层做两次「读黑板 → 算一笔修改 → 加回黑板」：先是${g('attention')}（在 token 之间搬信息），再是 ${g('mlp')}（每个 token 自己加工）。点一行放大那一层。`,
+      `The blackboard is the ${g('residual')}. Each layer twice reads it, works out a change and adds it back: first ${g('attention')} (moves information between tokens), then the ${g('mlp')} (each token works on its own). Click a row to zoom into that layer.`)}</p>
+    <div class="lrows"><div class="lrow" style="color:var(--muted);font-size:13px"><span>${L('层', 'Layer')}</span><span>${L('黑板上的数有多大（RMS）', 'How big the numbers are (RMS)')}</span><span>${L('现在停下会猜', 'Would guess now')}</span><span class="n">${L('答案排第几', 'Answer rank')}</span></div>
     ${rows.map(r => {
       const top = r.R.ids[S.pos][0], hit = top === TGT[S.pos];
       return `<button class="lrow${r.l === S.layer ? ' on' : ''}" ${r.l >= 0 ? `data-layer="${r.l}"` : 'disabled'}><span>${r.name}</span><span style="display:flex;gap:8px;align-items:center"><div class="bar" style="width:${r.rms / mx * 100}%"></div><small class="n">${f(r.rms, 1)}</small></span><span class="t${hit ? ' hit' : ''}">${tokH(top)} ${pct(r.R.p[S.pos][0])}</span><span class="n">${r.R.rank[S.pos] + 1}</span></button>`;
-    }).join('')}</div>`;
+    }).join('')}</div>`
+    + how(L(`右边两列用的是 ${g('lens')}：把这一层的黑板直接接到输出头，问“要是现在就停，会猜什么”。红色 = 猜中了正确答案。答案排第几 = 正确答案在 8192 个候选里的名次。`,
+      `The two right-hand columns use the ${g('lens')}: plug this layer’s blackboard straight into the output head and ask what it would guess if it stopped now. Red = it guessed right. Answer rank = where the right answer sits among 8192 candidates.`))
+    + see([
+      firstHit > 0 ? L(`正确答案 ${q(TGT[S.pos])} 到 ${rows[firstHit].name} 才第一次排到第 1（${pct(rows[firstHit].R.p[S.pos][0])}），最后一层 ${pct(end.R.tp[S.pos])}。答案是在后面几层才“成形”的。`,
+          `The right answer ${q(TGT[S.pos])} first reaches rank 1 at ${rows[firstHit].name} (${pct(rows[firstHit].R.p[S.pos][0])}) and ends at ${pct(end.R.tp[S.pos])}. The answer takes shape only in the later layers.`)
+        : L(`到最后一层，正确答案 ${q(TGT[S.pos])} 也只排第 ${end.R.rank[S.pos] + 1}：这个位置模型没猜中。`, `Even at the last layer the right answer ${q(TGT[S.pos])} only ranks ${end.R.rank[S.pos] + 1}: the model misses this one.`),
+      common != null && common !== TGT[S.pos] && L(`在那之前，各层的第 1 名多半是 ${q(common)}。`, `Before that, most layers’ top guess is ${q(common)}.`),
+      L(`黑板上的数从 ${f(rows[0].rms, 2)} 涨到 ${f(end.rms, 1)}：每层都往上加，从不擦掉。`, `The numbers on the blackboard grow from ${f(rows[0].rms, 2)} to ${f(end.rms, 1)}: every layer adds, nothing is erased.`),
+    ]);
   const all = [tr.lens0].concat(tr.layers.map(x => x.lens));
-  const more = `<p>${L('整段文字的逐层读出：每格是那一层读出的第 1 名，底色越深概率越大，红框 = 猜中了下一个 token。',
-      "Every position at every layer: each cell is that layer's top-1 readout, darker means more probable, and a red frame means it guessed the next token.")}</p>
+  const more = `<p>${L('整段文字、每一层的读出：每格是那一层“现在停下会猜”的第 1 名，底色越深越有把握，红框 = 猜中了下一个 token。点表头的 token 可以换跟踪位置。',
+      "Every position at every layer: each cell is that layer’s top guess, a darker background means more confident, and a red frame means it guessed the next token. Click a token in the header to track it.")}</p>
     <div class="scroll"><table class="grid"><tr><th></th>${INP.map((id, i) => `<th class="tk${i === S.pos ? ' sel' : ''}" data-pos="${i}">${tokH(id)}</th>`).join('')}</tr>
     ${all.map((R, l) => `<tr><th>${l ? 'B' + l : L('嵌入', 'Emb')}</th>${INP.map((_, i) => {
       const p = R.p[i][0], id = R.ids[i][0];
@@ -562,61 +704,89 @@ function ropeHeat() {
 }
 function stBlock() {
   const v = cur(), c = v.cfg, l = S.layer, Y = v.trace.layers[l], P = v.params.shapes, gpt2 = c.arch === 'gpt2';
-  const H = c.n_head, KV = c.n_kv_head, hd = c.d_model / H, g = H / KV, a = probsOf(Y);
+  const H = c.n_head, KV = c.n_kv_head, hd = c.d_model / H, grp = H / KV, a = probsOf(Y);
   const pm = k => P['blocks.0.' + k] ? P['blocks.0.' + k].join('×') : '';
-  const norm = gpt2 ? 'LayerNorm' : 'RMSNorm', q = `‹${tokH(INP[S.pos])}›`;
-  const rms2 = (a, b) => `${f(a, 2)} → ${f(b, 2)}`;
+  const norm = gpt2 ? 'LayerNorm' : 'RMSNorm', me = q(INP[S.pos]);
   // where the tracked token looks, for the selected head
   const row = [...Array(S.pos + 1).keys()].map(j => ({j, p: a[(S.head * T + S.pos) * T + j] / 255})).sort((x, y) => y.p - x.p).slice(0, 5);
   const prevSame = S.pos > 0 ? INP.lastIndexOf(INP[S.pos], S.pos - 1) : -1;
   const copy = prevSame >= 0 && row[0].j === prevSame + 1 && row[0].p > 0.2
-    ? `<p><span class="pill ok">${L('照抄', 'copying')}</span> ${L(`上一次出现 ${q}（位置 ${prevSame}）后面跟的是 ‹${tokH(INP[prevSame + 1])}›，这个头就盯着它：典型的归纳头。`,
-      `Last time ${q} appeared (position ${prevSame}) it was followed by ‹${tokH(INP[prevSame + 1])}›, and this head looks right at it: a classic induction head.`)}</p>` : '';
+    ? `<p><span class="pill ok">${L('照抄', 'copying')}</span> ${L(`上一次出现 ${me}（位置 ${prevSame}）时，后面跟的是 ${q(INP[prevSame + 1])}；这个头就盯着它，准备把它“抄”过来。这叫${g('induction')}。`,
+      `Last time ${me} appeared (position ${prevSame}) it was followed by ${q(INP[prevSame + 1])}; this head looks right at it, ready to copy it over. This is an ${g('induction')}.`)}</p>` : '';
   const sm = Math.max(...Y.score_max), hidW = c.d_ff;
+  const bos = S.pos > 0 ? mean([...Array(H).keys()].map(h => a[(h * T + S.pos) * T] / 255)) : 0;
+  const others = Y.out_rms.slice(1), bosBig = Y.out_rms[0] > 3 * mean(others);
   const nav = `<span class="ctl"><button data-layer="${Math.max(0, l - 1)}">${L('← 上一层', '← previous layer')}</button><button data-layer="${Math.min(c.n_layer - 1, l + 1)}">${L('下一层 →', 'next layer →')}</button></span>`;
   const subs = [
-    `<div class="sub"><h4>${norm} ${swap('arch', {llama: 'RMSNorm', gpt2: 'LayerNorm'})}</h4>
-      <p>${gpt2 ? L('x 减去自己的均值、除以标准差，再逐通道乘增益加偏置。', 'x minus its mean, divided by its standard deviation, then a per-channel gain and bias. ')
-        : L('x 除以自己的 RMS，再逐通道乘增益；不减均值，比 LayerNorm 少一步。', 'x divided by its own RMS, then a per-channel gain; no mean subtraction, one step less than LayerNorm. ')}${L(`选中 token 的 RMS：${rms2(Y.in_rms[S.pos], Y.attn_norm_rms[S.pos])}。`, `Tracked token RMS: ${rms2(Y.in_rms[S.pos], Y.attn_norm_rms[S.pos])}.`)}</p>${heatHTML(Y.attn_norm, c.d_model)}</div>`,
-    `<div class="sub"><h4>${L('Q、K、V 投影', 'Q, K, V projections')} <span class="io">q ${shp('B', H, 'T', hd)} · k, v ${shp('B', KV, 'T', hd)}</span> ${swap('arch', {llama: 'GQA', gpt2: 'MHA'})}</h4>
-      <p>wq ${pm('attn.wq.weight')}, wk ${pm('attn.wk.weight')}, wv ${pm('attn.wv.weight')}. ${KV < H
-        ? L(`${H} 个 q 头每 ${g} 个共用一组 k、v（GQA），推理时 KV cache 只有多头注意力的 1/${g}。`, `The ${H} q heads share k and v in groups of ${g} (GQA), so the KV cache at inference is 1/${g} of multi-head attention's. `)
-        : L('每个 q 头都有自己的 k、v（多头注意力，MHA）。', 'Every q head has its own k and v (multi-head attention, MHA). ')}${L(`每 token 每层 KV cache 存 2 × ${KV} × ${hd} = ${2 * KV * hd} 个数。`, `Per token per layer the KV cache holds 2 × ${KV} × ${hd} = ${2 * KV * hd} numbers.`)}</p></div>`,
-    `<div class="sub"><h4>${c.qk_norm ? 'QK-Norm' : L('分数尺度（无 QK-Norm）', 'Score scale (no QK-Norm)')} ${swap('qk_norm', {false: L('不归一化', 'no norm'), true: 'QK-Norm'})}</h4>
-      <p>${c.qk_norm ? L('q、k 每个头再各做一次 RMSNorm（64 维增益各层共享），分数 |q·k|/8 ≤ 8·g²，不随 wq、wk 变大而变大。', 'q and k get one more RMSNorm per head (a 64-dim gain shared by the heads of a layer), so |q·k|/8 ≤ 8·g² however large wq and wk grow. ')
-        : L('q·k/8 的大小跟着 wq、wk 的尺度走，训练久了、学习率大了可能越长越大。', 'The size of q·k/8 follows the scale of wq and wk, and can keep growing with longer training or a larger learning rate. ')}${L('本层各头最大 |分数|：', 'Largest |score| per head in this layer:')}</p>
+    `<div class="sub"><h4>${L(`第 1 步：${norm}（调音量）`, `Step 1: ${norm} (volume control)`)} ${swap('arch', {llama: 'RMSNorm', gpt2: 'LayerNorm'})}</h4>
+      <p>${L(`先把黑板上的数${g('norm', '归一化')}：不管 x 现在多“响”，送进注意力前都调到同样的音量。`, `First ${g('norm', 'normalize')} the blackboard: however loud x is, it goes into attention at the same volume.`)}${gpt2
+        ? L('LayerNorm 先减去平均值，再除以标准差，再乘增益、加偏置。', ' LayerNorm subtracts the mean, divides by the standard deviation, then applies a gain and a bias.')
+        : L('RMSNorm 只除以自己的 RMS 再乘增益，不减平均值，比 LayerNorm 少一步。', ' RMSNorm just divides by its own RMS and applies a gain; no mean subtraction, one step less than LayerNorm.')}</p>
+      ${heatHTML(Y.attn_norm, c.d_model)}
+      ${see([L(`跟踪的 token：RMS 从 ${f(Y.in_rms[S.pos], 2)} 调到 ${f(Y.attn_norm_rms[S.pos], 2)}（不是正好 1，因为最后还乘了每个通道各自的增益）。`, `Tracked token: RMS goes from ${f(Y.in_rms[S.pos], 2)} to ${f(Y.attn_norm_rms[S.pos], 2)} (not exactly 1, because each channel’s own gain is applied last).`)])}</div>`,
+    `<div class="sub"><h4>${L('第 2 步：算出 q、k、v', 'Step 2: compute q, k, v')} <span class="io">q ${shp('B', H, 'T', hd)} · k, v ${shp('B', KV, 'T', hd)}</span> ${swap('arch', {llama: 'GQA', gpt2: 'MHA'})}</h4>
+      <p>${L(`每个 token 用三个矩阵各算出一份：${g('qkv', 'q、k、v')}。q 是“我在找什么”，k 是“我这里有什么”（像书脊上的目录），v 是“真正被搬走的内容”（像书的正文）。`,
+        `Each token uses three matrices to compute three things: ${g('qkv', 'q, k and v')}. q is "what I am looking for", k is "what I hold" (like a book spine’s title), v is "what actually gets moved" (the book itself).`)}</p>
+      <p>${L(`wq ${pm('attn.wq.weight')}，wk ${pm('attn.wk.weight')}，wv ${pm('attn.wv.weight')}。`, `wq ${pm('attn.wq.weight')}, wk ${pm('attn.wk.weight')}, wv ${pm('attn.wv.weight')}. `)}${KV < H
+        ? L(`${H} 个${g('head')}里每 ${grp} 个共用一份 k、v（${g('gqa')}），所以 k、v 只有 ${KV} 组。`, `Every ${grp} of the ${H} ${g('head', 'heads')} share one k and v (${g('gqa')}), so there are only ${KV} sets of k and v. `)
+        : L(`${H} 个${g('head')}各有自己的 k、v（多头注意力，MHA）。`, `Each of the ${H} ${g('head', 'heads')} has its own k and v (multi-head attention, MHA). `)}${L(`生成文字时每个 token 每层要在 ${g('kvcache')} 里存 2 × ${KV} × ${hd} = ${2 * KV * hd} 个数。`, `When generating, every token stores 2 × ${KV} × ${hd} = ${2 * KV * hd} numbers per layer in the ${g('kvcache')}.`)}</p></div>`,
+    `<div class="sub"><h4>${c.qk_norm ? L('第 3 步：QK-Norm', 'Step 3: QK-Norm') : L('第 3 步：打分有多大（没开 QK-Norm）', 'Step 3: how big the scores get (no QK-Norm)')} ${swap('qk_norm', {false: L('不归一化', 'no norm'), true: 'QK-Norm'})}</h4>
+      <p>${L(`q 和 k 的点积 ÷ 8 就是“我该多关注你”的打分。经过 ${g('softmax')}，打分差 2 → 权重差 7.4 倍，差 10 → 2.2 万倍，所以打分太大会让一个头只盯一个 token。`,
+        `The dot product of q and k, divided by 8, is the "how much should I attend to you" score. Through ${g('softmax')}, a gap of 2 means 7.4× more weight and a gap of 10 means 22,000×, so very large scores make a head stare at a single token.`)}${c.qk_norm
+        ? L(`开了 ${g('qknorm')}：q、k 先各自缩放到相同模长，打分只看方向，最多 8·g²。`, ` ${g('qknorm')} is on: q and k are first scaled to the same magnitude, so the score depends only on direction and is at most 8·g².`)
+        : L(`没开 ${g('qknorm')}：打分跟着 wq、wk 的大小走，训练久了、学习率大了可能越来越大。`, ` ${g('qknorm')} is off: the score grows with the size of wq and wk, and can keep growing with longer training or a bigger learning rate.`)}</p>
+      <p>${L('这一层每个头的最大 |打分|：', 'Largest |score| of each head in this layer:')}</p>
       <div class="two">${bars(Y.score_max.map((s, h) => ({label: `${L('头', 'head')} ${h}`, v: s, text: f(s, 1)})), sm)}</div></div>`,
-    `<div class="sub"><h4>${gpt2 ? L('位置', 'Position') : 'RoPE'} ${swap('arch', {llama: 'RoPE', gpt2: L('无（已加在输入）', 'none (added at input)')})}</h4>
-      ${gpt2 ? `<p>${L('GPT-2 没有这一步：位置向量已经在词嵌入处加进 x。', 'GPT-2 has no such step: the position vector was already added to x at the embedding.')}</p>`
-        : `<p>${L(`把 q、k 的 ${hd / 2} 对通道各转一个角度 t·θᵢ。转过之后 q·k 只取决于两个 token 的距离。前几对转得快（分辨近处），后几对几乎不动（看远处）。`,
-          `Rotates each of the ${hd / 2} channel pairs of q and k by an angle t·θᵢ. After the rotation q·k depends only on how far apart the two tokens are. The first pairs turn fast (to tell nearby positions apart), the last barely move (for long range).`)}</p>${ropeHeat()}`}</div>`,
-    `<div class="sub"><h4>${L('注意力权重', 'Attention weights')} <span class="io">${shp('B', H, 'T', 'T')}</span></h4>
-      <p>${L(`softmax(q·kᵀ / √${hd} + 因果掩码)。每一行是一个 token 在前文上的注意力分布（和为 1），右上三角被掩掉：不能偷看后面的 token。颜色按 √p。点小图换头。`,
-        `softmax(q·kᵀ / √${hd} + causal mask). Each row is one token's attention over the text before it (it sums to 1); the upper-right triangle is masked so no token can peek ahead. Colour is √p. Click a thumbnail to switch heads.`)}</p>
-      <div class="heads">${[...Array(H).keys()].map(h => { const id = uid(); later(() => attnThumb(id, a, h)); return `<button class="${h === S.head ? 'on' : ''}" data-head="${h}"><canvas id="${id}" width="${T}" height="${T}"></canvas>${L('头', 'head')} ${h}${KV < H ? ` · kv${Math.floor(h / g)}` : ''}</button>`; }).join('')}</div>
+    `<div class="sub"><h4>${gpt2 ? L('第 4 步：位置（GPT-2 没有这一步）', 'Step 4: position (GPT-2 skips this)') : L('第 4 步：RoPE 转一个角度', 'Step 4: RoPE turns an angle')} ${swap('arch', {llama: 'RoPE', gpt2: L('无（已加在输入）', 'none (added at input)')})}</h4>
+      ${gpt2 ? `<p>${L('位置向量已经在词嵌入那里加进黑板了，这里不用再做。', 'The position vector was already added to the blackboard at the embedding, so nothing happens here.')}</p>`
+        : `<p>${L(`${g('rope')}：把 q、k 的 ${hd / 2} 对通道当成 ${hd / 2} 根钟表指针，第 t 个 token 的每根指针转 t·θᵢ。q 和 k 一起转，点积里就只剩“两个 token 隔多远”。`,
+          `${g('rope')}: treat the ${hd / 2} channel pairs of q and k as ${hd / 2} clock hands, and turn each hand by t·θᵢ for the t-th token. q and k turn together, so their dot product only keeps how far apart the two tokens are.`)}</p>${ropeHeat()}
+        ${how(L('每一列是一根指针，往下走一行 = 往后一个位置。左边的指针转得快（颜色变得快，用来分辨近处），右边的几乎不动（用来看远处）。', 'Each column is one hand; one row down = one position later. Hands on the left spin fast (colours change quickly, telling nearby positions apart); those on the right barely move (for long range).'))}`}</div>`,
+    `<div class="sub"><h4>${L('第 5 步：注意力权重（该看谁）', 'Step 5: attention weights (whom to look at)')} <span class="io">${shp('B', H, 'T', 'T')}</span></h4>
+      <p>${L(`打分经过 ${g('softmax')} 变成权重：每个 token 把 100% 的注意力分给自己和前面的 token。后面的 token 被${g('causal')}挡住。`,
+        `The scores go through ${g('softmax')} to become weights: each token spreads 100% of its attention over itself and the tokens before it. Later tokens are blocked by the ${g('causal')}.`)}</p>
+      <div class="heads">${[...Array(H).keys()].map(h => { const id = uid(); later(() => attnThumb(id, a, h)); return `<button class="${h === S.head ? 'on' : ''}" data-head="${h}"><canvas id="${id}" width="${T}" height="${T}"></canvas>${L('头', 'head')} ${h}${KV < H ? ` · kv${Math.floor(h / grp)}` : ''}</button>`; }).join('')}</div>
+      ${how(L('每张小图是一个头：第 i 行 = 第 i 个 token 在看谁，越深越关注，右上角灰色是被挡住的“未来”。最左边一整列深色 = 在看开头的 &lt;bos&gt;；一条斜线 = 在看固定距离的 token（比如前一个词）。点小图在下面放大。',
+        'Each thumbnail is one head: row i = whom the i-th token looks at; darker means more attention, and the grey upper-right is the blocked "future". A dark leftmost column = looking at the opening &lt;bos&gt;; a diagonal line = looking a fixed distance back (say, the previous word). Click a thumbnail to enlarge it below.'))}
       <div class="cols" style="margin-top:10px"><div class="scroll bigatt">${(() => { const id = uid(); later(() => attnBig(id, a, S.head)); return `<canvas id="${id}"></canvas>`; })()}</div>
-      <div><p>${L(`头 ${S.head}：${q} 最关注`, `Head ${S.head}: where ${q} looks`)}</p>${bars(row.map(r => ({label: `${tokH(INP[r.j])} @${r.j}`, v: r.p, text: pct(r.p)})), 1)}${copy}</div></div></div>`,
-    `<div class="sub"><h4>${L('合并头 → wo → 加回 x', 'Merge heads → wo → add to x')} <span class="io">${shp('B', 'T', c.d_model)}</span></h4>
-      <p>${L(`${H} 个头的输出拼回 ${c.d_model} 维，乘 wo（${pm('attn.wo.weight')}），加到残差流上。选中 token 的 RMS：增量 ${f(Y.attn_out_rms[S.pos], 2)}，x 从 ${f(Y.in_rms[S.pos], 2)} 变成 ${f(Y.mid_rms[S.pos], 2)}。`,
-        `The ${H} head outputs are concatenated back to ${c.d_model} dims, multiplied by wo (${pm('attn.wo.weight')}) and added to the residual stream. Tracked token RMS: the update is ${f(Y.attn_out_rms[S.pos], 2)}, and x goes from ${f(Y.in_rms[S.pos], 2)} to ${f(Y.mid_rms[S.pos], 2)}.`)}</p>${heatHTML(Y.attn_out, c.d_model)}</div>`,
-    `<div class="sub"><h4>${gpt2 ? 'GELU MLP' : 'SwiGLU MLP'} <span class="io">${shp('B', 'T', hidW)}</span> ${swap('arch', {llama: 'SwiGLU', gpt2: 'GELU'})}</h4>
-      <p>${gpt2 ? L(`先过 LayerNorm，然后 h = gelu(w_up·x)，${hidW} 维，再 w_down 压回 ${c.d_model} 维。两个矩阵。`, `First a LayerNorm, then h = gelu(w_up·x) with ${hidW} dims, and w_down brings it back to ${c.d_model}. Two matrices.`)
-        : L(`先过 RMSNorm，然后 h = silu(w_gate·x) ⊙ (w_up·x)：一路当门、一路当内容，${hidW} 维，再 w_down 压回 ${c.d_model} 维。三个矩阵，所以宽度取 GELU 的约 2/3。`,
-          `First an RMSNorm, then h = silu(w_gate·x) ⊙ (w_up·x): one path is the gate, the other the content, ${hidW} dims, and w_down brings it back to ${c.d_model}. Three matrices, so the width is about 2/3 of GELU's.`)}</p>
+      <div><p>${L(`头 ${S.head}：${me} 最关注的 token`, `Head ${S.head}: the tokens ${me} attends to most`)}</p>${bars(row.map(r => ({label: `${tokH(INP[r.j])} @${r.j}`, v: r.p, text: pct(r.p)})), 1)}${copy}
+      ${see([S.pos > 0 && L(`这一层 ${H} 个头平均把 ${pct(bos)} 的注意力放在开头的 &lt;bos&gt; 上${bos > 0.3 ? `：没什么要搬的时候，头就把注意力“停”在那里（${g('sink')}）` : ''}。`,
+        `Across the ${H} heads of this layer, ${pct(bos)} of the attention goes to the opening &lt;bos&gt;${bos > 0.3 ? `: when there is nothing to move, a head parks its attention there (an ${g('sink')})` : ''}.`)])}</div></div></div>`,
+    `<div class="sub"><h4>${L('第 6 步：把搬来的信息写回黑板', 'Step 6: write what was moved back to the blackboard')} <span class="io">${shp('B', 'T', c.d_model)}</span></h4>
+      <p>${L(`每个头按权重把各个 token 的 v 加起来，${H} 个头的结果拼回 ${c.d_model} 维，再乘 wo（${pm('attn.wo.weight')}），加到黑板上。`,
+        `Each head adds up the tokens’ v by its weights; the ${H} heads’ results are joined back into ${c.d_model} dims, multiplied by wo (${pm('attn.wo.weight')}) and added onto the blackboard.`)}</p>${heatHTML(Y.attn_out, c.d_model)}
+      ${see([L(`跟踪的 token：这一笔修改的 RMS 是 ${f(Y.attn_out_rms[S.pos], 2)}，黑板从 ${f(Y.in_rms[S.pos], 2)} 变成 ${f(Y.mid_rms[S.pos], 2)}。每层只是在原来的基础上改一笔。`,
+        `Tracked token: this change has an RMS of ${f(Y.attn_out_rms[S.pos], 2)}, and the blackboard goes from ${f(Y.in_rms[S.pos], 2)} to ${f(Y.mid_rms[S.pos], 2)}. Each layer only adds a stroke on top of what is there.`)])}</div>`,
+    `<div class="sub"><h4>${L(`第 7 步：${gpt2 ? 'GELU' : 'SwiGLU'} MLP（每个 token 自己加工）`, `Step 7: ${gpt2 ? 'GELU' : 'SwiGLU'} MLP (each token on its own)`)} <span class="io">${shp('B', 'T', hidW)}</span> ${swap('arch', {llama: 'SwiGLU', gpt2: 'GELU'})}</h4>
+      <p>${L(`再调一次音量（${norm}），然后每个 token 单独过一个 ${g('mlp')}：先放宽到 ${hidW} 维，`, `Another volume control (${norm}), then each token goes through an ${g('mlp')} on its own: widen to ${hidW} dims, `)}${gpt2
+        ? L(`过 ${g('gelu')} 开关，再用 w_down 压回 ${c.d_model} 维。共两个矩阵。`, `pass through the ${g('gelu')} switch, and squeeze back to ${c.d_model} with w_down. Two matrices.`)
+        : L(`一路算“门开多大”、一路算“内容”，两路相乘（${g('swiglu')}），再用 w_down 压回 ${c.d_model} 维。三个矩阵，所以宽度只取 GELU 版的约 2/3，参数量一样。`,
+          `one path decides how far the gate opens, the other carries content, and they are multiplied (${g('swiglu')}); then w_down squeezes it back to ${c.d_model}. Three matrices, so the width is about 2/3 of the GELU version’s, for the same parameter count.`)}</p>
       ${heatHTML(Y.hid, hidW)}
       <div class="hist">${Y.hid_hist.map((n, i) => `<i class="${i === 20 ? 'mid' : ''}" style="height:${n / Math.max(...Y.hid_hist) * 100}%"></i>`).join('')}</div>
-      <p class="cap">${L(`h 全部 ${T}×${hidW} 个值的分布，横轴 ±4σ（σ = ${Y.hid_sd}）；|h| < 0.1σ 的占 ${pct(Y.hid_small)}`, `All ${T}×${hidW} values of h, x axis ±4σ (σ = ${Y.hid_sd}); |h| < 0.1σ: ${pct(Y.hid_small)}`)}</p></div>`,
-    `<div class="sub"><h4>${L('加回 x', 'Add to x')} <span class="io">${shp('B', 'T', c.d_model)}</span></h4>
-      <p>${L(`MLP 的增量（RMS ${f(Y.mlp_out_rms[S.pos], 2)}）加回残差流：x 从 ${f(Y.mid_rms[S.pos], 2)} 变成 ${f(Y.out_rms[S.pos], 2)}。整段里 |x| 最大的通道：`,
-        `The MLP update (RMS ${f(Y.mlp_out_rms[S.pos], 2)}) is added to the residual stream: x goes from ${f(Y.mid_rms[S.pos], 2)} to ${f(Y.out_rms[S.pos], 2)}. Channels with the largest |x| across the text: `)}${Y.outliers.map(o => `#${o[0]} = ${o[1]}`).join(L('，', ', '))}${L('。', '.')}</p>${heatHTML(Y.out, c.d_model)}</div>`,
-    `<div class="sub" style="border-left-color:transparent"><h4>${L('这一层读出', 'Readout at this layer')}</h4><p>${rankText(Y.lens)}${L('。', '.')}</p>${topBars(Y.lens, 5)}</div>`,
+      <p class="cap">${L(`上图：${hidW} 维中间层的数值分布，横轴 ±4σ（σ = ${Y.hid_sd}），中间黑柱是 0 附近`, `Above: the distribution of the ${hidW}-dim middle layer, x axis ±4σ (σ = ${Y.hid_sd}); the black bar in the middle is around 0`)}</p>
+      ${see([L(`${pct(Y.hid_small)} 的中间值几乎是 0（|h| < 0.1σ）：对这些 token，很多“神经元”的门是关着的，只有少数被强烈激活。`, `${pct(Y.hid_small)} of the middle values are nearly 0 (|h| < 0.1σ): for these tokens many "neurons" have their gate shut, and only a few fire strongly.`)])}</div>`,
+    `<div class="sub"><h4>${L('第 8 步：MLP 的结果也加回黑板', 'Step 8: add the MLP result to the blackboard too')} <span class="io">${shp('B', 'T', c.d_model)}</span></h4>
+      <p>${L(`跟踪的 token：MLP 这一笔的 RMS 是 ${f(Y.mlp_out_rms[S.pos], 2)}，黑板从 ${f(Y.mid_rms[S.pos], 2)} 变成 ${f(Y.out_rms[S.pos], 2)}。这就是这一层交给下一层的东西。`,
+        `Tracked token: the MLP’s change has an RMS of ${f(Y.mlp_out_rms[S.pos], 2)}, and the blackboard goes from ${f(Y.mid_rms[S.pos], 2)} to ${f(Y.out_rms[S.pos], 2)}. This is what the layer hands to the next one.`)}</p>${heatHTML(Y.out, c.d_model)}
+      ${see([bosBig && L(`开头 &lt;bos&gt; 那一行的 RMS 是 ${f(Y.out_rms[0], 1)}，其他 token 平均只有 ${f(mean(others), 1)}：少数通道在这里特别大（${g('massive')}），整段里最大的是 ${Y.outliers.map(o => `#${o[0]} = ${o[1]}`).join('、')}。`,
+        `The opening &lt;bos&gt; row has an RMS of ${f(Y.out_rms[0], 1)}, against an average of ${f(mean(others), 1)} for the other tokens: a few channels are huge here (${g('massive')}); the largest across the text are ${Y.outliers.map(o => `#${o[0]} = ${o[1]}`).join(', ')}.`),
+        !bosBig && L(`整段里 |x| 最大的通道：${Y.outliers.map(o => `#${o[0]} = ${o[1]}`).join('、')}。`, `Channels with the largest |x| across the text: ${Y.outliers.map(o => `#${o[0]} = ${o[1]}`).join(', ')}.`)])}</div>`,
+    `<div class="sub" style="border-left-color:transparent"><h4>${L('要是在这一层就停下', 'If the model stopped at this layer')}</h4><p>${L(`它会猜 ${q(Y.lens.ids[S.pos][0])}。`, `It would guess ${q(Y.lens.ids[S.pos][0])}. `)}${rankText(Y.lens)}${L('。', '.')}</p>${topBars(Y.lens, 5)}</div>`,
   ];
-  return station('block', L(`放大 Block ${l + 1}`, `Zoom: block ${l + 1}`), `${shp('B', 'T', c.d_model)} → ${shp('B', 'T', c.d_model)}`, `${nav}${subs.join('')}`, '');
+  return station('block', L(`放大 Block ${l + 1}`, `Zoom: block ${l + 1}`), `${shp('B', 'T', c.d_model)} → ${shp('B', 'T', c.d_model)}`,
+    gist(L('一层里只做两件事：先在 token 之间搬信息（注意力，第 1–6 步），再让每个 token 自己加工（MLP，第 7–8 步）。', 'A layer does just two things: move information between tokens (attention, steps 1–6), then let each token work on its own (MLP, steps 7–8).')) + `${nav}${subs.join('')}`, '');
 }
 function stHead() {
-  const v = cur(), tr = v.trace, c = v.cfg, norm = c.arch === 'gpt2' ? 'LayerNorm' : 'RMSNorm';
-  const body = `<p>${L(`最后一个 ${norm}，再乘 tok_embᵀ（就是开头那张嵌入表）得到 ${c.vocab_size} 个 logit，softmax 成概率。这一位置的熵 ${f(tr.entropy[S.pos], 2)} bit。`,
-      `A final ${norm}, then a multiply by tok_embᵀ (the same embedding table) gives ${c.vocab_size} logits, and a softmax turns them into probabilities. Entropy at this position: ${f(tr.entropy[S.pos], 2)} bits. `)}${rankText(tr.final)}${L('。', '.')}</p>${topBars(tr.final, 10)}`;
+  const v = cur(), tr = v.trace, c = v.cfg, norm = c.arch === 'gpt2' ? 'LayerNorm' : 'RMSNorm', H = tr.entropy[S.pos];
+  const top10 = sum(tr.final.p[S.pos].slice(0, 10));
+  const body = gist(L(`把最后的黑板翻译成对 ${c.vocab_size} 个候选 token 的打分，再变成概率。`, `Translate the final blackboard into a score for each of the ${c.vocab_size} candidate tokens, then into probabilities.`))
+    + `<p>${L(`最后再调一次音量（${norm}），然后和嵌入表的每一行做点积，得到 ${c.vocab_size} 个 ${g('logit')}：黑板和哪个 token 的那一行越像，那个 token 分越高。${g('softmax')} 把分数变成概率。`,
+      `One last volume control (${norm}), then a dot product with every row of the embedding table gives ${c.vocab_size} ${g('logit', 'logits')}: the more the blackboard looks like a token’s row, the higher that token scores. ${g('softmax')} turns scores into probabilities.`)}</p>${topBars(tr.final, 10)}`
+    + how(L('前 10 名候选和它们的概率；红色那行是正确答案（不在前 10 时会补在最后）。', 'The top 10 candidates and their probabilities; the red row is the right answer (added at the bottom if it is not in the top 10).'))
+    + see([L(`${rankText(tr.final)}。`, `${rankText(tr.final)}.`),
+      L(`${g('entropy', '熵')} ${f(H, 2)} bit：差不多是在 ${Math.max(1, Math.round(2 ** H))} 个候选之间犹豫。前 10 名加起来 ${pct(top10)}，剩下 ${c.vocab_size - 10} 个分走 ${pct(1 - top10)}。`,
+        `${g('entropy')} ${f(H, 2)} bits: roughly hesitating between ${Math.max(1, Math.round(2 ** H))} candidates. The top 10 hold ${pct(top10)}; the other ${c.vocab_size - 10} share ${pct(1 - top10)}.`)]);
   return station('head', L('输出头', 'Output head'), `${shp('B', 'T', c.d_model)} → logits ${shp('B', 'T', c.vocab_size)}`, body, '');
 }
 function stLoss() {
@@ -624,13 +794,18 @@ function stLoss() {
   const nb = sum(TGT.map(id => D.token_bytes[id])), tb = sum(bits), p = prev();
   const n = S.big ? fInt(D.train_shape.micro_batch * D.train_shape.seq_len) : T;
   const before = p ? f(sum(p.trace.nats) / Math.LN2 / nb, 3) : null;
-  const body = `<p>${L(`每个位置的交叉熵 = −log₂ p(正确的下一个 token)。训练时对 batch 里全部 ${n} 个位置取平均（单位 nat）再反向传播；评测把总 bit 数除以总字节数，得到不依赖词表的 BPB。`,
-      `Cross-entropy at each position = −log₂ p(the right next token). Training averages it over all ${n} positions of the batch (in nats) and backpropagates; evaluation divides the total bits by the total bytes, which gives BPB, independent of the vocabulary.`)}</p>
+  const hi = bits.indexOf(Math.max(...bits)), lo = bits.indexOf(Math.min(...bits));
+  const body = gist(L('看模型给正确答案多少概率：给得越少，罚得越多。', 'Check how much probability the model gave the right answer: the less it gave, the bigger the penalty.'))
+    + `<p>${L(`每个位置的罚分是${g('ce')}：−log₂ p(正确的下一个 token)。训练时把这 ${n} 个位置的罚分取平均（单位 nat，见 ${g('bits')}），就是 loss。评测时把总 bit 数除以总字节数，得到 ${g('bpb')}。`,
+      `The penalty at each position is the ${g('ce')}: −log₂ p(the right next token). Training averages it over these ${n} positions (in nats, see ${g('bits')}) to get the loss. Evaluation divides the total bits by the total bytes to get ${g('bpb')}.`)}</p>
     <div class="scroll"><div class="lossbars">${bits.map((b, i) => `<button class="${i === S.pos ? 'on' : ''}" data-pos="${i}" title="${esc(tok(TGT[i]))}: ${b.toFixed(2)} bit"><div class="b" style="height:${b / mx * 120}px"></div><small>${tokH(TGT[i])}</small></button>`).join('')}</div></div>
     <p class="formula">loss = ${L('平均', 'mean')} ${f(sum(nats) / T, 3)} nat
-BPB  = Σ bit / Σ ${L('字节', 'bytes')} = ${f(tb, 1)} / ${nb} = ${f(tb / nb, 3)}${before ? L(`（切换前 ${before}）`, ` (before the swap: ${before})`) : ''}</p>
-    <p class="note">${L(`这只是一句话；val BPB 是固定的 ${fTok(D.train_shape.eval_tokens)} 个验证 token 上的同一个数。`, `This is one sentence; val BPB is the same quantity over a fixed ${fTok(D.train_shape.eval_tokens)} validation tokens.`)}</p>`;
-  return station('loss', L('损失', 'Loss'), `logits + y → ${L('标量', 'scalar')}`, body, '');
+BPB  = Σ bit / Σ ${L('字节', 'bytes')} = ${f(tb, 1)} / ${nb} = ${f(tb / nb, 3)}${before ? L(`（切换前 ${before}）`, ` (before the swap: ${before})`) : ''}</p>`
+    + how(L('每根柱子是一个位置的罚分（bit），柱子下面是该猜出的 token。越高 = 越没猜到。点柱子会换跟踪的 token。', 'Each bar is one position’s penalty in bits, with the token it should have guessed underneath. Taller = more surprised. Click a bar to track that token.'))
+    + see([L(`最难猜的是 ${q(TGT[hi])}（${f(bits[hi], 1)} bit），最容易的是 ${q(TGT[lo])}（${f(bits[lo], 2)} bit）。`, `The hardest is ${q(TGT[hi])} (${f(bits[hi], 1)} bits), the easiest ${q(TGT[lo])} (${f(bits[lo], 2)} bits).`),
+      L(`作为参照：乱猜每个位置都要 13 bit。这里只是一句话，真正的 ${g('valbpb')} 是在 ${fTok(D.train_shape.eval_tokens)} 个验证 token 上算的同一个数。`,
+        `For scale: a blind guess costs 13 bits at every position. This is one sentence; the real ${g('valbpb')} is the same quantity over ${fTok(D.train_shape.eval_tokens)} validation tokens.`)]);
+  return station('loss', L('损失', 'Loss'), `logits + y → ${L('一个数', 'one number')}`, body, '');
 }
 function stBack() {
   const v = cur(), G = v.trace.grads, names = G.names.map(n => n.replace('.weight', '').replace('attn.', '').replace('mlp.', ''));
@@ -638,14 +813,20 @@ function stBack() {
   const lo = Math.min(...all.map(lg)), hi = Math.max(...all.map(lg));
   const cell = x => { const t = (lg(x) - lo) / ((hi - lo) || 1); return `<td style="background:color-mix(in srgb,var(--pos) ${Math.round(t * 80)}%,transparent);${t > 0.6 ? 'color:var(--on)' : ''}">${x.toPrecision(2)}</td>`; };
   const clip = Math.min(1, 1 / G.total), cv = v.curves, gn = f(G.total, 2);
-  const body = `<p>${L(`loss 对每个参数求导，梯度从输出头沿原路倒流回嵌入表，每个参数得到一个同形状的梯度。先把所有梯度合起来的范数裁到 1：本例 ‖g‖ = ${gn}，${clip < 1 ? `整体乘 ${f(clip, 3)}` : '不用裁'}。下表是每个矩阵梯度的范数（颜色按对数）。`,
-      `The loss is differentiated with respect to every parameter: the gradient flows back from the output head to the embedding table, and every parameter gets a gradient of its own shape. The norm of all gradients together is first clipped to 1: here ‖g‖ = ${gn}, so ${clip < 1 ? `everything is scaled by ${f(clip, 3)}` : 'nothing is clipped'}. The table shows each matrix's gradient norm (log colour scale).`)}</p>
+  let big = [0, 0, -1];
+  G.blocks.forEach((r, i) => r.forEach((x, j) => { if (x > big[2]) big = [i, j, x]; }));
+  const body = gist(L('从罚分往回推：每个参数往哪边改一点，罚分会变小。', 'Work backwards from the penalty: which way each parameter should move to make it smaller.'))
+    + `<p>${L(`这一步叫反向传播。结果是每个参数都得到一个${g('grad')}，形状和参数一样。为了防止某一步迈太大，先做${g('clip')}：所有梯度合起来的模长超过 1 就整体缩小。`,
+      `This is backpropagation. Every parameter gets a ${g('grad')} of its own shape. To keep any single step from being too big, ${g('clip')} comes first: if all gradients together have a magnitude above 1, they are scaled down together.`)}</p>
     <div class="scroll"><table class="grid"><tr><th></th>${names.map(n => `<th>${esc(n)}</th>`).join('')}</tr>
     ${G.blocks.map((r, i) => `<tr><th${i === S.layer ? ' class="sel"' : ''}>B${i + 1}</th>${r.map(cell).join('')}</tr>`).join('')}</table></div>
-    <div class="scroll"><table class="grid" style="margin-top:6px"><tr>${Object.keys(G.other).map(n => `<th>${esc(n.replace('.weight', ''))}</th>`).join('')}</tr><tr>${Object.values(G.other).map(cell).join('')}</tr></table></div>
-    <p class="note">${L(`这里只有一句话的 ${T} 个 token，噪声比训练时 ${fB(cur().recipe.batch || D.train_shape.batch_tokens)} token 的 batch 大得多。`, `This is one sentence of ${T} tokens, far noisier than a training batch of ${fB(cur().recipe.batch || D.train_shape.batch_tokens)} tokens.`)}</p>`;
-  const more = cv ? `<p>${L('训练日志里每步裁剪前的梯度范数：', 'Gradient norm before clipping, per step, from the training log:')}</p>${chart([{pts: cv.train.map(t => [t[0], t[3]]), color: 'var(--pos)', label: '‖g‖'}], {ylog: true, xf: fTok, yf: x => +x.toPrecision(2)})}` : '';
-  return station('back', L('反向传播', 'Backward'), L('标量 → 每个参数一个梯度', 'scalar → one gradient per parameter'), body, more);
+    <div class="scroll"><table class="grid" style="margin-top:6px"><tr>${Object.keys(G.other).map(n => `<th>${esc(n.replace('.weight', ''))}</th>`).join('')}</tr><tr>${Object.values(G.other).map(cell).join('')}</tr></table></div>`
+    + how(L('每格是一个矩阵梯度的模长（这一块参数“被要求改多少”）。行是层，列是这一层里的各个矩阵；颜色越深越大（对数刻度）。', 'Each cell is the magnitude of one matrix’s gradient (how much that block of parameters is asked to change). Rows are layers, columns the matrices in a layer; darker is larger (log scale).'))
+    + see([L(`这句话里“被要求改得最多”的是 B${big[0] + 1} 的 ${esc(names[big[1]])}（${big[2].toPrecision(2)}）。`, `In this sentence the matrix asked to change most is ${esc(names[big[1]])} of B${big[0] + 1} (${big[2].toPrecision(2)}).`),
+      L(`所有梯度合起来的模长 ${gn}，${clip < 1 ? `超过 1，要整体乘 ${f(clip, 3)}` : '没超过 1，不用裁'}。只有一句话（${T} 个 token），比训练时 ${fB(cur().recipe.batch || D.train_shape.batch_tokens)} token 的 batch 吵得多。`,
+        `All gradients together have a magnitude of ${gn}, ${clip < 1 ? `above 1, so everything is scaled by ${f(clip, 3)}` : 'not above 1, so nothing is clipped'}. This is one sentence (${T} tokens), much noisier than a ${fB(cur().recipe.batch || D.train_shape.batch_tokens)}-token training batch.`)]);
+  const more = cv ? `<p>${L('训练日志里每一步（裁剪前）的梯度模长：', 'Gradient magnitude at every step (before clipping), from the training log:')}</p>${chart([{pts: cv.train.map(t => [t[0], t[3]]), color: 'var(--pos)', label: '‖g‖'}], {ylog: true, xf: fTok, yf: x => +x.toPrecision(2)})}` : '';
+  return station('back', L('反向传播', 'Backward'), L('一个数 → 每个参数一个梯度', 'one number → one gradient per parameter'), body, more);
 }
 function stOpt() {
   const v = cur(), opt = v.recipe.optimizer, P = v.params;
@@ -654,26 +835,26 @@ function stOpt() {
   const M = SP && SP.mats.find(m => m.layer === S.layer && m.kind === S.mat);
   const [b1, b2] = SP ? SP.betas : [0.9, 0.95], mu = SP ? SP.mu : 0.95, wd = SP ? SP.wd : 0.1;
   const r1 = x => +(1 - x).toFixed(2);
-  const split = P.split[opt || 'adamw'].map(g => `<dt>${g.opt}${g.wd ? ` · wd ${g.wd}` : ''}</dt><dd>${L(`${g.n} 个张量，${fM(g.numel)}`, `${g.n} tensors, ${fM(g.numel)}`)}</dd>`).join('');
+  const split = P.split[opt || 'adamw'].map(gr => `<dt>${gr.opt}${gr.wd ? ` · wd ${gr.wd}` : ''}</dt><dd>${L(`${gr.n} 个张量，${fM(gr.numel)}`, `${gr.n} tensors, ${fM(gr.numel)}`)}</dd>`).join('');
   const formula = opt === 'muon'
-    ? L(`块内 2D 矩阵（wq wk wv wo + MLP）走 Muon：
-m ← ${mu}·m + ${r1(mu)}·g
-u = NS₅(${r1(mu)}·g + ${mu}·m)        Nesterov，再正交化：奇异值都推向 1
-W ← W·(1 − lr·${wd}) − lr·0.2·√max(行,列)·u   0.2·√max 让 u 的 RMS 对齐 AdamW
-其余（嵌入表、norm 增益）照旧走 AdamW。`, `2-D matrices inside the blocks (wq wk wv wo + MLP) use Muon:
-m ← ${mu}·m + ${r1(mu)}·g
-u = NS₅(${r1(mu)}·g + ${mu}·m)        Nesterov, then orthogonalize: singular values pushed to 1
-W ← W·(1 − lr·${wd}) − lr·0.2·√max(rows,cols)·u   0.2·√max matches u's RMS to AdamW's
+    ? L(`块内的 2D 矩阵（wq wk wv wo 和 MLP）走 Muon：
+m ← ${mu}·m + ${r1(mu)}·g                     动量：梯度的滑动平均
+u = NS₅(${r1(mu)}·g + ${mu}·m)                 拆成方向，每个方向的力度都推到 1
+W ← W·(1 − lr·${wd}) − lr·0.2·√max(行,列)·u   0.2·√max 让步子大小和 AdamW 差不多
+其余（嵌入表、norm 增益）照旧走 AdamW。`, `2-D matrices inside the blocks (wq wk wv wo and the MLP) use Muon:
+m ← ${mu}·m + ${r1(mu)}·g                     momentum: a running average of gradients
+u = NS₅(${r1(mu)}·g + ${mu}·m)                 split into directions, push every strength to 1
+W ← W·(1 − lr·${wd}) − lr·0.2·√max(rows,cols)·u   0.2·√max makes the step about AdamW’s size
 Everything else (embedding table, norm gains) stays on AdamW.`)
-    : L(`每个参数逐元素：
-m ← ${b1}·m + ${r1(b1)}·g          一阶矩（动量）
-v ← ${b2}·v + ${r1(b2)}·g²         二阶矩
-Δ = m̂ / (√v̂ + 1e-8)               m̂、v̂ 是去偏后的值
-W ← W − lr·(Δ + ${wd}·W)            矩阵有 weight decay，norm 增益没有`, `Element by element, for every parameter:
-m ← ${b1}·m + ${r1(b1)}·g          first moment (momentum)
-v ← ${b2}·v + ${r1(b2)}·g²         second moment
-Δ = m̂ / (√v̂ + 1e-8)               m̂, v̂ are bias-corrected
-W ← W − lr·(Δ + ${wd}·W)            matrices get weight decay, norm gains do not`);
+    : L(`每个参数单独算：
+m ← ${b1}·m + ${r1(b1)}·g          动量：梯度的滑动平均
+v ← ${b2}·v + ${r1(b2)}·g²         梯度平方的滑动平均（这个参数的梯度一般有多大）
+Δ = m̂ / (√v̂ + 1e-8)               方向稳的参数 Δ≈±1，忽大忽小的参数 Δ 变小
+W ← W − lr·(Δ + ${wd}·W)            再加一点 weight decay（norm 增益不加）`, `For every parameter on its own:
+m ← ${b1}·m + ${r1(b1)}·g          momentum: a running average of gradients
+v ← ${b2}·v + ${r1(b2)}·g²         a running average of squared gradients (how big this gradient usually is)
+Δ = m̂ / (√v̂ + 1e-8)               steady parameters get Δ ≈ ±1, jumpy ones a smaller Δ
+W ← W − lr·(Δ + ${wd}·W)            plus a little weight decay (not on norm gains)`);
   let spec = `<p class="note">${L('没有找到带 AdamW 状态的 stable checkpoint，画不了更新的奇异值谱。', 'No stable checkpoint with AdamW state was found, so the update spectra cannot be drawn.')}</p>`;
   if (M) {
     const lab = {g: L('梯度 g', 'gradient g'), m: L('动量 m', 'momentum m'), adam: 'AdamW Δ', muon: 'Muon u'}, col = {g: 'var(--muted)', m: 'var(--neg)', adam: 'var(--pos)', muon: 'var(--teal)'};
@@ -681,46 +862,65 @@ W ← W − lr·(Δ + ${wd}·W)            matrices get weight decay, norm gains
     const ser = ['g', 'm', 'adam', 'muon'].map(k => ({pts: M.idx.map((i, j) => [i + 1, M.sv[k][j] / M.sv[k][0]]), color: col[k], label: lab[k], w: k === mine ? 3.5 : 1.6, dash: (k === 'adam' || k === 'muon') && k !== mine ? '5 4' : ''}));
     const ymin = Math.min(...ser.flatMap(s => s.pts.map(p => p[1])).filter(x => x > 0));
     const st = M.stats, shape = M.shape.join('×');
-    spec = `<p>${L(`同一个梯度，两种更新的奇异值谱（各自除以最大的 s₁）。Block ${M.layer + 1} 的 ${esc(M.kind)}（${shape}）：`, `Singular-value spectra of the two updates built from the same gradient (each divided by its largest, s₁). ${esc(M.kind)} of block ${M.layer + 1} (${shape}):`)}</p>
+    spec = `<p>${L(`同一个梯度，两种优化器最后迈出的那一步，拆成方向来看（${g('sv', '奇异值')}）。Block ${M.layer + 1} 的 ${esc(M.kind)}（${shape}）：`, `The same gradient, and the step each optimizer finally takes, split into directions (${g('sv', 'singular values')}). ${esc(M.kind)} of block ${M.layer + 1} (${shape}):`)}</p>
       <div class="mats">${kinds.map(k => `<button class="${k === S.mat ? 'on' : ''}" data-mat="${k}">${esc(k)}</button>`).join('')}</div>
       ${chart(ser, {xlog: true, ylog: true, xd: [1, Math.min(...M.shape)], yd: [ymin, 1], xf: x => x, yf: x => +x.toPrecision(1), h: 250})}
-      <div class="scroll"><table class="grid"><tr><th></th><th>${L('s₁ / 中位', 's₁ / median')}</th><th>${L('最大方向占能量', 'Top direction energy')}</th><th>RMS</th></tr>
+      ${how(L('横轴：第 1、2、3… 大的方向；纵轴：这个方向的力度，相对最大方向的比例。线越平 = 各个方向走得一样远；一开头就掉下去 = 几乎只往最大的那个方向推。粗线是当前优化器。',
+        'x axis: the 1st, 2nd, 3rd… largest direction; y axis: its strength relative to the largest. A flat line = every direction moves the same distance; a line that drops right away = almost all the push goes into one direction. The thick line is the current optimizer.'))}
+      <div class="scroll"><table class="grid"><tr><th></th><th>${L('最大 ÷ 中位', 'largest ÷ median')}</th><th>${L('最大方向占多少', 'share of the top direction')}</th><th>RMS</th></tr>
       ${['g', 'm', 'adam', 'muon'].map(k => `<tr><th class="tk"${k === mine ? ' style="color:var(--ink)"' : ''}>${lab[k]}</th><td>${st[k].ratio}</td><td>${pct(st[k].top1)}</td><td>${st[k].rms.toPrecision(2)}</td></tr>`).join('')}</table></div>
-      <p class="note">${L(`动量把梯度集中到少数方向；AdamW 逐元素除以 √v 已削掉大部分，Muon 把剩下的拉平。数据：${esc(SP.run)}（${fTok(SP.tokens)}，第 ${SP.step} 步）的 AdamW 状态加一个 ${SP.batch[0]}×${SP.batch[1]} 的真实 batch；Muon 没从这里跑过，动量用 AdamW 的一阶矩代替。`,
-        `Momentum concentrates the gradient in a few directions; AdamW's element-wise division by √v already removes most of that, and Muon flattens the rest. Data: the AdamW state of ${esc(SP.run)} (${fTok(SP.tokens)}, step ${SP.step}) plus one real ${SP.batch[0]}×${SP.batch[1]} batch; Muon was never run from here, so AdamW's first moment stands in for its momentum.`)}</p>`;
+      ${see([L(`${g('momentum')}里最大的一个方向就占了 ${pct(st.m.top1)}：几乎只往一个方向推。AdamW 逐个参数除以 √v 后降到 ${pct(st.adam.top1)}，Muon 把所有方向拉平，只剩 ${pct(st.muon.top1)}。`,
+          `The ${g('momentum')}’s single largest direction holds ${pct(st.m.top1)}: it pushes almost one way only. AdamW’s per-parameter division by √v brings that to ${pct(st.adam.top1)}; Muon flattens every direction, leaving ${pct(st.muon.top1)}.`),
+        L(`为什么要拉平？梯度大的方向只说明那里“陡”，不说明该走得远。像在峡谷里，陡的那边一步迈大了就撞墙，缓的那边却几乎不动。`,
+          'Why flatten? A large gradient only says a direction is steep, not that you should go far. In a narrow valley a big step along the steep side hits the wall, while the gentle side barely moves.')])}
+      <p class="note">${L(`数据来源：${esc(SP.run)}（${fTok(SP.tokens)}，第 ${SP.step} 步）的 AdamW 状态，加一个 ${SP.batch[0]}×${SP.batch[1]} 的真实 batch。Muon 没从这里跑过，它的动量用 AdamW 的一阶矩代替。`,
+        `Data: the AdamW state of ${esc(SP.run)} (${fTok(SP.tokens)}, step ${SP.step}) plus one real ${SP.batch[0]}×${SP.batch[1]} batch. Muon was never run from here, so AdamW’s first moment stands in for its momentum.`)}</p>`;
   }
-  const ns = M ? `<p>${L('Newton–Schulz 5 次迭代（bf16，与 pinwheel/muon.py 逐位一致）：每次把奇异值 s 换成 3.4445s − 4.775s³ + 2.0315s⁵，小的放大约 3.4 倍，大的在 0.7–1.2 之间来回。',
-      'Five Newton–Schulz iterations (bf16, bit-identical to pinwheel/muon.py): each maps a singular value s to 3.4445s − 4.775s³ + 2.0315s⁵, lifting small values about 3.4× per step while large ones swing between 0.7 and 1.2.')}</p>
+  const ns = M ? `<p>${L(`Muon 怎么把力度推到 1：${g('ns')} 迭代 5 次（bf16，与 pinwheel/muon.py 逐位一致）。每次把力度 s 换成 3.4445s − 4.775s³ + 2.0315s⁵：小的每次放大约 3.4 倍，大的在 0.7–1.2 之间来回。`,
+      `How Muon pushes strengths to 1: five ${g('ns')} iterations (bf16, bit-identical to pinwheel/muon.py). Each maps a strength s to 3.4445s − 4.775s³ + 2.0315s⁵: small values grow about 3.4× per step, large ones swing between 0.7 and 1.2.`)}</p>
     ${chart(M.ns.map((s, k) => ({pts: M.idx.map((i, j) => [i + 1, s[j]]), color: `color-mix(in srgb,var(--teal) ${25 + k * 15}%,var(--muted))`, w: k === 5 ? 3 : 1.5, label: k === 5 ? L('第 5 次', 'step 5') : ''})), {xlog: true, xd: [1, Math.min(...M.shape)], yd: [0, 1.3], xf: x => x, yf: x => x, h: 240})}
-    <p class="cap">${L('横轴是第几大的奇异值，纵轴是它的值。颜色由浅到深：输入（除以 Frobenius 范数后）、第 1 … 5 次迭代。', 'x axis: rank of the singular value; y axis: its value. Light to dark: the input (divided by its Frobenius norm), then iterations 1 … 5.')}</p>` : '';
-  const body = `<p class="formula">${esc(formula)}</p><dl class="kv">${split}</dl>${spec}${opt === 'muon' ? ns : ''}`;
-  const title = opt === 'muon' ? L('Muon + AdamW 更新', 'Muon + AdamW update') : opt === 'adamw' ? L('AdamW 更新', 'AdamW update') : L('优化器（还没走过一步）', 'Optimizer (no step taken yet)');
-  return station('opt', title, L('梯度 → 新的权重', 'gradients → new weights'), body, opt === 'muon' ? '' : ns, swap('optimizer', {}));
+    <p class="cap">${L('横轴是第几大的方向，纵轴是力度。颜色由浅到深：输入（除以 Frobenius 范数后）、第 1 … 5 次迭代。', 'x axis: rank of the direction; y axis: its strength. Light to dark: the input (divided by its Frobenius norm), then iterations 1 … 5.')}</p>` : '';
+  const body = gist(L('按梯度真正改参数。AdamW 和 Muon 是两种不同的“怎么迈这一步”。', 'Actually change the parameters along the gradient. AdamW and Muon are two different ways of taking this step.'))
+    + `<p>${opt === 'muon' ? L(`现在用的是 ${g('muon')}（矩阵）+ ${g('adamw')}（其余）。`, `This run uses ${g('muon')} (matrices) + ${g('adamw')} (the rest).`) : opt === 'adamw' ? L(`现在用的是 ${g('adamw')}。`, `This run uses ${g('adamw')}.`) : L('初始化的模型还没走过一步。', 'The initialized model has not taken a step yet.')}${L(`步子大小由${g('lr')}决定（见下一站），每步还有一点 ${g('wd')}。`, ` The step size comes from the ${g('lr')} (next station), plus a little ${g('wd')} each step.`)}</p>
+    <p class="formula">${esc(formula)}</p><dl class="kv">${split}</dl>${spec}${opt === 'muon' ? ns : ''}`;
+  const title = opt === 'muon' ? L('Muon + AdamW 更新', 'Muon + AdamW update') : opt === 'adamw' ? L('AdamW 更新', 'AdamW update') : L('优化器', 'Optimizer');
+  return station('opt', title, L('梯度 → 新的参数', 'gradients → new parameters'), body, opt === 'muon' ? '' : ns, swap('optimizer', {}));
 }
 function stSched() {
   const v = cur(), p = prev(), r = v.recipe, cd = Math.round((v.cooldown_frac || 0) * 100);
   const desc = r.schedule === 'wsd'
-    ? L(`前 ${v.warmup} 步线性升到峰值，之后恒定，最后 ${cd}% 的步数按 1 − √t 降到 ${v.min_lr_frac ? v.min_lr_frac + '×峰值' : '0'}。恒定段的 checkpoint 拿出来单独退火，就得到更短的训练长度。`,
-      `Linear warmup to the peak over the first ${v.warmup} steps, then constant, then the last ${cd}% of steps fall as 1 − √t to ${v.min_lr_frac ? v.min_lr_frac + '× peak' : '0'}. Cooling down a checkpoint from the constant phase on its own gives a shorter run.`)
-    : r.schedule === 'cosine' ? L(`前 ${v.warmup} 步线性升到峰值，然后沿余弦一路降到 ${v.min_lr_frac}×峰值。`, `Linear warmup to the peak over the first ${v.warmup} steps, then a cosine down to ${v.min_lr_frac}× peak.`)
+    ? L(`这次用 ${g('wsd')}：前 ${v.warmup} 步 ${g('warmup')}，之后恒定，最后 ${cd}% 的步数${g('cooldown')}，按 1 − √t 降到 ${v.min_lr_frac ? v.min_lr_frac + '×峰值' : '0'}。`,
+      `This run uses ${g('wsd')}: ${g('warmup')} over the first ${v.warmup} steps, then constant, then a ${g('cooldown')} over the last ${cd}% of steps, falling as 1 − √t to ${v.min_lr_frac ? v.min_lr_frac + '× peak' : '0'}.`)
+    : r.schedule === 'cosine' ? L(`这次用 ${g('cosine')}：前 ${v.warmup} 步 ${g('warmup')}，然后沿余弦一路降到 ${v.min_lr_frac}×峰值。`, `This run uses ${g('cosine')}: ${g('warmup')} over the first ${v.warmup} steps, then a cosine slide down to ${v.min_lr_frac}× peak.`)
     : L('初始化的模型还没有学习率。', 'The initialized model has no learning rate yet.');
   const ser = (x, color, w, k) => x && x.curves ? {pts: x.curves[k].map(t => [t[0], k === 'train' ? t[2] : t[1]]), color, w, label: x === v ? L('现在', 'now') : L('之前', 'before')} : null;
   const lrS = [ser(p, 'var(--muted)', 1.6, 'train'), ser(v, 'var(--teal)', 3, 'train')].filter(Boolean);
   const vs = [ser(p, 'var(--muted)', 1.6, 'val'), ser(v, 'var(--teal)', 3, 'val')].filter(Boolean);
-  const vals = vs.flatMap(s => s.pts), xmax = Math.max(1, ...vals.map(q => q[0]));
-  const yd = vals.length ? [Math.min(...vals.map(q => q[1])) - 0.01, Math.max(...vals.filter(q => q[0] >= xmax * 0.12).map(q => q[1]))] : null;
+  const vals = vs.flatMap(s => s.pts), xmax = Math.max(1, ...vals.map(t => t[0]));
+  const yd = vals.length ? [Math.min(...vals.map(t => t[1])) - 0.01, Math.max(...vals.filter(t => t[0] >= xmax * 0.12).map(t => t[1]))] : null;
   const marks = v.mark ? [{x: v.mark, label: L('这个 checkpoint', 'this checkpoint')}] : [];
   const xd = [0, Math.max(r.tokens || 0, p && p.recipe.tokens || 0) || 1];
   const muon = v.muon_lr && r.optimizer === 'muon' ? L(`（Muon 矩阵 ${fLR(v.muon_lr)}）`, ` (Muon matrices ${fLR(v.muon_lr)})`) : '';
-  const body = `<p>${desc}${L(` 峰值 lr ${fLR(v.lr)}${muon}，每步 ${fB(r.batch)} token。`, ` Peak lr ${fLR(v.lr)}${muon}, ${fB(r.batch)} tokens per step.`)}</p>
-    <div class="cols"><div><p>${L('学习率', 'Learning rate')}</p>${chart(lrS, {xd, xf: fTok, yf: fLR, marks, r: 58})}</div><div><p>val BPB</p>${chart(vs, {xd, xf: fTok, yf: x => x.toFixed(2), yd, marks, r: 58})}</div></div>`;
-  return station('sched', L('学习率调度', 'LR schedule'), L('第 n 步 → lr', 'step n → lr'), body, '', swap('schedule', {}));
+  // how much the cooldown bought: val BPB where the cooldown starts against the end
+  let cool = null;
+  if (r.schedule === 'wsd' && v.curves && !v.stable && cd) {
+    const val = v.curves.val, start = r.tokens * (1 - cd / 100), atStart = val.filter(t => t[0] <= start).pop(), last = val[val.length - 1];
+    if (atStart && last && last[0] > atStart[0]) cool = [atStart[1], last[1]];
+  }
+  const body = gist(L('决定这一步迈多大：先慢慢加速，再匀速，最后减速停稳。', 'Decide how big this step is: speed up gently, cruise, then slow down to settle.'))
+    + `<p>${desc}${L(` 峰值学习率 ${fLR(v.lr)}${muon}，每步 ${fB(r.batch)} token。`, ` Peak learning rate ${fLR(v.lr)}${muon}, ${fB(r.batch)} tokens per step.`)}</p>
+    <div class="cols"><div><p>${g('lr')}</p>${chart(lrS, {xd, xf: fTok, yf: fLR, marks, r: 58})}</div><div><p>${g('valbpb')}</p>${chart(vs, {xd, xf: fTok, yf: x => x.toFixed(2), yd, marks, r: 58})}</div></div>`
+    + how(L('横轴都是“已经训练了多少 token”。左：每一步的学习率；右：验证集上的 BPB，越低越好。青色是现在的实验，灰色是切换前的。', 'Both x axes are "tokens trained so far". Left: the learning rate at each step; right: BPB on the validation set, lower is better. Teal is the current run, grey the one before the swap.'))
+    + see([cool && L(`最后 ${cd}% 的退火让 val BPB 从 ${f(cool[0], 3)} 降到 ${f(cool[1], 3)}（${f(cool[1] - cool[0], 3)}）：步子一变小，模型就落进了谷底。`,
+      `The final ${cd}% cooldown takes val BPB from ${f(cool[0], 3)} to ${f(cool[1], 3)} (${f(cool[1] - cool[0], 3)}): once the steps shrink, the model settles into the valley floor.`)]);
+  return station('sched', L('学习率调度', 'LR schedule'), L('第几步 → 迈多大', 'step n → step size'), body, '', swap('schedule', {}));
 }
 function stNext() {
   const v = cur(), r = v.recipe;
   const steps = r.tokens && r.batch ? Math.round(r.tokens / r.batch) : 0;
-  const body = steps ? `<p>${L(`回到「取一个 batch」，重复 ${fInt(steps)} 步、共 ${fTok(r.tokens)} token。这次实验最后 val BPB ${f(v.val_bpb, 4)}。`, `Back to "Sample a batch", ${fInt(steps)} times in all, ${fTok(r.tokens)} tokens. This run ends at val BPB ${f(v.val_bpb, 4)}.`)}</p>`
-    : `<p>${L('回到「取一个 batch」开始第 1 步。', 'Back to "Sample a batch" for step 1.')}</p>`;
+  const body = gist(L('换下一批数据，重复成千上万次。', 'Take the next batch and repeat, thousands of times.'))
+    + (steps ? `<p>${L(`回到「取一个 batch」，这次实验一共重复了 ${fInt(steps)} 步、${fTok(r.tokens)} token，最后 val BPB ${f(v.val_bpb, 4)}。`, `Back to "Sample a batch": this run repeated it ${fInt(steps)} times, ${fTok(r.tokens)} tokens in all, and ended at val BPB ${f(v.val_bpb, 4)}.`)}</p>`
+      : `<p>${L('回到「取一个 batch」开始第 1 步。', 'Back to "Sample a batch" for step 1.')}</p>`);
   return station('next', L('下一步', 'Next step'), 'step + 1', body, '');
 }
 
@@ -730,15 +930,16 @@ function render() {
   renderStatic(); renderKPI(); renderSlots(); renderCmp(); renderInfo(); renderTokbar();
   const c = cur().cfg;
   document.getElementById('route').innerHTML = [
-    stTok(), edge(L('token id · uint16 存成 train.bin', 'token ids · stored as uint16 in train.bin')),
-    stData(), edge(L(`x ${shp('B', 'T')}，y 留到算损失`, `x ${shp('B', 'T')}; y waits for the loss`)),
-    stEmb(), edge(`${L('残差流', 'residual stream')} x ${shp('B', 'T', c.d_model)}`),
-    stBlocks(), edge(L(`放大 Block ${S.layer + 1}`, `zoom into block ${S.layer + 1}`)),
-    stBlock(), edge(L(`第 ${c.n_layer} 层后的 x ${shp('B', 'T', c.d_model)}`, `x after layer ${c.n_layer} ${shp('B', 'T', c.d_model)}`)),
-    stHead(), edge(`logits ${shp('B', 'T', c.vocab_size)}`),
-    stLoss(), edge(L('loss（标量）', 'loss (scalar)')),
-    stBack(), edge(L('梯度（与参数同形状）', 'gradients (same shapes as the parameters)')),
-    stOpt(), edge(L('更新后的权重', 'updated weights')),
+    guide(),
+    stTok(), edge(L('token 编号 · 提前存成 train.bin', 'token ids · stored ahead of time in train.bin')),
+    stData(), edge(L(`x ${shp('B', 'T')} 进模型，y 留到算损失时再用`, `x ${shp('B', 'T')} goes into the model; y waits for the loss`)),
+    stEmb(), edge(`${L('黑板（残差流）', 'blackboard (residual stream)')} x ${shp('B', 'T', c.d_model)}`),
+    stBlocks(), edge(L(`放大 Block ${S.layer + 1} 看里面`, `zoom into block ${S.layer + 1}`)),
+    stBlock(), edge(L(`第 ${c.n_layer} 层之后的黑板 ${shp('B', 'T', c.d_model)}`, `blackboard after layer ${c.n_layer} ${shp('B', 'T', c.d_model)}`)),
+    stHead(), edge(L(`每个位置 ${c.vocab_size} 个打分 ${shp('B', 'T', c.vocab_size)}`, `${c.vocab_size} scores per position ${shp('B', 'T', c.vocab_size)}`)),
+    stLoss(), edge(L('loss（一个数）', 'loss (one number)')),
+    stBack(), edge(L('梯度（和参数一样的形状）', 'gradients (same shapes as the parameters)')),
+    stOpt(), edge(L('改过的参数', 'updated parameters')),
     stSched(), edge('↺'),
     stNext(),
   ].join('');
@@ -754,14 +955,14 @@ function induction() {
 }
 
 document.addEventListener('click', e => {
-  const b = e.target.closest('[data-go],[data-pos],[data-layer],[data-head],[data-big],[data-mat],[data-lang],#play');
-  if (!b) return;
+  const t = e.target.closest('.term');
+  if (t) return termTip(t, e);  // a tap on a phone shows the explanation
+  const b = e.target.closest('[data-go],[data-pos],[data-layer],[data-head],[data-big],[data-mat],[data-lang],[data-hints],#play');
+  if (!b) return tip(null);
   if (b.id === 'play') return play();
   if (b.dataset.go != null) return go(+b.dataset.go);
-  if (b.dataset.lang != null) {
-    S.lang = b.dataset.lang;
-    try { localStorage.setItem(LANG_KEY, S.lang); } catch (err) { /* keep the choice for this visit only */ }
-  }
+  if (b.dataset.lang != null) { S.lang = b.dataset.lang; store('lang', S.lang); }
+  if (b.dataset.hints != null) { S.hints = b.dataset.hints === '1'; store('hints', S.hints ? '1' : '0'); }
   if (b.dataset.pos != null) S.pos = +b.dataset.pos;
   if (b.dataset.layer != null) S.layer = +b.dataset.layer;
   if (b.dataset.head != null) S.head = Math.min(+b.dataset.head, cur().cfg.n_head - 1);
