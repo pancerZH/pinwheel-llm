@@ -4,300 +4,381 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>pinwheel-llm 实验树</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap">
 <style>
+  /* VOICE work: a lab notebook figure read by the author and reviewers
+     IDEA a newspaper graphics-desk diagram: one bold trunk route, each step's experiments hanging in its own lane
+     PICTURE the lane diagram: trunk stations across the top, branches listed under the step they explored
+     COLOUR salmon paper ground, ink, teal for the trunk, claret for regressions, oxford blue for comparisons
+     TYPE Libre Franklin (Latin and figures) + PingFang / Noto Sans SC (CJK)
+     LAYOUT header strip; canvas left with floating toolbar and legend; drawer right, stacked under it below 900px */
   :root {
-    --surface: #fcfcfb;
-    --panel: #ffffff;
-    --subtle: #f5f4ef;
-    --ink: #0b0b0b;
-    --ink-2: #52514e;
-    --muted: #898781;
-    --grid: #e1e0d9;
-    --axis: #c3c2b7;
-    --blue: #2a78d6;
-    --blue-bg: #eef5fd;
-    --green: #1baf7a;
-    --green-dark: #0e7a53;
-    --green-bg: #eaf8f2;
-    --red: #e34948;
-    --red-bg: #fdf0f0;
-    --amber: #d98a00;
-    --amber-bg: #fef7e6;
-    --teal: #0f8b8d;
-    --teal-dark: #0a5e60;
-    --teal-bg: #edf8f8;
-    --purple: #6250d6;
+    --surface: #fbe9df;
+    --panel: #fffaf6;
+    --card: #ffffff;
+    --subtle: #f6e6dd;
+    --ink: #1a1817;
+    --ink-2: #4a4441;
+    --muted: #7a706b;
+    --grid: #ead5ca;
+    --axis: #d2b6a8;
+    --blue: #0f5499;
+    --blue-bg: #e2ecf7;
+    --green: #0d7680;
+    --green-dark: #08575e;
+    --green-bg: #dbefed;
+    --red: #990f3d;
+    --red-bg: #f7dfe6;
+    --amber: #a86400;
+    --amber-bg: #fbebcd;
+    --teal: #0d7680;
+    --teal-dark: #08575e;
+    --teal-bg: #dbefed;
+    --ref: #5b4a8f;
+    --ref-dark: #43356e;
+    --ref-bg: #ebe5f4;
+    --purple: #1a1817;
     --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+    --sans: "Libre Franklin", -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Noto Sans CJK SC", sans-serif;
   }
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0; height: 100%; overflow: hidden;
     background: var(--surface); color: var(--ink);
-    font-family: var(--sans); font-size: 13px; line-height: 1.5;
+    font-family: var(--sans); font-size: 14px; line-height: 1.5;
     -webkit-font-smoothing: antialiased;
   }
-  .app { display: flex; flex-direction: column; height: 100vh; }
+  .app { display: flex; flex-direction: column; height: 100%; }
+  button, input, select { font-family: inherit; }
 
   /* Header */
   header {
-    display: flex; align-items: center; justify-content: space-between; gap: 14px;
-    padding: 10px 16px; background: var(--panel); border-bottom: 1px solid var(--grid);
-    flex-shrink: 0; flex-wrap: wrap;
+    display: flex; align-items: center; gap: 12px 28px; flex-wrap: wrap;
+    padding: 12px 20px; background: var(--panel); border-bottom: 1px solid var(--grid);
+    flex-shrink: 0;
   }
-  .brand { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
-  .brand h1 { margin: 0; font-size: 16px; font-weight: 700; letter-spacing: -0.01em; }
-  .brand .sub { color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .trunk-pill {
-    display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px;
-    background: var(--green-bg); color: var(--green-dark); border: 1px solid #bfead7;
-    border-radius: 999px; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums;
+  .brand { display: flex; flex-direction: column; min-width: 0; }
+  .brand h1 { margin: 0; font-size: 20px; font-weight: 800; letter-spacing: -0.02em; line-height: 1.15; }
+  .brand .sub { margin: 2px 0 0; color: var(--muted); font-size: 12.5px; }
+  .headline-stat {
+    display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+    padding-left: 24px; border-left: 1px solid var(--grid);
+    font-variant-numeric: tabular-nums; white-space: nowrap;
   }
-  .controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .hs-label { font-size: 12px; color: var(--muted); }
+  .hs-num { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: var(--ink-2); }
+  .hs-num.hs-head { color: var(--green-dark); }
+  .hs-arrow { font-size: 18px; color: var(--axis); margin: 0 2px; }
+  .hs-unit { font-size: 12px; color: var(--muted); margin-left: 4px; }
+  .controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
   .controls input[type="search"] {
-    width: 170px; padding: 5px 9px; border: 1px solid var(--axis); border-radius: 6px;
-    background: var(--surface); color: var(--ink); font-size: 12px; outline: none;
+    width: 200px; padding: 6px 10px; border: 1px solid var(--axis); border-radius: 8px;
+    background: var(--card); color: var(--ink); font-size: 13px; outline: none;
   }
-  .controls input[type="search"]:focus { border-color: var(--blue); background: #fff; }
+  .controls input[type="search"]:focus { border-color: var(--ink); }
   .btn {
-    padding: 5px 10px; border: 1px solid var(--grid); border-radius: 6px;
-    background: var(--panel); color: var(--ink-2); font-size: 12px; cursor: pointer;
-    transition: background .12s, border-color .12s, color .12s;
+    padding: 6px 10px; border: 1px solid transparent; border-radius: 7px;
+    background: transparent; color: var(--ink-2); font-size: 12.5px; font-weight: 600; cursor: pointer;
+    transition: background .12s, border-color .12s, color .12s; white-space: nowrap;
   }
-  .btn:hover { background: var(--subtle); border-color: var(--axis); color: var(--ink); }
-  .btn.active { background: var(--blue-bg); border-color: var(--blue); color: var(--blue); font-weight: 600; }
+  .btn:hover { background: var(--subtle); color: var(--ink); }
+  .btn.active { background: var(--ink); color: var(--panel); }
+  .btn:focus-visible, .tab:focus-visible, .lang-switch button:focus-visible, .skin-switch button:focus-visible {
+    outline: 2px solid var(--blue); outline-offset: 1px;
+  }
 
   .lang-switch, .skin-switch {
-    display: inline-flex; border: 1px solid var(--axis); border-radius: 6px; overflow: hidden;
-    background: var(--surface); margin-left: 2px;
+    display: inline-flex; border: 1px solid var(--axis); border-radius: 8px; overflow: hidden;
+    background: var(--card);
   }
   .lang-switch button, .skin-switch button {
-    border: none; background: transparent; padding: 4px 8px; font-size: 11.5px; font-weight: 600;
+    border: none; background: transparent; padding: 5px 10px; font-size: 12px; font-weight: 600;
     color: var(--ink-2); cursor: pointer;
   }
   .lang-switch button.active, .skin-switch button.active { background: var(--ink); color: var(--panel); }
 
   /* Alert banner for uncataloged / running runs */
   .banner {
-    display: none; padding: 6px 16px; background: var(--amber-bg); border-bottom: 1px solid #f0d799;
-    color: #7c4d00; font-size: 12px; align-items: center; gap: 12px; flex-shrink: 0;
+    display: none; padding: 7px 20px; background: var(--amber-bg); border-bottom: 1px solid #efd29c;
+    color: #6b4100; font-size: 12.5px; align-items: center; gap: 12px; flex-shrink: 0;
   }
   .banner.show { display: flex; }
 
   /* Main split layout */
   .workspace { display: flex; flex: 1; min-height: 0; position: relative; }
   .canvas-wrap {
-    flex: 1; position: relative; overflow: hidden; cursor: grab;
+    flex: 1; position: relative; overflow: hidden; cursor: grab; min-width: 0;
     background-color: var(--surface);
-    background-image: radial-gradient(var(--grid) 1px, transparent 1px);
-    background-size: 20px 20px;
   }
   .canvas-wrap.dragging { cursor: grabbing; }
   svg#tree-svg { width: 100%; height: 100%; display: block; user-select: none; }
 
+  .toolbar {
+    position: absolute; top: 12px; left: 12px; display: flex; align-items: center; gap: 2px; flex-wrap: wrap;
+    padding: 4px; background: var(--card); border: 1px solid var(--grid); border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(26, 24, 23, 0.06); max-width: calc(100% - 24px);
+  }
+  .tb-sep { width: 1px; height: 18px; background: var(--grid); margin: 0 4px; }
+
   .legend {
-    position: absolute; left: 14px; bottom: 14px; display: flex; gap: 12px; align-items: center;
-    padding: 6px 11px; background: rgba(255,255,255,0.92); border: 1px solid var(--grid);
-    border-radius: 8px; font-size: 11px; color: var(--ink-2); backdrop-filter: blur(4px);
+    position: absolute; left: 12px; bottom: 12px; display: flex; gap: 6px 16px; align-items: center; flex-wrap: wrap;
+    padding: 8px 12px; background: var(--card); border: 1px solid var(--grid);
+    border-radius: 10px; font-size: 12px; color: var(--ink-2); max-width: calc(100% - 24px);
     pointer-events: none;
   }
-  .legend-item { display: inline-flex; align-items: center; gap: 5px; }
+  .legend-item { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+  .legend-note { color: var(--muted); }
+  .sw-trunk { width: 18px; height: 4px; border-radius: 2px; background: var(--green); display: inline-block; }
+  .sw-card { width: 14px; height: 10px; border-radius: 3px; display: inline-block; border: 1px solid var(--axis); background: var(--card); }
+  .sw-head { background: var(--green); border-color: var(--green-dark); }
+  .sw-rejected { border: 1px dashed var(--red); }
+  .sw-chip { font-size: 11px; font-weight: 700; padding: 0 6px; border-radius: 8px; font-variant-numeric: tabular-nums; }
+  .sw-good { background: var(--green-bg); color: var(--green-dark); }
+  .sw-bad { background: var(--red-bg); color: var(--red); }
+  .swatch-line { width: 18px; height: 0; border-top: 2px dashed var(--blue); display: inline-block; }
+  .swatch-inspire { width: 18px; height: 0; border-top: 2px dotted var(--amber); display: inline-block; }
+  .swatch-ref { width: 18px; height: 0; border-top: 2px dashed var(--ref); display: inline-block; }
+  /* legacy swatch, still used by the Sephiroth legend colours */
   .swatch { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
-  .swatch-line { width: 16px; height: 0; border-top: 2px dashed var(--blue); display: inline-block; }
-  .swatch-inspire { width: 16px; height: 0; border-top: 2px dotted var(--amber); display: inline-block; }
-  .swatch-ref { width: 16px; height: 0; border-top: 2px dashed var(--teal); display: inline-block; }
 
   /* Detail drawer */
   aside.drawer {
-    width: 440px; max-width: 44vw; min-width: 340px; background: var(--panel);
+    width: 420px; max-width: 42vw; min-width: 340px; background: var(--panel);
     border-left: 1px solid var(--grid); display: flex; flex-direction: column; flex-shrink: 0;
   }
-  .drawer-head { padding: 14px 16px 10px; border-bottom: 1px solid var(--grid); }
-  .drawer-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+  .drawer-head { padding: 18px 20px 12px; border-bottom: 1px solid var(--grid); }
+  .drawer-badges { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
   .badge {
-    display: inline-flex; align-items: center; gap: 4px; padding: 2px 7px; border-radius: 999px;
-    font-size: 11px; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 600; border: 1px solid transparent;
   }
-  .badge-root { background: #f2eefc; color: var(--purple); border: 1px solid #d7cef7; }
-  .badge-adopted { background: var(--green-bg); color: var(--green-dark); border: 1px solid #bfead7; }
-  .badge-branch { background: var(--subtle); color: var(--ink-2); border: 1px solid var(--grid); }
-  .badge-rejected { background: #fdf0ef; color: #a33a2f; border: 1px solid #f0c4bf; }
-  .badge-group { background: var(--amber-bg); color: #8c5800; border: 1px solid #f0d799; }
-  .badge-milestone { background: var(--amber-bg); color: #8c5800; border: 1px solid #eab954; }
-  .badge-placeholder { background: #f7f4ff; color: var(--purple); border: 1px dashed #b4a5e8; }
-  .badge-ref { background: var(--teal-bg); color: var(--teal-dark); border: 1px solid #9fd6d7; }
-  .drawer-title { margin: 0; font-size: 17px; font-weight: 700; line-height: 1.3; }
+  .badge-root { background: var(--ink); color: var(--panel); }
+  .badge-adopted { background: var(--green-bg); color: var(--green-dark); }
+  .badge-branch { background: var(--subtle); color: var(--ink-2); }
+  .badge-rejected { background: var(--red-bg); color: var(--red); }
+  .badge-group { background: var(--amber-bg); color: #7a4800; }
+  .badge-milestone { background: transparent; color: var(--ink-2); border-color: var(--axis); }
+  .badge-placeholder { background: transparent; color: var(--muted); border: 1px dashed var(--axis); }
+  .badge-ref { background: var(--ref-bg); color: var(--ref-dark); }
+  .drawer-title { margin: 0; font-size: 21px; font-weight: 800; line-height: 1.2; letter-spacing: -0.015em; }
   .drawer-runid {
-    margin-top: 2px; font-family: var(--mono); font-size: 11.5px; color: var(--muted);
+    margin-top: 4px; font-family: var(--mono); font-size: 12px; color: var(--muted);
     display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   }
 
   .tabs {
-    display: flex; border-bottom: 1px solid var(--grid); padding: 0 12px; gap: 2px;
-    background: var(--surface); flex-shrink: 0;
+    display: flex; border-bottom: 1px solid var(--grid); padding: 0 20px; gap: 20px;
+    background: var(--panel); flex-shrink: 0;
   }
   .tab {
-    padding: 8px 11px; border: none; background: none; color: var(--ink-2); font-size: 12.5px;
-    font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
+    padding: 10px 0; border: none; background: none; color: var(--muted); font-size: 13px;
+    font-weight: 600; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px;
   }
   .tab:hover { color: var(--ink); }
-  .tab.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
+  .tab.active { color: var(--ink); border-bottom-color: var(--green); }
 
-  .drawer-body { flex: 1; overflow-y: auto; padding: 14px 16px 24px; }
+  .drawer-body { flex: 1; overflow-y: auto; padding: 16px 20px 28px; }
+  .drawer-body code { font-family: var(--mono); font-size: 0.92em; background: var(--subtle); padding: 0 3px; border-radius: 3px; }
 
   .takeaway-box {
-    padding: 10px 12px; background: var(--subtle); border-left: 3px solid var(--green);
-    border-radius: 4px; margin-bottom: 12px; color: var(--ink); font-size: 13px;
+    padding: 12px 14px; background: var(--card); border: 1px solid var(--grid);
+    border-radius: 10px; margin-bottom: 12px; color: var(--ink); font-size: 14px; line-height: 1.6;
   }
-  .takeaway-box.branch { border-left-color: var(--axis); }
-  .takeaway-box.root { border-left-color: var(--purple); }
   .protocol-box {
-    padding: 7px 10px; background: var(--blue-bg); border: 1px solid #cfe2f9;
-    border-radius: 6px; margin-bottom: 12px; font-size: 12px; color: #194b87;
+    padding: 9px 12px; background: var(--blue-bg); border-radius: 8px; margin-bottom: 14px;
+    font-size: 12.5px; color: #163d66; line-height: 1.55;
   }
-  .protocol-box strong { color: #103666; }
+  .protocol-box strong { color: #0c2f55; }
 
-  .kpi-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 14px; }
-  .kpi {
-    padding: 9px 10px; border: 1px solid var(--grid); border-radius: 7px; background: var(--surface);
-  }
-  .kpi-label { font-size: 11px; color: var(--muted); }
+  .kpi-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .kpi { padding: 10px 12px; border: 1px solid var(--grid); border-radius: 10px; background: var(--card); min-width: 0; }
+  .kpi-label { font-size: 12px; color: var(--muted); }
   .kpi-val {
-    font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 1px;
-    font-family: var(--mono);
+    font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; margin-top: 2px;
+    letter-spacing: -0.02em; line-height: 1.2;
   }
-  .kpi-sub { font-size: 11px; color: var(--ink-2); margin-top: 2px; }
+  .kpi-sub { font-size: 12px; color: var(--ink-2); margin-top: 3px; }
   .delta-good { color: var(--green-dark); }
   .delta-bad { color: var(--red); }
   .delta-noise { color: var(--muted); }
 
-  .section-h {
-    font-size: 11.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
-    color: var(--muted); margin: 14px 0 6px;
-  }
+  .section-h { font-size: 13px; font-weight: 700; color: var(--ink); margin: 20px 0 8px; }
   .meta-list {
-    display: grid; grid-template-columns: 96px 1fr; gap: 4px 10px; font-size: 12px;
-    padding: 8px 10px; background: var(--surface); border: 1px solid var(--grid); border-radius: 7px;
+    display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 5px 12px; font-size: 12.5px;
+    padding: 10px 12px; background: var(--card); border: 1px solid var(--grid); border-radius: 10px; margin: 0;
   }
   .meta-list dt { color: var(--muted); }
-  .meta-list dd { margin: 0; font-family: var(--mono); color: var(--ink); word-break: break-all; }
+  .meta-list dd { margin: 0; font-family: var(--mono); font-size: 12px; color: var(--ink); overflow-wrap: anywhere; }
 
-  table.data {
-    width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums;
-  }
-  table.data th, table.data td {
-    padding: 6px 6px; border-bottom: 1px solid var(--grid); text-align: right;
-  }
-  table.data th:first-child, table.data td:first-child { text-align: left; }
-  table.data th { color: var(--muted); font-weight: 600; font-size: 11px; }
+  table.data { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  table.data th, table.data td { padding: 7px 6px; border-bottom: 1px solid var(--grid); text-align: right; }
+  table.data th:first-child, table.data td:first-child { text-align: left; padding-left: 0; }
+  table.data th:last-child, table.data td:last-child { padding-right: 0; }
+  table.data th { color: var(--muted); font-weight: 600; font-size: 12px; }
   table.data tr:last-child td { border-bottom: none; }
   .diff-old { color: var(--muted); text-decoration: line-through; margin-right: 4px; }
-  .diff-new { color: var(--ink); font-weight: 600; }
+  .diff-new { color: var(--ink); font-weight: 700; }
 
   .link-btn {
-    background: none; border: none; padding: 0; color: var(--blue); cursor: pointer;
-    font-size: inherit; font-family: inherit; text-decoration: underline; text-underline-offset: 2px;
+    background: none; border: none; padding: 0; color: var(--blue); cursor: pointer; text-align: left;
+    font-size: inherit; font-family: inherit; text-decoration: underline; text-decoration-color: rgba(15, 84, 153, 0.35);
+    text-underline-offset: 3px;
   }
-  .link-btn:hover { color: #16529c; }
+  .link-btn:hover { text-decoration-color: currentColor; }
 
-  .note-small { font-size: 11.5px; color: var(--muted); margin-top: 8px; line-height: 1.45; }
-  .empty-state { padding: 20px 10px; text-align: center; color: var(--muted); font-size: 12.5px; }
+  .note-small { font-size: 12px; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+  .empty-state { padding: 24px 10px; text-align: center; color: var(--muted); font-size: 13px; }
 
   /* Curve box */
-  .curve-wrap {
-    border: 1px solid var(--grid); border-radius: 8px; background: var(--surface); padding: 10px;
-  }
-  .curve-legend { display: flex; gap: 14px; font-size: 11.5px; color: var(--ink-2); margin-bottom: 6px; flex-wrap: wrap; }
-  .curve-dot { display: inline-block; width: 10px; height: 3px; vertical-align: middle; margin-right: 5px; border-radius: 2px; }
+  .curve-wrap { border: 1px solid var(--grid); border-radius: 10px; background: var(--card); padding: 12px; }
+  .curve-legend { display: flex; gap: 6px 14px; font-size: 12px; color: var(--ink-2); margin-bottom: 8px; flex-wrap: wrap; }
+  .curve-dot { display: inline-block; width: 12px; height: 3px; vertical-align: middle; margin-right: 5px; border-radius: 2px; }
 
   /* Samples viewer */
   .sample-controls { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
   .sample-controls select {
-    width: 100%; padding: 6px 8px; border: 1px solid var(--axis); border-radius: 6px;
-    background: #fff; font-size: 12px; color: var(--ink);
+    width: 100%; padding: 7px 8px; border: 1px solid var(--axis); border-radius: 8px;
+    background: var(--card); font-size: 13px; color: var(--ink);
   }
-  .sample-controls label { font-size: 12px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+  .sample-controls label { font-size: 12.5px; color: var(--ink-2); display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
   .sample-card {
-    padding: 10px 12px; border: 1px solid var(--grid); border-radius: 7px; background: var(--surface);
-    font-size: 12.5px; white-space: pre-wrap; word-break: break-word; line-height: 1.55; margin-bottom: 10px;
+    padding: 12px 14px; border: 1px solid var(--grid); border-radius: 10px; background: var(--card);
+    font-size: 13px; white-space: pre-wrap; word-break: break-word; line-height: 1.6; margin-bottom: 10px;
   }
+  .sample-card.sample-ref { background: var(--subtle); }
   .sample-card-head {
-    font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 5px;
+    font-size: 11.5px; font-weight: 600; color: var(--muted); margin-bottom: 6px;
     display: flex; justify-content: space-between; font-family: var(--mono);
   }
-  .sample-prompt { font-weight: 700; color: var(--ink); background: #efeee7; padding: 0 3px; border-radius: 3px; }
+  .sample-prompt { font-weight: 700; color: var(--ink); background: var(--amber-bg); padding: 0 3px; border-radius: 3px; }
   .artifact-row {
-    display: flex; justify-content: space-between; align-items: center; padding: 7px 10px;
-    border: 1px solid var(--grid); border-radius: 6px; margin-bottom: 6px; background: var(--surface);
-    font-size: 12px;
+    display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 12px;
+    border: 1px solid var(--grid); border-radius: 8px; margin-bottom: 6px; background: var(--card);
+    font-size: 12.5px;
   }
-  .artifact-path { font-family: var(--mono); color: var(--ink); }
-  .artifact-status { font-size: 11px; font-weight: 600; }
+  .artifact-path { font-family: var(--mono); font-size: 12px; color: var(--ink); overflow-wrap: anywhere; }
+  .artifact-status { font-size: 12px; font-weight: 600; white-space: nowrap; }
   .ok { color: var(--green-dark); }
   .miss { color: var(--muted); }
 
-  /* SVG node styling */
-  .edge { fill: none; stroke: var(--axis); stroke-width: 1.6; }
-  .edge.trunk { stroke: var(--green); stroke-width: 3.4; }
-  .edge.dim { opacity: 0.2; }
-  .cross-arc {
-    fill: none; stroke: var(--blue); stroke-width: 1.8; stroke-dasharray: 5 4;
-    opacity: 0.32; transition: opacity .15s, stroke-width .15s;
-  }
-  .cross-arc.active { opacity: 0.95; stroke-width: 2.5; }
-  .cross-label { font-size: 11px; font-weight: 600; fill: var(--blue); }
-  .inspire-arc {
-    fill: none; stroke: var(--amber); stroke-width: 2.0; stroke-dasharray: 2.5 4;
-    stroke-linecap: round; opacity: 0.92;
-  }
-  .inspire-label { font-size: 10.5px; font-weight: 600; fill: #9c6100; }
   .inspire-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 6px; }
   .inspire-item {
-    padding: 7px 10px; background: var(--amber-bg); border: 1px solid #f0d799;
-    border-radius: 6px; font-size: 12px; color: #5c3a00;
+    padding: 8px 12px; background: var(--amber-bg); border-radius: 8px; font-size: 13px; color: #4f3000;
   }
-  .inspire-item .reason { display: block; margin-top: 2px; color: var(--ink-2); font-size: 11.5px; }
-
-  .ref-arc {
-    fill: none; stroke: var(--teal); stroke-width: 1.9; stroke-dasharray: 6 3 2 3;
-    stroke-linecap: round; opacity: 0.9;
-  }
-  .ref-label { font-size: 10.5px; font-weight: 600; fill: var(--teal-dark); }
-  .ref-node-g { cursor: pointer; }
-  .ref-node-g.dim { opacity: 0.25; }
-  .ref-node-g:hover .node-rect { filter: drop-shadow(0 3px 8px rgba(15,139,141,0.14)); }
-  .ref-node-g.selected .node-rect { stroke: var(--teal) !important; stroke-width: 2.5 !important; filter: drop-shadow(0 3px 10px rgba(15,139,141,0.25)); }
+  .inspire-item .reason { display: block; margin-top: 2px; color: var(--ink-2); font-size: 12.5px; }
   .ref-item {
-    padding: 8px 10px; background: var(--teal-bg); border: 1px solid #b8e2e3;
-    border-radius: 6px; font-size: 12px; color: var(--teal-dark);
+    padding: 8px 12px; background: var(--ref-bg); border-radius: 8px; font-size: 13px; color: var(--ref-dark);
   }
-  .ref-item .reason { display: block; margin-top: 3px; color: var(--ink-2); font-size: 11.5px; }
+  .ref-item .reason { display: block; margin-top: 3px; color: var(--ink-2); font-size: 12.5px; }
   .ref-summary-box {
-    padding: 12px 13px; background: var(--teal-bg); border-left: 3px solid var(--teal);
-    border-radius: 5px; margin-bottom: 14px; color: var(--ink); font-size: 13px; line-height: 1.6;
+    padding: 12px 14px; background: var(--ref-bg); border-radius: 10px; margin-bottom: 14px;
+    color: var(--ink); font-size: 14px; line-height: 1.6;
   }
   .ext-link-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
   .ext-link {
     display: flex; align-items: center; justify-content: space-between; gap: 8px;
-    padding: 8px 10px; border: 1px solid #b8e2e3; border-radius: 6px; background: #fff;
-    color: var(--teal-dark); text-decoration: none; font-size: 12px; font-weight: 600;
+    padding: 9px 12px; border: 1px solid var(--grid); border-radius: 8px; background: var(--card);
+    color: var(--ref-dark); text-decoration: none; font-size: 13px; font-weight: 600;
   }
-  .ext-link:hover { background: var(--teal-bg); border-color: var(--teal); }
-  .ext-mini {
-    display: inline-block; margin-left: 6px; font-size: 11px; color: var(--teal);
-    text-decoration: none; font-weight: 600;
-  }
+  .ext-link:hover { background: var(--ref-bg); border-color: var(--ref); }
+  .ext-mini { display: inline-block; margin-left: 6px; font-size: 12px; color: var(--ref); text-decoration: none; font-weight: 600; }
   .ext-mini:hover { text-decoration: underline; }
 
-  .node-g { cursor: pointer; }
-  .node-g.dim { opacity: 0.22; }
-  .node-rect { transition: stroke .12s, filter .12s; }
-  .node-g:hover .node-rect { filter: drop-shadow(0 3px 8px rgba(0,0,0,0.08)); }
-  .node-g.selected .node-rect { stroke: var(--blue) !important; stroke-width: 2.6 !important; filter: drop-shadow(0 3px 10px rgba(42,120,214,0.22)); }
-  .leaf-pill { cursor: pointer; }
+  /* ---------- Paper skin: SVG diagram ---------- */
+  .lane { fill: rgba(255, 255, 255, 0.42); }
+  .lane-head { fill: rgba(13, 118, 128, 0.08); }
+  .edge { fill: none; stroke: var(--axis); stroke-width: 1.5; }
+  .edge.trunk { stroke: var(--green); stroke-width: 5; stroke-linecap: round; }
+  .edge.rejected { stroke: var(--red); stroke-dasharray: 4 3; opacity: 0.7; }
+  .edge.dim, .edge-chevron.dim { opacity: 0.25; }
+  .edge-chevron { fill: none; stroke: var(--panel); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+  .node-g { cursor: pointer; transition: opacity .15s; }
+  .node-g.dim { opacity: 0.26; }
+  .node-g:hover .card { filter: drop-shadow(0 3px 8px rgba(26, 24, 23, 0.12)); }
+  .card { fill: var(--card); stroke: var(--axis); stroke-width: 1; }
+  .card-trunk { stroke: var(--green); stroke-width: 1.6; }
+  .card-root { fill: var(--ink); stroke: var(--ink); }
+  .card-head { fill: var(--green); stroke: var(--green-dark); stroke-width: 1.6; }
+  .card-rejected { stroke: var(--red); stroke-dasharray: 5 3; }
+  .card-placeholder { stroke: var(--muted); stroke-dasharray: 5 3; }
+  .card-stack { fill: var(--subtle); stroke: var(--axis); stroke-width: 1; }
+  .sel-ring { fill: none; stroke: var(--ink); stroke-width: 2.2; }
+
+  .tx { font-family: var(--sans); fill: var(--ink); }
+  .tx-ms { font-size: 12px; font-weight: 700; fill: var(--green); }
+  .tx-ms-side { font-size: 11.5px; font-weight: 700; fill: var(--amber); }
+  .tx-id { font-family: var(--mono); font-size: 11px; fill: var(--muted); }
+  .tx-label { font-size: 13.5px; font-weight: 600; }
+  .tx-label-lg { font-size: 15px; font-weight: 700; }
+  .tx-num { font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+  .tx-num-lg { font-size: 27px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: -0.025em; }
+  .tx-meta { font-size: 12px; fill: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .tx-placeholder { fill: var(--muted); }
+  .on-dark .tx { fill: #ffffff; }
+  .on-dark .tx-ms { fill: rgba(255, 255, 255, 0.78); }
+  .on-dark .tx-id { fill: rgba(255, 255, 255, 0.6); }
+
+  .chip-tx { font-family: var(--sans); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .chip-good { fill: var(--green-bg); } .chip-tx-good { fill: var(--green-dark); }
+  .chip-bad { fill: var(--red-bg); } .chip-tx-bad { fill: var(--red); }
+  .chip-noise { fill: var(--subtle); } .chip-tx-noise { fill: var(--muted); }
+  .chip-info { fill: var(--blue-bg); } .chip-tx-info { fill: var(--blue); }
+  .on-dark .chip { fill: rgba(255, 255, 255, 0.16); }
+  .on-dark .chip-tx { fill: #ffffff; }
+
+  .lab-pill, .leaf-pill, .lab-toggle, .toggle-btn { cursor: pointer; }
   .leaf-pill:hover rect { opacity: 0.85; }
-  .toggle-btn { cursor: pointer; }
-  .toggle-btn:hover rect { fill: #e9e7de; }
+  .node-rect { transition: stroke .12s, filter .12s; }
+  .lab-pill rect { fill: var(--subtle); }
+  .lab-pill:hover rect { fill: var(--grid); }
+  .lab-pill text { font-family: var(--sans); font-size: 10.5px; font-weight: 600; fill: var(--ink-2); }
+  .lab-pill .dot { fill: var(--green); }
+  .lab-pill.miss text { fill: var(--muted); }
+  .lab-pill.miss .dot { fill: none; stroke: var(--axis); stroke-width: 1.2; }
+  .on-dark .lab-pill rect { fill: rgba(255, 255, 255, 0.14); }
+  .on-dark .lab-pill:hover rect { fill: rgba(255, 255, 255, 0.24); }
+  .on-dark .lab-pill text { fill: rgba(255, 255, 255, 0.88); }
+  .on-dark .lab-pill .dot { fill: #ffffff; }
+
+  .lab-toggle { cursor: pointer; }
+  .lab-toggle rect { fill: var(--amber-bg); }
+  .lab-toggle:hover rect { fill: #f6dca8; }
+  .lab-toggle text { font-family: var(--sans); font-size: 11.5px; font-weight: 700; fill: #6e4200; }
+
+  .ref-node-g { cursor: pointer; transition: opacity .15s; }
+  .ref-node-g.dim { opacity: 0.3; }
+  .ref-card { fill: var(--card); stroke: var(--ref); stroke-opacity: 0.35; stroke-width: 1; }
+  .ref-node-g:hover .ref-card { stroke-opacity: 0.8; }
+  .ref-node-g.selected .ref-card { fill: var(--ref-bg); stroke: var(--ref); stroke-opacity: 1; stroke-width: 2; }
+  .tx-ref-kind { font-size: 11.5px; font-weight: 700; fill: var(--ref); }
+  .ref-icon { fill: var(--ref); }
+  .strip-label { font-family: var(--sans); font-size: 12px; font-weight: 700; fill: var(--ink-2); }
+
+  .link { fill: none; stroke-width: 1.9; stroke-linejoin: round; stroke-linecap: round; }
+  .link-compare { stroke: var(--blue); stroke-dasharray: 6 4; }
+  .link-inspire { stroke: var(--amber); stroke-dasharray: 0.5 5; stroke-width: 2.6; }
+  .link-ref { stroke: var(--ref); stroke-dasharray: 9 3 2 3; }
+  .link.faint { opacity: 0.5; stroke-width: 1.4; }
+  .link-inspire.faint { stroke-width: 2; }
+  .pill-bg { fill: var(--card); stroke-width: 1.2; }
+  .pill-compare { stroke: var(--blue); } .pill-inspire { stroke: var(--amber); } .pill-ref { stroke: var(--ref); }
+  .pill-tx { font-family: var(--sans); font-size: 11.5px; font-weight: 700; }
+  .pill-tx-compare { fill: var(--blue); } .pill-tx-inspire { fill: #7a4800; } .pill-tx-ref { fill: var(--ref-dark); }
+  .mk-blue { fill: var(--blue); } .mk-amber { fill: var(--amber); } .mk-ref { fill: var(--ref); }
+
+  @media (max-width: 900px) {
+    html, body { overflow: auto; }
+    .app { height: auto; min-height: 100%; }
+    .workspace { flex-direction: column; }
+    .canvas-wrap { height: 70vh; flex: none; }
+    aside.drawer { width: 100%; max-width: none; min-width: 0; border-left: none; border-top: 1px solid var(--grid); }
+    .headline-stat { padding-left: 0; border-left: none; }
+    .controls { margin-left: 0; }
+    .legend { display: none; }
+  }
 
   /* ==================== Kabbalah Tree of Life (Sephiroth) Skin ==================== */
   html[data-skin="sephiroth"] {
@@ -473,6 +554,32 @@
     filter: drop-shadow(0 0 10px rgba(116, 171, 162, 0.38));
   }
   html[data-skin="sephiroth"] .toggle-btn:hover rect { fill: rgba(201, 166, 107, 0.24); }
+  html[data-skin="sephiroth"] {
+    --card: #1b1814;
+    --ref: #74aba2;
+    --ref-dark: #98cbc2;
+    --ref-bg: rgba(116, 171, 162, 0.13);
+  }
+  html[data-skin="sephiroth"] .headline-stat { border-left-color: #383024; }
+  html[data-skin="sephiroth"] .hs-num { font-weight: 400; letter-spacing: 0.02em; color: #d9ccb4; font-family: var(--mono); font-size: 18px; }
+  html[data-skin="sephiroth"] .hs-num.hs-head { color: #e8cb92; }
+  html[data-skin="sephiroth"] .hs-arrow { color: #6b5b43; }
+  html[data-skin="sephiroth"] .brand h1 { font-size: 18px; }
+  html[data-skin="sephiroth"] .toolbar { background: rgba(24, 21, 17, 0.92); border-color: #3a3226; box-shadow: none; }
+  html[data-skin="sephiroth"] .tb-sep { background: #3a3226; }
+  html[data-skin="sephiroth"] .toolbar .btn { border-color: transparent; background: transparent; }
+  html[data-skin="sephiroth"] .toolbar .btn:hover { background: #28231c; }
+  html[data-skin="sephiroth"] .toolbar .btn.active { background: rgba(201, 166, 107, 0.16); border-color: #c9a66b; }
+  html[data-skin="sephiroth"] .kpi-val { font-family: var(--mono); font-size: 18px; letter-spacing: 0; }
+  html[data-skin="sephiroth"] .takeaway-box { border-color: #322b21; border-left: 2px solid #c9a66b; border-radius: 4px; }
+  html[data-skin="sephiroth"] .takeaway-box.branch { border-left-color: #6b5d49; }
+  html[data-skin="sephiroth"] .takeaway-box.root { border-left-color: #b196ce; }
+  html[data-skin="sephiroth"] .ref-summary-box { border-left-style: solid; border-radius: 4px; }
+  html[data-skin="sephiroth"] .link-btn { text-decoration-color: rgba(216, 184, 124, 0.4); }
+  html[data-skin="sephiroth"] .node-g.selected .node-rect { stroke-width: 2.6 !important; }
+  html[data-skin="sephiroth"] .ref-node-g.selected .node-rect { stroke-width: 2.5 !important; }
+  html[data-skin="sephiroth"] .sw-card { border-color: #574a37; }
+  html[data-skin="sephiroth"] .drawer-body code { background: #231f19; }
 </style>
 </head>
 <body>
@@ -480,17 +587,11 @@
   <header>
     <div class="brand">
       <h1 id="page-title">pinwheel-llm 实验树</h1>
-      <span class="trunk-pill" id="trunk-summary"></span>
-      <span class="sub" id="page-subtitle"></span>
+      <p class="sub" id="page-subtitle"></p>
     </div>
+    <div class="headline-stat" id="trunk-summary"></div>
     <div class="controls">
       <input type="search" id="search-input" placeholder="搜索 run / 标题…" autocomplete="off">
-      <button class="btn" id="btn-trunk">仅看主干</button>
-      <button class="btn active" id="btn-inspire">灵感链</button>
-      <button class="btn active" id="btn-refs">外部链</button>
-      <button class="btn" id="btn-expand">展开全部簇</button>
-      <button class="btn" id="btn-collapse">折叠实验簇</button>
-      <button class="btn" id="btn-fit">适应画布</button>
       <div class="skin-switch" role="group" aria-label="Skin">
         <button type="button" id="skin-lab" data-skin="lab">纸面</button>
         <button type="button" id="skin-sephiroth" data-skin="sephiroth">生命树</button>
@@ -526,6 +627,15 @@
           <marker id="arrow-sep-teal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#74aba2"/>
           </marker>
+          <marker id="arrow-lab-compare" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+            <path class="mk-blue" d="M 0 1 L 10 5 L 0 9 z"/>
+          </marker>
+          <marker id="arrow-lab-inspire" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+            <path class="mk-amber" d="M 0 1 L 10 5 L 0 9 z"/>
+          </marker>
+          <marker id="arrow-lab-ref" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse" markerUnits="userSpaceOnUse">
+            <path class="mk-ref" d="M 0 1 L 10 5 L 0 9 z"/>
+          </marker>
           <filter id="gold-glow" x="-30%" y="-30%" width="160%" height="160%">
             <feGaussianBlur stdDeviation="3.2" result="blur"/>
             <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
@@ -540,6 +650,17 @@
           <g id="arcs-fg-layer" style="pointer-events:none"></g>
         </g>
       </svg>
+      <div class="toolbar" id="toolbar">
+        <button type="button" class="btn" id="btn-trunk">仅看主干</button>
+        <span class="tb-sep"></span>
+        <button type="button" class="btn" id="btn-inspire">全部灵感链</button>
+        <button type="button" class="btn" id="btn-refs">全部外部链</button>
+        <span class="tb-sep"></span>
+        <button type="button" class="btn" id="btn-expand">展开全部簇</button>
+        <button type="button" class="btn" id="btn-collapse">折叠实验簇</button>
+        <span class="tb-sep"></span>
+        <button type="button" class="btn" id="btn-fit">适应画布</button>
+      </div>
       <div class="legend" id="canvas-legend"></div>
     </div>
 
@@ -578,25 +699,35 @@ const I18N = {
     htmlLang: "zh-CN",
     searchPlaceholder: "搜索 run / 标题…",
     btnTrunk: "仅看主干",
-    btnInspire: "灵感链",
-    btnRefs: "外部链",
+    btnInspire: "全部灵感链",
+    btnRefs: "全部外部链",
+    tipTrunk: "只显示采用了的主干实验",
+    tipInspire: "未选中节点时，也画出所有灵感来源连线",
+    tipRefs: "未选中节点时，也画出所有外部参考连线",
+    tipFit: "缩放到能看见整棵树",
     btnExpand: "展开全部簇",
     btnCollapse: "折叠实验簇",
     btnFit: "适应画布",
     skinLab: "纸面",
     skinSephiroth: "生命树",
-    legendTrunk: "主干（采用）",
-    legendMilestone: "里程碑（大图标）",
-    legendBranch: "树枝（探索/校验）",
-    legendRejected: "弃用（写明原因）",
-    legendArc: "跨配方单变量对照",
-    legendInspire: "灵感来源（全局 / 选中聚焦）",
-    legendRef: "外部参考 / 论文（全局 / 选中聚焦）",
+    legendTrunk: "主干（已采用）",
+    legendHead: "当前 HEAD",
+    legendBranch: "树枝（探索 / 校验）",
+    legendRejected: "弃用",
+    legendDelta: "相对对照的 ΔBPB",
+    legendArc: "单变量对照",
+    legendInspire: "灵感来源",
+    legendRef: "外部参考",
+    legendLinksNote: "关系线在选中节点后显示",
     tabOverview: "概览",
     tabBench: "基准",
     tabCurve: "曲线",
     tabArtifacts: "产出物 & 样本",
-    trunkSummary: (r, h, n) => `原版 ${r} → 当前 ${h} · 共 ${n} 次实验`,
+    statFrom: "原版",
+    statTo: "当前",
+    statUnit: (n) => `val BPB · ${n} 次实验`,
+    pillNoEval: "未评测",
+    pillSamples: "样本",
     bannerUncataloged: (n, list) => `发现 ${n} 个未写入 tree.toml 的已完成实验：${list}`,
     bannerRunning: (list) => `正在训练中：${list}`,
     badgeRoot: "树根",
@@ -608,8 +739,8 @@ const I18N = {
     badgePlaceholder: "占位 · 待实测",
     badgeOverview: "全局视图",
     overviewTitle: "实验树总览",
-    overviewSubtitle: "当前未选中节点 · 已展示全部链条",
-    overviewHint: "点击任意节点或参考卡片可聚焦其相关链条并查看详情；点击画布空白处或按 Esc 取消选中、恢复全部链条。",
+    overviewSubtitle: "未选中节点",
+    overviewHint: "点击节点或参考卡片：画出它的对照、灵感来源和外部参考连线，并在这里显示详情。点空白处或按 Esc 取消选中。",
     overviewKpiRuns: "已记录实验",
     overviewKpiHead: "当前 HEAD val BPB",
     overviewKpiNoise: "单跑噪声门槛",
@@ -665,7 +796,7 @@ const I18N = {
     refKindRepo: "开源项目",
     refUsedCount: (n) => `↗ 关联 ${n} 个实验`,
     refOpenPaper: "原文 ↗",
-    refStripLabel: "外部参考与技术说明（点击查看原理解释与论文链接）",
+    refStripLabel: "外部参考与技术说明",
     thOther: "对照方",
     thThisDelta: "本节点 ΔBPB",
     sectionRunMeta: "运行记录",
@@ -717,25 +848,35 @@ const I18N = {
     htmlLang: "en",
     searchPlaceholder: "Search run / title…",
     btnTrunk: "Trunk only",
-    btnInspire: "Inspiration",
-    btnRefs: "Refs",
+    btnInspire: "All inspiration",
+    btnRefs: "All refs",
+    tipTrunk: "Show only adopted trunk runs",
+    tipInspire: "Also draw every inspiration link when nothing is selected",
+    tipRefs: "Also draw every reference link when nothing is selected",
+    tipFit: "Zoom to fit the whole tree",
     btnExpand: "Expand all",
     btnCollapse: "Collapse groups",
     btnFit: "Fit view",
     skinLab: "Paper",
     skinSephiroth: "Sephiroth",
     legendTrunk: "Trunk (adopted)",
-    legendMilestone: "Milestone (large icon)",
-    legendBranch: "Branch (exploratory / check)",
-    legendRejected: "Rejected (reason given)",
-    legendArc: "Cross-recipe single-var comparison",
-    legendInspire: "Inspired by (all / focus on select)",
-    legendRef: "External refs / papers (all / focus)",
+    legendHead: "Current HEAD",
+    legendBranch: "Branch (explore / check)",
+    legendRejected: "Rejected",
+    legendDelta: "ΔBPB vs reference",
+    legendArc: "Single-variable comparison",
+    legendInspire: "Inspired by",
+    legendRef: "External reference",
+    legendLinksNote: "Links appear when a node is selected",
     tabOverview: "Overview",
     tabBench: "Benchmarks",
     tabCurve: "Curve",
     tabArtifacts: "Artifacts & Samples",
-    trunkSummary: (r, h, n) => `Vanilla ${r} → Current ${h} · ${n} runs`,
+    statFrom: "Vanilla",
+    statTo: "Now",
+    statUnit: (n) => `val BPB · ${n} runs`,
+    pillNoEval: "no eval",
+    pillSamples: "samples",
     bannerUncataloged: (n, list) => `${n} finished run(s) not yet in tree.toml: ${list}`,
     bannerRunning: (list) => `Training in progress: ${list}`,
     badgeRoot: "Root",
@@ -747,8 +888,8 @@ const I18N = {
     badgePlaceholder: "Placeholder · pending",
     badgeOverview: "Overview",
     overviewTitle: "Experiment Tree Overview",
-    overviewSubtitle: "No node selected · showing all links",
-    overviewHint: "Click any node or reference card to focus its links and inspect details; click blank canvas or press Esc to clear selection and restore all links.",
+    overviewSubtitle: "No node selected",
+    overviewHint: "Click a node or reference card to draw its comparison, inspiration and reference links and see its details here. Click blank canvas or press Esc to clear.",
     overviewKpiRuns: "Recorded runs",
     overviewKpiHead: "Current HEAD val BPB",
     overviewKpiNoise: "Single-run noise floor",
@@ -804,7 +945,7 @@ const I18N = {
     refKindRepo: "Repo",
     refUsedCount: (n) => `↗ ${n} run${n === 1 ? "" : "s"}`,
     refOpenPaper: "Link ↗",
-    refStripLabel: "External References & Method Notes (click for explanation & paper links)",
+    refStripLabel: "External references & method notes",
     thOther: "Compared run",
     thThisDelta: "This node ΔBPB",
     sectionRunMeta: "Run Metadata",
@@ -877,8 +1018,8 @@ const state = {
   selectedRefId: null,
   activeTab: "overview",
   trunkOnly: false,
-  showInspiration: true,
-  showRefs: true,
+  showInspiration: false,
+  showRefs: false,
   search: "",
   collapsed: {},
   sampleIdx: 0,
@@ -886,6 +1027,8 @@ const state = {
   pan: { x: 40, y: 40, scale: 1 },
   layout: {},
   refLayout: {},
+  labLanes: [],
+  labGeom: null,
 };
 
 function isSephiroth() { return state.skin === "sephiroth"; }
@@ -908,17 +1051,17 @@ function chartTheme() {
     };
   }
   return {
-    grid: "#e1e0d9",
-    gridSub: "#ecebe5",
-    axis: "#c3c2b7",
-    tick: "#898781",
-    fit: "#52514e",
-    bestLine: "#1baf7a",
-    bestRing: "#0b0b0b",
-    dotStroke: "#fcfcfb",
-    curLine: "#2a78d6",
-    refLine: "#898781",
-    branchLine: "#2a78d6",
+    grid: "#efdcd2",
+    gridSub: "#f5e8e1",
+    axis: "#d2b6a8",
+    tick: "#7a706b",
+    fit: "#4a4441",
+    bestLine: "#0d7680",
+    bestRing: "#1a1817",
+    dotStroke: "#ffffff",
+    curLine: "#0d7680",
+    refLine: "#a3948c",
+    branchLine: "#0f5499",
     series: SERIES_COLORS,
   };
 }
@@ -943,12 +1086,6 @@ function truncLang(s, zhMax, enMax) { return trunc(s, state.lang === "en" ? enMa
 
 function isMilestoneNode(n) {
   return Boolean(n.milestone || n.milestone_en) || n.status === "root" || n.status === "adopted";
-}
-
-function nodeBoxSize(n) {
-  if (isMilestoneNode(n)) return { w: 272, h: 108 };
-  if (n.is_group) return { w: 226, h: 80 };
-  return { w: 218, h: 80 };
 }
 
 function visibleChildren(id) {
@@ -1036,7 +1173,7 @@ function computeLayoutSephiroth() {
     cur = next;
   }
 
-  const hasRefsStrip = state.showRefs && Object.keys(DATA.refs || {}).length > 0;
+  const hasRefsStrip = Object.keys(DATA.refs || {}).length > 0;
   let midY = hasRefsStrip ? 168 : 64;
   let leftWater = midY - 24;
   let rightWater = midY - 24;
@@ -1108,95 +1245,119 @@ function computeLayoutSephiroth() {
 }
 
 function computeLayout() {
-  if (isSephiroth()) {
-    computeLayoutSephiroth();
-    return;
-  }
-  const X_GAP = 66;
-  const Y_GAP = 18;
-  const subH = {};
-  const depthW = {};
-
-  function measure(id, depth) {
-    const sz = nodeBoxSize(DATA.nodes[id]);
-    depthW[depth] = Math.max(depthW[depth] || 0, sz.w);
-    const kids = visibleChildren(id);
-    if (!kids.length) {
-      subH[id] = sz.h;
-      return sz.h;
-    }
-    let total = 0;
-    kids.forEach((c, i) => {
-      total += measure(c, depth + 1);
-      if (i > 0) total += Y_GAP;
-    });
-    subH[id] = Math.max(sz.h, total);
-    return subH[id];
-  }
-
-  measure(DATA.meta.root_id, 0);
-
-  const colX = {};
-  let cx = 36;
-  const maxD = Math.max(...Object.keys(depthW).map(Number));
-  for (let d = 0; d <= maxD; d++) {
-    colX[d] = cx;
-    cx += (depthW[d] || 220) + X_GAP;
-  }
-
-  const pos = {};
-  function place(id, depth, topY) {
-    const n = DATA.nodes[id];
-    const sz = nodeBoxSize(n);
-    const kids = visibleChildren(id);
-    let y;
-    if (!kids.length) {
-      y = topY + (subH[id] - sz.h) / 2;
-    } else {
-      let curY = topY;
-      kids.forEach((c, i) => {
-        place(c, depth + 1, curY);
-        curY += subH[c] + Y_GAP;
-      });
-      const first = pos[kids[0]];
-      const last = pos[kids[kids.length - 1]];
-      if (DATA.nodes[kids[0]].status === "adopted") {
-        y = first.y + (first.h - sz.h) / 2;
-      } else {
-        const mid = (first.y + first.h / 2 + last.y + last.h / 2) / 2;
-        y = mid - sz.h / 2;
-      }
-    }
-    pos[id] = { x: colX[depth], y, w: sz.w, h: sz.h, depth };
-  }
-
-  const hasRefsStrip = state.showRefs && Object.keys(DATA.refs || {}).length > 0;
-  place(DATA.meta.root_id, 0, hasRefsStrip ? 182 : 76);
-  state.layout = pos;
-
-  // Position external reference cards in a clean horizontal strip above the trunk,
-  // ordered by the average x-coordinate of the experiments that cite them.
-  const refPos = {};
-  if (hasRefsStrip) {
-    const REFS = Object.values(DATA.refs || {});
-    const avgX = r => {
-      const xs = (r.used_by || []).map(u => {
-        let cur = u.id;
-        while (cur && !pos[cur]) cur = DATA.nodes[cur]?.parent;
-        return cur ? pos[cur].x + pos[cur].w / 2 : 0;
-      }).filter(Boolean);
-      return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 1e9;
-    };
-    REFS.sort((a, b) => avgX(a) - avgX(b));
-    let rx = 36;
-    const RW = 224, RH = 66, RGAP = 18;
-    for (const r of REFS) {
-      refPos[r.id] = { x: rx, y: 26, w: RW, h: RH };
-      rx += RW + RGAP;
-    }
-  }
-  state.refLayout = refPos;
+  if (isSephiroth()) computeLayoutSephiroth();
+  else computeLayoutLab();
 }
+
+// Paper skin geometry: trunk stations in a row, each with a lane of its branches listed underneath.
+const LAB = {
+  TRUNK_W: 236, TRUNK_H: 118,
+  BRANCH_W: 222, BRANCH_H: 82, MILESTONE_EXTRA: 16,
+  INDENT: 28, ROW_GAP: 12, LANE_GAP: 52, TRUNK_TO_BRANCH: 24, LANE_PAD: 14,
+  REF_W: 210, REF_H: 62, REF_GAP: 12,
+  HIGHWAY: 112,
+};
+
+function labBranchHeight(n) {
+  return LAB.BRANCH_H + (nodeMilestone(n) ? LAB.MILESTONE_EXTRA : 0);
+}
+
+function trunkChain() {
+  const chain = [];
+  let cur = DATA.meta.root_id;
+  while (cur && DATA.nodes[cur]) {
+    chain.push(cur);
+    const next = visibleChildren(cur).find(c => DATA.nodes[c].status === "adopted");
+    if (!next) break;
+    cur = next;
+  }
+  return chain;
+}
+
+function visibleAnchor(id) {
+  let cur = id;
+  while (cur && !state.layout[cur]) cur = DATA.nodes[cur]?.parent;
+  return cur || null;
+}
+
+function computeLayoutLab() {
+  const pos = {};
+  const lanes = [];
+  const trunk = trunkChain();
+  const refs = Object.values(DATA.refs || {});
+  const refY = 0;
+  const trunkY = refs.length ? refY + LAB.REF_H + LAB.HIGHWAY : LAB.HIGHWAY;
+
+  let x = 0;
+  trunk.forEach((tid, i) => {
+    const laneX = x;
+    pos[tid] = { x: laneX, y: trunkY, w: LAB.TRUNK_W, h: LAB.TRUNK_H, lane: i, depth: 0, trunk: true };
+    let y = trunkY + LAB.TRUNK_H + LAB.TRUNK_TO_BRANCH;
+    let right = laneX + LAB.TRUNK_W;
+    const place = (id, depth) => {
+      const h = labBranchHeight(DATA.nodes[id]);
+      const bx = laneX + depth * LAB.INDENT;
+      pos[id] = { x: bx, y, w: LAB.BRANCH_W, h, lane: i, depth, trunk: false };
+      right = Math.max(right, bx + LAB.BRANCH_W);
+      y += h + LAB.ROW_GAP;
+      visibleChildren(id).forEach(c => place(c, depth + 1));
+    };
+    visibleChildren(tid).filter(c => c !== trunk[i + 1]).forEach(c => place(c, 1));
+    const bottom = Math.max(trunkY + LAB.TRUNK_H, y - LAB.ROW_GAP);
+    lanes.push({ id: tid, index: i, x: laneX, right, top: trunkY, bottom, isHead: Boolean(DATA.nodes[tid].is_head) });
+    x = right + LAB.LANE_GAP;
+  });
+
+  // Reference cards sit in one row above the trunk, each pulled toward the runs that cite it.
+  const refPos = {};
+  if (refs.length) {
+    const anchorX = r => {
+      const xs = (r.used_by || []).map(u => {
+        let c = u.id;
+        while (c && !pos[c]) c = DATA.nodes[c]?.parent;
+        return c ? pos[c].x + pos[c].w / 2 : null;
+      }).filter(v => v != null);
+      return xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : Infinity;
+    };
+    const items = refs.map(r => ({ r, ax: anchorX(r) })).sort((a, b) => a.ax - b.ax);
+    let minX = 0;
+    for (const it of items) {
+      const want = Number.isFinite(it.ax) ? it.ax - LAB.REF_W / 2 : minX;
+      const rx = Math.max(minX, want);
+      refPos[it.r.id] = { x: rx, y: refY, w: LAB.REF_W, h: LAB.REF_H };
+      minX = rx + LAB.REF_W + LAB.REF_GAP;
+    }
+  }
+
+  state.layout = pos;
+  state.refLayout = refPos;
+  state.labLanes = lanes;
+  state.labGeom = {
+    trunkY,
+    hwTop: refs.length ? refY + LAB.REF_H + 12 : 12,
+    hwBottom: trunkY - LAB.LANE_PAD - 10,
+  };
+}
+
+const _measureCtx = document.createElement("canvas").getContext("2d");
+function textWidth(s, font) {
+  _measureCtx.font = font;
+  return _measureCtx.measureText(s || "").width;
+}
+// Truncate a string with an ellipsis so it fits maxW pixels in the given CSS font.
+function fitText(s, maxW, font) {
+  s = s || "";
+  if (textWidth(s, font) <= maxW) return s;
+  let lo = 0, hi = s.length;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (textWidth(s.slice(0, mid) + "…", font) <= maxW) lo = mid;
+    else hi = mid - 1;
+  }
+  return s.slice(0, lo) + "…";
+}
+let _labFamily = "sans-serif";
+function labFont(size, weight = 400) { return `${weight} ${size}px ${_labFamily}`; }
 
 function elNS(tag, attrs = {}, text = null) {
   const el = document.createElementNS("http://www.w3.org/2000/svg", tag);
@@ -1212,7 +1373,7 @@ function esc(s) {
 }
 
 function fmtBpb(v) { return v == null ? "—" : v.toFixed(4); }
-function fmtDelta(v) { return v == null ? "—" : (v > 0 ? `+${v.toFixed(4)}` : v.toFixed(4)); }
+function fmtDelta(v) { return v == null ? "—" : (v > 0 ? `+${v.toFixed(4)}` : v.toFixed(4).replace("-", "−")); }
 function fmtPct(v) { return v == null ? "—" : `${(v * 100).toFixed(2)}%`; }
 function fmtP(p) {
   if (p == null) return "—";
@@ -1293,52 +1454,6 @@ function curveHitsNode(sampleFn, obstacles, ignoreIds) {
     }
   }
   return false;
-}
-
-// Route a Paper-skin horizontal-tree arc and place its pill in guaranteed obstacle-free space.
-function routeHorizontalArc({ x1, y1, x2, y2, preferTop, pillW, pillH, obstacles, placedPills, ignoreIds, treeMinY, treeMaxY }) {
-  const mx = (x1 + x2) / 2;
-  const targetYs = [];
-  if (preferTop) {
-    const localTop = Math.min(y1, y2);
-    for (let k = 0; k < 3; k++) targetYs.push(localTop - 30 - k * 28);
-    for (let k = 0; k < 4; k++) targetYs.push(treeMinY - 26 - k * 28);
-  } else {
-    const localBot = Math.max(y1, y2);
-    for (let k = 0; k < 3; k++) targetYs.push(localBot + 30 + k * 28);
-  }
-  for (let k = 0; k < 14; k++) targetYs.push(treeMaxY + 28 + k * 28);
-
-  const tOrder = [0.5, 0.42, 0.58, 0.34, 0.66];
-  const trySelect = (requireCleanCurve) => {
-    for (const ty of targetYs) {
-      // Exact quadratic Bezier midpoint inversion: y(0.5) = 0.25*(y1+y2) + 0.5*cy = ty
-      const cy = 2 * ty - 0.5 * (y1 + y2);
-      if (requireCleanCurve && curveHitsNode(t => quadPoint(x1, y1, mx, cy, x2, y2, t), obstacles, ignoreIds)) {
-        continue;
-      }
-      for (const t of tOrder) {
-        const pt = quadPoint(x1, y1, mx, cy, x2, y2, t);
-        const rect = { x: pt.x - pillW / 2 - 4, y: pt.y - pillH / 2 - 4, w: pillW + 8, h: pillH + 8 };
-        if (isRectClear(rect, obstacles, placedPills)) {
-          return { d: `M ${x1} ${y1} Q ${mx} ${cy}, ${x2} ${y2}`, lx: pt.x, ly: pt.y, rect };
-        }
-      }
-    }
-    return null;
-  };
-
-  const chosen = trySelect(true) || trySelect(false) || (() => {
-    const ty = treeMaxY + 28 + placedPills.length * 28;
-    const cy = 2 * ty - 0.5 * (y1 + y2);
-    const pt = quadPoint(x1, y1, mx, cy, x2, y2, 0.5);
-    return {
-      d: `M ${x1} ${y1} Q ${mx} ${cy}, ${x2} ${y2}`,
-      lx: pt.x, ly: pt.y,
-      rect: { x: pt.x - pillW / 2 - 4, y: pt.y - pillH / 2 - 4, w: pillW + 8, h: pillH + 8 },
-    };
-  })();
-  return chosen;
 }
 
 // Clip straight line segment at the outer perimeter of two Sephiroth circles.
@@ -1430,476 +1545,432 @@ function roundedRowBracket(x1, y1, x2, y2, railY) {
   };
 }
 
-function roundedColBracket(x1, y1, x2, y2, railX) {
-  const dir = y2 >= y1 ? 1 : -1;
-  const r = Math.min(12, Math.abs(y2 - y1) / 3, Math.max(4, railX - Math.max(x1, x2) - 2));
-  return {
-    d: `M ${x1} ${y1} L ${railX - r} ${y1} Q ${railX} ${y1}, ${railX} ${y1 + dir * r} L ${railX} ${y2 - dir * r} Q ${railX} ${y2}, ${railX - r} ${y2} L ${x2} ${y2}`,
-    r, dir,
-  };
-}
-
 function renderTree() {
   computeLayout();
-  const decorLayer = document.getElementById("decor-layer");
-  decorLayer.innerHTML = "";
-  if (isSephiroth()) {
-    renderTreeSephiroth();
-    return;
-  }
-  const L = t();
-  const edgesLayer = document.getElementById("edges-layer");
-  const arcsBgLayer = document.getElementById("arcs-bg-layer");
-  const refsLayer = document.getElementById("refs-layer");
-  const arcsFgLayer = document.getElementById("arcs-fg-layer");
-  const nodesLayer = document.getElementById("nodes-layer");
-  edgesLayer.innerHTML = "";
-  arcsBgLayer.innerHTML = "";
-  refsLayer.innerHTML = "";
-  arcsFgLayer.innerHTML = "";
-  nodesLayer.innerHTML = "";
+  document.getElementById("decor-layer").innerHTML = "";
+  if (isSephiroth()) renderTreeSephiroth();
+  else renderTreeLab();
+}
 
+function searchHits() {
   const q = state.search.trim().toLowerCase();
-  const matches = new Set();
-  const refMatches = new Set();
+  const nodes = new Set(), refs = new Set();
   if (q) {
     for (const n of Object.values(DATA.nodes)) {
       const hay = `${n.id} ${n.label} ${n.label_en} ${n.milestone} ${n.milestone_en} ${n.takeaway} ${n.takeaway_en}`.toLowerCase();
-      if (hay.includes(q)) matches.add(n.id);
+      if (hay.includes(q)) nodes.add(n.id);
     }
     for (const r of Object.values(DATA.refs || {})) {
       const hay = `${r.id} ${r.label} ${r.label_en} ${r.authors} ${r.summary} ${r.summary_en}`.toLowerCase();
-      if (hay.includes(q)) refMatches.add(r.id);
+      if (hay.includes(q)) refs.add(r.id);
     }
   }
+  return { q, nodes, refs };
+}
 
-  // 1. Tree edges
-  for (const [id, p] of Object.entries(state.layout)) {
-    const n = DATA.nodes[id];
-    if (!n.parent || !state.layout[n.parent]) continue;
-    const par = state.layout[n.parent];
-    const x1 = par.x + par.w, y1 = par.y + par.h / 2;
-    const x2 = p.x, y2 = p.y + p.h / 2;
-    const mx = (x1 + x2) / 2;
-    const d = `M ${x1} ${y1} C ${mx} ${y1}, ${mx} ${y2}, ${x2} ${y2}`;
-    const isTrunk = trunkSet.has(id) && trunkSet.has(n.parent);
-    const cls = ["edge", isTrunk ? "trunk" : "", q && !matches.has(id) ? "dim" : ""].filter(Boolean).join(" ");
-    edgesLayer.appendChild(elNS("path", { d, class: cls }));
+// The selected node or reference plus everything it links to; null when nothing is selected.
+function focusSet() {
+  if (state.selectedRefId && DATA.refs?.[state.selectedRefId]) {
+    const r = DATA.refs[state.selectedRefId];
+    return {
+      nodes: new Set((r.used_by || []).map(u => visibleAnchor(u.id)).filter(Boolean)),
+      refs: new Set([r.id]),
+    };
   }
+  const n = state.selectedId ? DATA.nodes[state.selectedId] : null;
+  if (!n) return null;
+  const ids = [
+    n.id, n.parent, n.compare_to, ...(n.children || []),
+    ...(n.compared_by || []).map(c => c.id),
+    ...(n.inspired_by || []).map(x => x.id),
+    ...(n.inspired || []).map(x => x.id),
+  ];
+  return {
+    nodes: new Set(ids.filter(Boolean).map(visibleAnchor).filter(Boolean)),
+    refs: new Set((n.refs || []).map(x => x.id)),
+  };
+}
 
-  // 2. Cross-recipe & sibling comparison arcs (routed around cards; active arcs & pills render above nodes)
-  const noSel = !state.selectedId && !state.selectedRefId;
-  const obstacles = collectCanvasObstacles(false);
-  const placedPills = [];
-  const allPos = Object.values(state.layout);
-  const treeMinY = allPos.length ? Math.min(...allPos.map(p => p.y)) : 80;
-  const treeMaxY = allPos.length ? Math.max(...allPos.map(p => p.y + p.h)) : 400;
-
-  const crossPairs = [];
-  for (const [id] of Object.entries(state.layout)) {
-    const n = DATA.nodes[id];
-    if (!n.cross_compare || !n.compare_to || !state.layout[n.compare_to]) continue;
-    crossPairs.push([id, n.compare_to]);
-  }
-  // Sort shorter sibling spans first so nested vertical brackets never cross each other.
-  crossPairs.sort((p1, p2) => {
-    const d1 = Math.abs(state.layout[p1[0]].y - state.layout[p1[1]].y);
-    const d2 = Math.abs(state.layout[p2[0]].y - state.layout[p2[1]].y);
-    return d1 - d2;
-  });
-  const sameColRank = {};
-  const sameColGroupCount = {};
-  crossPairs.forEach(([srcId, dstId]) => {
-    const a = state.layout[srcId], b = state.layout[dstId];
-    const active = !state.selectedRefId && (state.selectedId === srcId || state.selectedId === dstId);
-    const isRootArc = srcId === DATA.meta.root_id;
-    if (!noSel && !active && !isRootArc) return;
-    if (Math.abs(a.x - b.x) < 10) sameColGroupCount[dstId] = (sameColGroupCount[dstId] || 0) + 1;
-  });
-  let crossColIdx = 0;
-
-  crossPairs.forEach(([srcId, dstId]) => {
-    const a = state.layout[srcId], b = state.layout[dstId];
-    const src = DATA.nodes[srcId];
-    const active = !state.selectedRefId && (state.selectedId === srcId || state.selectedId === dstId);
-    const isRootArc = srcId === DATA.meta.root_id;
-    const sameCol = Math.abs(a.x - b.x) < 10;
-    if (!noSel && !active && !isRootArc) return;
-    const targetLayer = (active || isRootArc) ? arcsFgLayer : arcsBgLayer;
-
-    let d, lx, ly, pillX, pillY, txt;
-
-    if (sameCol) {
-      // Same-column sibling comparison: nested rounded vertical bracket on the right margin.
-      const rank = sameColRank[dstId] || 0;
-      sameColRank[dstId] = rank + 1;
-      const groupTotal = sameColGroupCount[dstId] || 1;
-      const rightEdge = Math.max(a.x + a.w, b.x + b.w);
-      const y1 = a.y + a.h / 2;
-      const y2 = b.y + b.h / 2;
-      const railStep = 18;
-      const railX = rightEdge + 24 + rank * railStep;
-      const br = roundedColBracket(a.x + a.w, y1, b.x + b.w, y2, railX);
-      d = br.d;
-
-      targetLayer.appendChild(elNS("path", {
-        d,
-        class: `cross-arc${active ? " active" : ""}`,
-        "marker-end": "url(#arrow-blue)",
-      }));
-      if (active) {
-        txt = src.delta_bpb != null ? `${fmtDelta(src.delta_bpb)} BPB` : L.arcFallback(src.compare_to);
-        const charW = state.lang === "en" ? 6.6 : 7.0;
-        const pillW = Math.max(82, Math.round(txt.length * charW + 16));
-        const maxRailX = rightEdge + 24 + Math.max(0, groupTotal - 1) * railStep;
-        const tapY = y1 + br.dir * br.r;
-        pillX = maxRailX + 16;
-        pillY = tapY - 10;
-        // Guard against any obstacle or previous pill on the right.
-        for (let step = 0; step < 8; step++) {
-          const rect = { x: pillX - 4, y: pillY - 4, w: pillW + 8, h: 28 };
-          if (isRectClear(rect, obstacles, placedPills)) break;
-          pillX += 24;
-        }
-        ly = pillY + 14;
-
-        targetLayer.appendChild(elNS("circle", {
-          cx: railX, cy: tapY, r: 2.5, fill: "#2a78d6",
-        }));
-        targetLayer.appendChild(elNS("line", {
-          x1: railX, y1: tapY, x2: pillX, y2: tapY,
-          stroke: "#2a78d6", "stroke-width": 1, "stroke-dasharray": "2 2", opacity: 0.72,
-        }));
-        targetLayer.appendChild(elNS("rect", {
-          x: pillX, y: pillY, width: pillW, height: 20, rx: 10,
-          fill: "#eef5fd", stroke: "#2a78d6", "stroke-width": 1.1,
-        }));
-        targetLayer.appendChild(elNS("text", {
-          x: pillX + pillW / 2, y: ly, "text-anchor": "middle", class: "cross-label",
-        }, txt));
-        placedPills.push({ x: pillX - 4, y: pillY - 4, w: pillW + 8, h: 28 });
-      }
-      return;
+// Links to draw: the selected item's own links always; with nothing selected, every link of a kind
+// whose "show all" toggle is on (drawn faint, without labels).
+function collectLinks() {
+  const L = t();
+  const sel = state.selectedId, selRef = state.selectedRefId;
+  const noSel = !sel && !selRef;
+  const out = [];
+  const seen = new Set();
+  const add = (kind, from, to, label, overview) => {
+    const key = `${kind}:${from.type}:${from.id}->${to}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ kind, from, to, label, overview });
+  };
+  if (!selRef) {
+    for (const id of Object.keys(state.layout)) {
+      const n = DATA.nodes[id];
+      if (!n.cross_compare || !n.compare_to || !state.layout[n.compare_to]) continue;
+      const isRootArc = id === DATA.meta.root_id;
+      if (!(sel === id || sel === n.compare_to || isRootArc)) continue;
+      const label = n.delta_bpb != null
+        ? (isRootArc ? L.arcRootLabel(fmtDelta(-n.delta_bpb)) : L.arcOtherLabel(n.compare_to, fmtDelta(n.delta_bpb)))
+        : L.arcFallback(n.compare_to);
+      add("compare", { type: "node", id }, n.compare_to, label, false);
     }
-
-    // Cross-column comparison arc (routed clear of nodes & other pills)
-    const idx = crossColIdx++;
-    const x1 = a.x + a.w / 2, x2 = b.x + b.w / 2;
-    const topArc = isRootArc;
-    const y1 = topArc ? a.y : a.y + a.h;
-    const y2 = topArc ? b.y : b.y + b.h;
-    const showPill = active || isRootArc;
-
-    if (showPill) {
-      txt = src.delta_bpb != null
-        ? (isRootArc
-            ? L.arcRootLabel(fmtDelta(-src.delta_bpb))
-            : L.arcOtherLabel(src.compare_to, fmtDelta(src.delta_bpb)))
-        : L.arcFallback(src.compare_to);
-      const charW = state.lang === "en" ? 6.4 : 8.2;
-      const pillW = Math.max(170, Math.round(txt.length * charW + 22));
-      const routed = routeHorizontalArc({
-        x1, y1, x2, y2, preferTop: topArc, pillW, pillH: 20,
-        obstacles, placedPills, ignoreIds: new Set([srcId, dstId]), treeMinY, treeMaxY,
-      });
-      d = routed.d;
-      lx = routed.lx;
-      ly = routed.ly;
-      placedPills.push(routed.rect);
-
-      targetLayer.appendChild(elNS("path", {
-        d,
-        class: `cross-arc${active ? " active" : ""}`,
-        "marker-end": "url(#arrow-blue)",
-      }));
-      targetLayer.appendChild(elNS("rect", {
-        x: lx - pillW / 2, y: ly - 10, width: pillW, height: 20, rx: 10,
-        fill: active ? "#eef5fd" : "rgba(255,255,255,0.95)",
-        stroke: active ? "#2a78d6" : "#cfe2f9", "stroke-width": 1.1,
-      }));
-      targetLayer.appendChild(elNS("text", {
-        x: lx, y: ly + 4, "text-anchor": "middle", class: "cross-label",
-      }, txt));
-    } else {
-      const ty = topArc ? (treeMinY - 26 - idx * 20) : (treeMaxY + 26 + idx * 20);
-      const cy = 2 * ty - 0.5 * (y1 + y2);
-      d = `M ${x1} ${y1} Q ${(x1 + x2) / 2} ${cy}, ${x2} ${y2}`;
-      targetLayer.appendChild(elNS("path", {
-        d,
-        class: "cross-arc",
-        "marker-end": "url(#arrow-blue)",
-      }));
-    }
-  });
-
-  // 2b. Inspiration edges (amber dotted arcs; all shown subtly when nothing is selected, focused with pills on select)
-  function visibleAnchor(id) {
-    let cur = id;
-    while (cur && !state.layout[cur]) cur = DATA.nodes[cur]?.parent;
-    return cur;
-  }
-  const inspireEdges = [];
-  const seenInspire = new Set();
-  if (state.showInspiration && !state.selectedRefId) {
     for (const n of Object.values(DATA.nodes)) {
       for (const edge of (n.inspired_by || [])) {
-        if (noSel || state.selectedId === n.id || state.selectedId === edge.id) {
-          const srcVis = visibleAnchor(edge.id);
-          const dstVis = visibleAnchor(n.id);
-          const key = `${srcVis}->${dstVis}`;
-          if (srcVis && dstVis && srcVis !== dstVis && (!noSel || !seenInspire.has(key))) {
-            seenInspire.add(key);
-            inspireEdges.push({ srcId: srcVis, dstId: dstVis, reason: pick(edge, "reason") });
-          }
-        }
+        const focusHit = sel === n.id || sel === edge.id;
+        if (!(focusHit || (noSel && state.showInspiration))) continue;
+        const a = visibleAnchor(edge.id), b = visibleAnchor(n.id);
+        if (!a || !b || a === b) continue;
+        const reason = pick(edge, "reason");
+        add("inspire", { type: "node", id: a }, b, reason ? `${L.inspireBadge} · ${reason}` : L.inspireBadge, !focusHit);
       }
     }
   }
-  inspireEdges.forEach((ie, idx) => {
-    const a = state.layout[ie.srcId], b = state.layout[ie.dstId];
-    const x1 = a.x + a.w * 0.5, y1 = a.y + a.h;
-    const x2 = b.x + b.w * 0.5, y2 = b.y + b.h;
-    if (noSel) {
-      const ty = treeMaxY + 26 + (idx % 4) * 18;
-      const cy = 2 * ty - 0.5 * (y1 + y2);
-      const d = `M ${x1} ${y1} Q ${(x1 + x2) / 2} ${cy}, ${x2} ${y2}`;
-      arcsBgLayer.appendChild(elNS("path", {
-        d, class: "inspire-arc", opacity: 0.42, "marker-end": "url(#arrow-amber)",
-      }));
-      return;
+  for (const r of Object.values(DATA.refs || {})) {
+    if (!state.refLayout[r.id]) continue;
+    for (const u of (r.used_by || [])) {
+      const focusHit = selRef === r.id || (!selRef && sel === u.id);
+      if (!(focusHit || (noSel && state.showRefs))) continue;
+      const b = visibleAnchor(u.id);
+      if (b) add("ref", { type: "ref", id: r.id }, b, "", !focusHit);
     }
-    const rawTxt = ie.reason ? `${L.inspireBadge} · ${truncLang(ie.reason, 22, 36)}` : L.inspireBadge;
-    const charW = state.lang === "en" ? 6.2 : 8.4;
-    const pillW = Math.max(88, Math.round(rawTxt.length * charW + 18));
-    const routed = routeHorizontalArc({
-      x1, y1, x2, y2, preferTop: false, pillW, pillH: 20,
-      obstacles, placedPills, ignoreIds: new Set([ie.srcId, ie.dstId]), treeMinY, treeMaxY,
-    });
-    placedPills.push(routed.rect);
-    arcsFgLayer.appendChild(elNS("path", {
-      d: routed.d, class: "inspire-arc", "marker-end": "url(#arrow-amber)",
-    }));
-    arcsFgLayer.appendChild(elNS("rect", {
-      x: routed.lx - pillW / 2, y: routed.ly - 10, width: pillW, height: 20, rx: 10,
-      fill: "#fef7e6", stroke: "#d98a00", "stroke-width": 1.1,
-    }));
-    arcsFgLayer.appendChild(elNS("text", {
-      x: routed.lx, y: routed.ly + 4, "text-anchor": "middle", class: "inspire-label",
-    }, rawTxt));
-  });
+  }
+  return out;
+}
 
-  // 2c. External reference strip & teal links (shown when showRefs is enabled)
-  if (state.showRefs && Object.keys(state.refLayout).length) {
-    refsLayer.appendChild(elNS("text", {
-      x: 36, y: 16, "font-size": 10.5, "font-weight": 700, fill: "#0a5e60", opacity: 0.85,
-    }, L.refStripLabel));
+function roundedPath(pts, r = 9) {
+  const P = pts.filter((p, i) => i === 0 || Math.hypot(p[0] - pts[i - 1][0], p[1] - pts[i - 1][1]) > 0.5);
+  if (P.length < 2) return "";
+  const f = v => v.toFixed(1);
+  let d = `M ${f(P[0][0])} ${f(P[0][1])}`;
+  for (let i = 1; i < P.length - 1; i++) {
+    const [px, py] = P[i], [ax, ay] = P[i - 1], [bx, by] = P[i + 1];
+    const la = Math.hypot(ax - px, ay - py), lb = Math.hypot(bx - px, by - py);
+    const rr = Math.min(r, la / 2, lb / 2);
+    d += ` L ${f(px + (ax - px) / la * rr)} ${f(py + (ay - py) / la * rr)}`;
+    d += ` Q ${f(px)} ${f(py)} ${f(px + (bx - px) / lb * rr)} ${f(py + (by - py) / lb * rr)}`;
+  }
+  const last = P[P.length - 1];
+  return `${d} L ${f(last[0])} ${f(last[1])}`;
+}
 
-    for (const [rid, rp] of Object.entries(state.refLayout)) {
-      const r = DATA.refs[rid];
-      const isSel = state.selectedRefId === rid;
-      const rg = elNS("g", {
-        class: [
-          "ref-node-g",
-          isSel ? "selected" : "",
-          q && !refMatches.has(rid) ? "dim" : "",
-        ].filter(Boolean).join(" "),
-        transform: `translate(${rp.x}, ${rp.y})`,
-      });
-      rg.appendChild(elNS("rect", {
-        class: "node-rect", x: 0, y: 0, width: rp.w, height: rp.h, rx: 9,
-        fill: isSel ? "#e2f5f5" : "#f3fbfb",
-        stroke: isSel ? "#0f8b8d" : "#8acbcc",
-        "stroke-width": isSel ? 2.2 : 1.4,
-        "stroke-dasharray": isSel ? "none" : "4 2",
-      }));
-      // Small book icon badge on top-left
-      rg.appendChild(elNS("rect", {
-        x: 9, y: 10, width: 22, height: 22, rx: 6, fill: "#0f8b8d",
-      }));
-      const bIcon = elNS("g", { transform: "translate(12.5, 13.5) scale(0.62)" });
-      bIcon.appendChild(elNS("path", {
-        d: "M4 4h11a3 3 0 0 1 3 3v13H7a3 3 0 0 0-3 3V4zm3 2v11.2A4.9 4.9 0 0 1 8.5 17H16V7a1 1 0 0 0-1-1H7z",
-        fill: "#ffffff",
-      }));
-      rg.appendChild(bIcon);
-
-      rg.appendChild(elNS("text", {
-        x: 38, y: 20, "font-size": 9.8, "font-weight": 700, fill: "#0f8b8d",
-      }, refKindLabel(r.kind)));
-      rg.appendChild(elNS("text", {
-        x: rp.w - 9, y: 20, "text-anchor": "end", "font-size": 9.6, fill: "#5c7f80",
-      }, L.refUsedCount((r.used_by || []).length)));
-      rg.appendChild(elNS("text", {
-        x: 38, y: 36, "font-size": 12.2, "font-weight": 700, fill: "#0b0b0b",
-      }, truncLang(pick(r, "label") || r.id, 13, 22)));
-      rg.appendChild(elNS("text", {
-        x: 10, y: 54, "font-size": 10, fill: "#526869",
-      }, trunc(r.authors || (r.links[0]?.label || ""), 28)));
-
-      rg.addEventListener("click", () => selectRef(rid));
-      refsLayer.appendChild(rg);
-    }
-
-    // Draw teal external links (all subtly when nothing is selected; focused in foreground on select)
-    const refEdges = [];
-    const seenRef = new Set();
-    for (const r of Object.values(DATA.refs || {})) {
-      const rp = state.refLayout[r.id];
-      if (!rp) continue;
-      for (const u of (r.used_by || [])) {
-        if (noSel || state.selectedRefId === r.id || (!state.selectedRefId && state.selectedId === u.id)) {
-          const dstVis = visibleAnchor(u.id);
-          const key = `${r.id}->${dstVis}`;
-          if (dstVis && state.layout[dstVis] && !seenRef.has(key)) {
-            seenRef.add(key);
-            refEdges.push({ refId: r.id, dstId: dstVis, reason: pick(u, "reason") });
-          }
-        }
+// Orthogonal router for the paper skin. Links never cut across cards: a branch leaves through the gap
+// to the right of its lane, a trunk or reference card through its top or bottom edge, and the
+// horizontal run happens on a "highway" track above the trunk. Two ends in one lane meet in that lane's gap.
+// Labelled links stack upward from the trunk; reference links, which start at the cards above, stack
+// downward from the reference row, so the two families rarely meet.
+function labRouter(spacing) {
+  const lanes = state.labLanes;
+  const geom = state.labGeom;
+  const chanUse = {};
+  const portUse = {};
+  const tracks = [];
+  const topTracks = [];
+  const channelX = lane => {
+    const k = chanUse[lane] = (chanUse[lane] || 0) + 1;
+    return lanes[lane].right + LAB.LANE_PAD + 4 + ((k - 1) % 4) * 6;
+  };
+  const portX = (key, cx) => {
+    const k = portUse[key] = (portUse[key] || 0) + 1;
+    return cx + [0, -14, 14, -28, 28][(k - 1) % 5];
+  };
+  const takeTrack = (x0, x1, fromTop) => {
+    const list = fromTop ? topTracks : tracks;
+    for (let k = 0; ; k++) {
+      const spans = list[k] || (list[k] = []);
+      if (spans.every(([a, b]) => x1 + 10 < a || x0 - 10 > b)) {
+        spans.push([x0, x1]);
+        return fromTop ? geom.hwTop + 6 + k * Math.min(spacing, 9) : geom.hwBottom - k * spacing;
       }
     }
-    refEdges.forEach((re, idx) => {
-      const rp = state.refLayout[re.refId], dp = state.layout[re.dstId];
-      const x1 = rp.x + rp.w / 2, y1 = rp.y + rp.h;
-      const x2 = dp.x + dp.w * 0.5, y2 = dp.y;
-      const midY = y1 + (y2 - y1) * (0.36 + (idx % 3) * 0.14);
-      const d = `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
-      const targetLayer = noSel ? arcsBgLayer : arcsFgLayer;
-      const attrs = { d, class: "ref-arc", "marker-end": "url(#arrow-teal)" };
-      if (noSel) attrs.opacity = 0.36;
-      targetLayer.appendChild(elNS("path", attrs));
-    });
+  };
+  const access = (p, isRef, key) => {
+    if (isRef) return { x: portX(key, p.x + p.w / 2), y: p.y + p.h, pre: [] };
+    if (p.trunk) return { x: portX(key, p.x + p.w / 2), y: p.y, pre: [] };
+    const y = p.y + p.h / 2;
+    return { x: channelX(p.lane), y, pre: [[p.x + p.w, y]] };
+  };
+  return (from, toId, pillW) => {
+    const pb = state.layout[toId];
+    const pa = from.type === "ref" ? state.refLayout[from.id] : state.layout[from.id];
+    if (!pa || !pb) return null;
+    if (from.type === "node" && pa.lane === pb.lane) {
+      const cx = channelX(pa.lane);
+      const ya = pa.y + pa.h / 2, yb = pb.y + pb.h / 2;
+      return { pts: [[pa.x + pa.w, ya], [cx, ya], [cx, yb], [pb.x + pb.w, yb]], pill: null };
+    }
+    const A = access(pa, from.type === "ref", `${from.type}:${from.id}`);
+    const B = access(pb, false, `node:${toId}`);
+    const mid = (A.x + B.x) / 2;
+    const x0 = Math.min(A.x, B.x, pillW ? mid - pillW / 2 : Infinity);
+    const x1 = Math.max(A.x, B.x, pillW ? mid + pillW / 2 : -Infinity);
+    const hy = takeTrack(x0, x1, from.type === "ref");
+    const pts = [...A.pre, [A.x, A.y], [A.x, hy], [B.x, hy], [B.x, B.y], ...B.pre.slice().reverse()];
+    return { pts, pill: pillW ? { x: mid, y: hy } : null };
+  };
+}
+
+function renderTreeLab() {
+  const L = t();
+  _labFamily = getComputedStyle(document.documentElement).getPropertyValue("--sans").trim() || "sans-serif";
+  const layer = id => {
+    const el = document.getElementById(id);
+    el.innerHTML = "";
+    return el;
+  };
+  const decor = layer("decor-layer"), edges = layer("edges-layer"), arcsBg = layer("arcs-bg-layer");
+  const refsLayer = layer("refs-layer"), nodesLayer = layer("nodes-layer"), arcsFg = layer("arcs-fg-layer");
+
+  const hits = searchHits();
+  const focus = focusSet();
+  const isDim = id => (hits.q && !hits.nodes.has(id)) || Boolean(focus && !focus.nodes.has(id));
+  const isRefDim = rid => (hits.q && !hits.refs.has(rid)) || Boolean(focus && !focus.refs.has(rid));
+
+  // 0. One lane per trunk step; the HEAD lane is tinted.
+  for (const lane of state.labLanes) {
+    decor.appendChild(elNS("rect", {
+      class: lane.isHead ? "lane lane-head" : "lane",
+      x: lane.x - LAB.LANE_PAD, y: lane.top - LAB.LANE_PAD,
+      width: lane.right - lane.x + 2 * LAB.LANE_PAD, height: lane.bottom - lane.top + 2 * LAB.LANE_PAD, rx: 16,
+    }));
   }
 
-  // 3. Nodes
+  // 1. Trunk route between stations, with a chevron for direction.
+  const lanes = state.labLanes;
+  for (let i = 0; i + 1 < lanes.length; i++) {
+    const a = state.layout[lanes[i].id], b = state.layout[lanes[i + 1].id];
+    const y = a.y + a.h / 2;
+    const dim = isDim(lanes[i].id) && isDim(lanes[i + 1].id) ? " dim" : "";
+    edges.appendChild(elNS("path", { d: `M ${a.x + a.w} ${y} H ${b.x}`, class: `edge trunk${dim}` }));
+    const mx = (a.x + a.w + b.x) / 2;
+    edges.appendChild(elNS("path", { d: `M ${mx - 2.5} ${y - 4} L ${mx + 2} ${y} L ${mx - 2.5} ${y + 4}`, class: `edge-chevron${dim}` }));
+  }
+
+  // 2. Branch connectors: a spine down from each parent, one rounded elbow per child.
+  const kidsOf = {};
   for (const [id, p] of Object.entries(state.layout)) {
-    const n = DATA.nodes[id];
-    const big = isMilestoneNode(n);
-    const g = elNS("g", {
-      class: [
-        "node-g",
-        (!state.selectedRefId && state.selectedId === id) ? "selected" : "",
-        q && !matches.has(id) ? "dim" : "",
-      ].filter(Boolean).join(" "),
-      transform: `translate(${p.x}, ${p.y})`,
-    });
-
-    if (n.is_group && state.collapsed[id]) {
-      g.appendChild(elNS("rect", {
-        x: 6, y: 6, width: p.w, height: p.h, rx: 10,
-        fill: "#f1efe7", stroke: "#d4d1c5", "stroke-width": 1,
-      }));
-      g.appendChild(elNS("rect", {
-        x: 3, y: 3, width: p.w, height: p.h, rx: 10,
-        fill: "#f8f7f2", stroke: "#d4d1c5", "stroke-width": 1,
-      }));
-    }
-
-    let fill = "#ffffff", stroke = "#d7d5cb", strokeW = 1.2;
-    if (n.status === "root") { fill = "#faf8ff"; stroke = "#6250d6"; strokeW = 2; }
-    else if (n.is_head) { fill = "#f3fcf7"; stroke = "#1baf7a"; strokeW = 2.4; }
-    else if (n.status === "adopted") { fill = "#f8fdfb"; stroke = "#1baf7a"; strokeW = 1.8; }
-    else if (n.is_group) { fill = "#fffcf5"; stroke = "#d9a94e"; strokeW = 1.4; }
-    else if (n.status === "rejected") { fill = "#fdf8f7"; stroke = "#d39a92"; strokeW = 1.2; }
-    else if (big) { fill = "#fffdf8"; stroke = "#d98a00"; strokeW = 1.8; }
-
-    const rect = elNS("rect", {
-      class: "node-rect", x: 0, y: 0, width: p.w, height: p.h, rx: big ? 12 : 9,
-      fill, stroke, "stroke-width": strokeW,
-    });
-    if (n.status === "rejected" || n.is_placeholder) rect.setAttribute("stroke-dasharray", "5 3");
-    g.appendChild(rect);
-
-    if (big) {
-      let iconBg = "#1baf7a";
-      if (n.status === "root") iconBg = "#6250d6";
-      else if (n.is_head) iconBg = "#0e7a53";
-      else if (n.status !== "adopted") iconBg = "#d98a00";
-
-      g.appendChild(elNS("rect", {
-        x: 11, y: 11, width: 32, height: 32, rx: 9, fill: iconBg,
-      }));
-      const iconG = elNS("g", { transform: "translate(17, 17) scale(0.83)" });
-      iconG.appendChild(elNS("path", { d: milestoneIconPath(n), fill: "#ffffff" }));
-      if (n.status === "adopted" && !n.is_head) {
-        iconG.appendChild(elNS("path", {
-          d: "M8.5 12.2l2.3 2.3 4.8-5.1", fill: "none", stroke: iconBg,
-          "stroke-width": 2.4, "stroke-linecap": "round", "stroke-linejoin": "round",
-        }));
-      }
-      g.appendChild(iconG);
-
-      const mText = nodeMilestone(n) || (n.status === "adopted" ? L.defaultTrunk : L.defaultMilestone);
-      g.appendChild(elNS("text", {
-        x: 51, y: 22, "font-size": 10.5, "font-weight": 700, fill: iconBg,
-      }, truncLang(mText, 12, 18)));
-      if (n.run_id) {
-        g.appendChild(elNS("text", {
-          x: p.w - 11, y: 22, "text-anchor": "end", "font-size": 9.6, fill: "#898781",
-          "font-family": "var(--mono)",
-        }, trunc(n.run_id, 17)));
-      }
-      g.appendChild(elNS("text", {
-        x: 51, y: 40, "font-size": 14, "font-weight": 700, fill: "#0b0b0b",
-      }, truncLang(nodeLabel(n), 15, 24)));
-
-      if (n.is_group) {
-        const gs = n.group_stats || {};
-        g.appendChild(elNS("text", {
-          x: 12, y: 68, "font-size": 12, fill: "#52514e", "font-family": "var(--mono)",
-        }, L.groupCardMeta(gs.count || 0, fmtBpb(gs.best_bpb))));
-      } else {
-        const bpbText = n.is_placeholder && n.val_bpb != null ? `~${fmtBpb(n.val_bpb)}` : fmtBpb(n.val_bpb);
-        g.appendChild(elNS("text", {
-          x: 12, y: 69, "font-size": 15.5, "font-weight": 700, fill: n.is_placeholder ? "#6d6b65" : "#0b0b0b",
-          "font-family": "var(--mono)",
-        }, bpbText));
-        drawDeltaTag(g, n, n.is_placeholder ? 102 : 94, 55);
-      }
-    } else {
-      g.appendChild(elNS("text", {
-        x: 11, y: 21, "font-size": 12.5, "font-weight": 600, fill: "#0b0b0b",
-      }, truncLang(nodeLabel(n), 18, 28)));
-      if (n.is_group) {
-        const gs = n.group_stats || {};
-        g.appendChild(elNS("text", {
-          x: 11, y: 42, "font-size": 11.5, fill: "#52514e", "font-family": "var(--mono)",
-        }, L.groupCardMeta(gs.count || 0, fmtBpb(gs.best_bpb))));
-      } else {
-        const bpbText = n.is_placeholder && n.val_bpb != null ? `~${fmtBpb(n.val_bpb)}` : fmtBpb(n.val_bpb);
-        g.appendChild(elNS("text", {
-          x: 11, y: 43, "font-size": 13.5, "font-weight": 700, fill: n.is_placeholder ? "#6d6b65" : "#0b0b0b",
-          "font-family": "var(--mono)",
-        }, bpbText));
-        drawDeltaTag(g, n, n.is_placeholder ? 88 : 80, 30);
-      }
-    }
-
-    const bottomY = p.h - 24;
-    if (n.is_group) {
-      const isCol = Boolean(state.collapsed[id]);
-      const gs = n.group_stats || {};
-      const btnText = isCol ? L.expandBtn(gs.count || n.children.length) : L.collapseBtn;
-      const bw = Math.max(92, Math.round(btnText.length * (state.lang === "en" ? 6.8 : 9.2) + 18));
-      const tg = elNS("g", { class: "toggle-btn", transform: `translate(11, ${bottomY})` });
-      tg.appendChild(elNS("rect", {
-        x: 0, y: 0, width: bw, height: 18, rx: 9, fill: "#f2efe4", stroke: "#d9c99e", "stroke-width": 1,
-      }));
-      tg.appendChild(elNS("text", {
-        x: bw / 2, y: 12.5, "text-anchor": "middle", "font-size": 10.5, "font-weight": 600, fill: "#7a5100",
-      }, btnText));
-      tg.addEventListener("click", (ev) => {
-        ev.stopPropagation();
-        state.collapsed[id] = !state.collapsed[id];
-        renderTree();
-      });
-      g.appendChild(tg);
-    } else if (n.artifacts) {
-      drawLeafPills(g, n, 11, bottomY);
-    }
-
-    g.addEventListener("click", () => selectNode(id));
-    nodesLayer.appendChild(g);
+    if (p.trunk) continue;
+    const par = DATA.nodes[id].parent;
+    if (state.layout[par]) (kidsOf[par] = kidsOf[par] || []).push(id);
   }
+  for (const [par, kids] of Object.entries(kidsOf)) {
+    const pp = state.layout[par];
+    const sx = pp.x + LAB.INDENT / 2;
+    const mids = kids.map(k => state.layout[k].y + state.layout[k].h / 2);
+    const r = 8;
+    const allDim = kids.every(isDim);
+    edges.appendChild(elNS("path", {
+      d: `M ${sx} ${pp.y + pp.h} V ${Math.max(...mids) - r}`, class: `edge${allDim ? " dim" : ""}`,
+    }));
+    kids.forEach((k, i) => {
+      const kp = state.layout[k];
+      const cls = ["edge", DATA.nodes[k].status === "rejected" ? "rejected" : "", isDim(k) ? "dim" : ""].filter(Boolean).join(" ");
+      edges.appendChild(elNS("path", {
+        d: `M ${sx} ${mids[i] - r} Q ${sx} ${mids[i]} ${sx + r} ${mids[i]} H ${kp.x}`, class: cls,
+      }));
+    });
+  }
+
+  // 3. Comparison / inspiration / reference links; labels go on top of every line.
+  const focusRoute = labRouter(24), faintRoute = labRouter(7);
+  const pillFont = labFont(11.5, 700);
+  const pills = [];
+  for (const lk of collectLinks()) {
+    let pillTxt = "", pillW = 0;
+    if (!lk.overview && lk.label) {
+      pillTxt = fitText(lk.label, 260, pillFont);
+      pillW = Math.ceil(textWidth(pillTxt, pillFont)) + 22;
+    }
+    const routed = (lk.overview ? faintRoute : focusRoute)(lk.from, lk.to, pillW);
+    if (!routed) continue;
+    const target = lk.overview ? arcsBg : arcsFg;
+    target.appendChild(elNS("path", {
+      d: roundedPath(routed.pts),
+      class: `link link-${lk.kind}${lk.overview ? " faint" : ""}`,
+      "marker-end": `url(#arrow-lab-${lk.kind})`,
+    }));
+    if (routed.pill && pillTxt) pills.push({ ...routed.pill, w: pillW, txt: pillTxt, kind: lk.kind });
+  }
+  for (const pl of pills) {
+    arcsFg.appendChild(elNS("rect", {
+      class: `pill-bg pill-${pl.kind}`, x: pl.x - pl.w / 2, y: pl.y - 10.5, width: pl.w, height: 21, rx: 10.5,
+    }));
+    arcsFg.appendChild(elNS("text", {
+      class: `pill-tx pill-tx-${pl.kind}`, x: pl.x, y: pl.y + 4, "text-anchor": "middle",
+    }, pl.txt));
+  }
+
+  // 4. Reference cards.
+  const refEntries = Object.entries(state.refLayout);
+  if (refEntries.length) {
+    const minRefX = Math.min(...refEntries.map(([, rp]) => rp.x));
+    refsLayer.appendChild(elNS("text", { class: "strip-label", x: minRefX, y: -12 }, L.refStripLabel));
+    for (const [rid, rp] of refEntries) {
+      refsLayer.appendChild(drawLabRef(DATA.refs[rid], rp, {
+        dim: isRefDim(rid), selected: state.selectedRefId === rid,
+      }));
+    }
+  }
+
+  // 5. Experiment cards.
+  for (const [id, p] of Object.entries(state.layout)) {
+    nodesLayer.appendChild(drawLabNode(DATA.nodes[id], p, {
+      dim: isDim(id), selected: !state.selectedRefId && state.selectedId === id,
+    }));
+  }
+}
+
+function labNodeRole(n, p) {
+  if (n.status === "root") return "root";
+  if (n.is_head) return "head";
+  if (p.trunk) return "trunk";
+  if (n.is_placeholder) return "placeholder";
+  if (n.status === "rejected") return "rejected";
+  if (n.is_group) return "group";
+  return "branch";
+}
+
+const MONO_STACK = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace";
+
+function drawLabNode(n, p, { dim, selected }) {
+  const L = t();
+  const role = labNodeRole(n, p);
+  const dark = role === "root" || role === "head";
+  const g = elNS("g", {
+    class: ["node-g", dark ? "on-dark" : "", selected ? "selected" : "", dim ? "dim" : ""].filter(Boolean).join(" "),
+    transform: `translate(${p.x}, ${p.y})`,
+  });
+  g.appendChild(elNS("title", {}, `${nodeLabel(n)}${n.run_id ? ` (${n.run_id})` : ""}`));
+  if (selected) {
+    g.appendChild(elNS("rect", { class: "sel-ring", x: -5, y: -5, width: p.w + 10, height: p.h + 10, rx: p.trunk ? 16 : 14 }));
+  }
+  if (n.is_group && state.collapsed[n.id]) {
+    g.appendChild(elNS("rect", { class: "card-stack", x: 8, y: 8, width: p.w, height: p.h, rx: 10 }));
+    g.appendChild(elNS("rect", { class: "card-stack", x: 4, y: 4, width: p.w, height: p.h, rx: 10 }));
+  }
+  g.appendChild(elNS("rect", { class: `card card-${role}`, x: 0, y: 0, width: p.w, height: p.h, rx: p.trunk ? 12 : 10 }));
+
+  const padX = 14;
+  const inner = p.w - 2 * padX;
+  const bpbText = n.is_placeholder && n.val_bpb != null ? `~${fmtBpb(n.val_bpb)}` : fmtBpb(n.val_bpb);
+  const numCls = `tx ${p.trunk ? "tx-num-lg" : "tx-num"}${n.is_placeholder ? " tx-placeholder" : ""}`;
+
+  if (p.trunk) {
+    const idTxt = n.run_id ? fitText(n.run_id, 120, `400 11px ${MONO_STACK}`) : "";
+    const idW = idTxt ? textWidth(idTxt, `400 11px ${MONO_STACK}`) + 10 : 0;
+    const ms = nodeMilestone(n) || (n.status === "adopted" ? L.defaultTrunk : L.defaultMilestone);
+    g.appendChild(elNS("text", { class: "tx tx-ms", x: padX, y: 25 }, fitText(ms, inner - idW, labFont(12, 700))));
+    if (idTxt) g.appendChild(elNS("text", { class: "tx tx-id", x: p.w - padX, y: 25, "text-anchor": "end" }, idTxt));
+    g.appendChild(elNS("text", { class: "tx tx-label-lg", x: padX, y: 48 }, fitText(nodeLabel(n), inner, labFont(15, 700))));
+    g.appendChild(elNS("text", { class: numCls, x: padX, y: 86 }, bpbText));
+    const numW = textWidth(bpbText, labFont(27, 800));
+    labDeltaChip(g, n, padX + numW + 10, 67, 20);
+    labPills(g, n, padX, 96);
+    g.addEventListener("click", () => selectNode(n.id));
+    return g;
+  }
+
+  const ms = nodeMilestone(n);
+  const o = ms ? LAB.MILESTONE_EXTRA : 0;
+  if (ms) g.appendChild(elNS("text", { class: "tx tx-ms-side", x: padX, y: 19 }, fitText(ms, inner, labFont(11.5, 700))));
+  g.appendChild(elNS("text", { class: "tx tx-label", x: padX, y: 22 + o }, fitText(nodeLabel(n), inner, labFont(13.5, 600))));
+
+  if (n.is_group) {
+    const gs = n.group_stats || {};
+    g.appendChild(elNS("text", { class: "tx tx-meta", x: padX, y: 43 + o }, L.groupCardMeta(gs.count || 0, fmtBpb(gs.best_bpb))));
+    const isCol = Boolean(state.collapsed[n.id]);
+    const btnText = isCol ? L.expandBtn(gs.count || n.children.length) : L.collapseBtn;
+    const bw = Math.ceil(textWidth(btnText, labFont(11.5, 700))) + 22;
+    const tg = elNS("g", { class: "lab-toggle", transform: `translate(${padX}, ${54 + o})` });
+    tg.appendChild(elNS("rect", { x: 0, y: 0, width: bw, height: 20, rx: 10 }));
+    tg.appendChild(elNS("text", { x: bw / 2, y: 14, "text-anchor": "middle" }, btnText));
+    tg.addEventListener("click", ev => {
+      ev.stopPropagation();
+      state.collapsed[n.id] = !state.collapsed[n.id];
+      renderTree();
+    });
+    g.appendChild(tg);
+  } else {
+    g.appendChild(elNS("text", { class: numCls, x: padX, y: 49 + o }, bpbText));
+    const numW = textWidth(bpbText, labFont(18, 700));
+    labDeltaChip(g, n, padX + numW + 8, 34 + o, 18);
+    labPills(g, n, padX, 59 + o);
+  }
+  g.addEventListener("click", () => selectNode(n.id));
+  return g;
+}
+
+function labDeltaChip(g, n, x, y, h) {
+  const L = t();
+  let text = "", tone = "noise";
+  if (n.is_placeholder) {
+    text = L.placeholderCardTag;
+  } else if (n.delta_bpb != null) {
+    text = fmtDelta(n.delta_bpb);
+    if (n.in_noise) text += " " + L.deltaNoiseShort;
+    else tone = n.delta_bpb < 0 ? "good" : "bad";
+  } else if (n.compare_to && DATA.nodes[n.compare_to]?.is_placeholder) {
+    text = L.placeholderRefPending;
+  } else if (n.status === "adopted" && n.parent === DATA.meta.root_id && DATA.nodes[DATA.meta.root_id]?.cross_compare) {
+    text = L.deltaSeeArc; tone = "info";
+  } else if (n.compare_to == null && n.status !== "root") {
+    text = L.deltaStandalone;
+  }
+  if (!text) return;
+  const w = Math.ceil(textWidth(text, labFont(11, 700))) + 14;
+  g.appendChild(elNS("rect", { class: `chip chip-${tone}`, x, y, width: w, height: h, rx: h / 2 }));
+  g.appendChild(elNS("text", { class: `chip-tx chip-tx-${tone}`, x: x + w / 2, y: y + h / 2 + 4, "text-anchor": "middle" }, text));
+}
+
+function labPills(g, n, x, y) {
+  const a = n.artifacts;
+  if (!a) return;
+  const L = t();
+  const hasT2 = n.bench && n.bench.tier === "tier2";
+  const hasBench = Boolean(n.bench);
+  const items = [
+    { label: "ckpt", ok: a.ckpt_exists, tab: "artifacts" },
+    { label: hasT2 ? "T2" : (hasBench ? "T1" : L.pillNoEval), ok: hasBench, tab: "bench" },
+    { label: L.pillSamples, ok: a.samples_exists, tab: "artifacts" },
+  ];
+  const font = labFont(10.5, 600);
+  let cx = x;
+  for (const it of items) {
+    const w = Math.ceil(textWidth(it.label, font)) + 22;
+    const pg = elNS("g", { class: `lab-pill${it.ok ? "" : " miss"}`, transform: `translate(${cx}, ${y})` });
+    pg.appendChild(elNS("rect", { x: 0, y: 0, width: w, height: 16, rx: 8 }));
+    pg.appendChild(elNS("circle", { class: "dot", cx: 8.5, cy: 8, r: 2.6 }));
+    pg.appendChild(elNS("text", { x: 15, y: 11.7 }, it.label));
+    pg.addEventListener("click", ev => {
+      ev.stopPropagation();
+      selectNode(n.id, it.tab);
+    });
+    g.appendChild(pg);
+    cx += w + 5;
+  }
+}
+
+function drawLabRef(r, rp, { dim, selected }) {
+  const L = t();
+  const g = elNS("g", {
+    class: ["ref-node-g", selected ? "selected" : "", dim ? "dim" : ""].filter(Boolean).join(" "),
+    transform: `translate(${rp.x}, ${rp.y})`,
+  });
+  g.appendChild(elNS("title", {}, pick(r, "label") || r.id));
+  g.appendChild(elNS("rect", { class: "ref-card", x: 0, y: 0, width: rp.w, height: rp.h, rx: 10 }));
+  const icon = elNS("g", { transform: "translate(11, 9) scale(0.6)" });
+  icon.appendChild(elNS("path", {
+    class: "ref-icon",
+    d: "M4 4h11a3 3 0 0 1 3 3v13H7a3 3 0 0 0-3 3V4zm3 2v11.2A4.9 4.9 0 0 1 8.5 17H16V7a1 1 0 0 0-1-1H7z",
+  }));
+  g.appendChild(icon);
+  g.appendChild(elNS("text", { class: "tx tx-ref-kind", x: 30, y: 21 }, refKindLabel(r.kind)));
+  g.appendChild(elNS("text", { class: "tx tx-meta", x: rp.w - 12, y: 21, "text-anchor": "end" }, L.refUsedCount((r.used_by || []).length)));
+  g.appendChild(elNS("text", { class: "tx tx-label", x: 12, y: 40 }, fitText(pick(r, "label") || r.id, rp.w - 24, labFont(13.5, 600))));
+  g.appendChild(elNS("text", { class: "tx tx-meta", x: 12, y: 55 }, fitText(r.authors || r.links?.[0]?.label || "", rp.w - 24, labFont(12))));
+  g.addEventListener("click", () => selectRef(r.id));
+  return g;
 }
 
 const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
@@ -2040,7 +2111,7 @@ function renderTreeSephiroth() {
     const active = !state.selectedRefId && (state.selectedId === srcId || state.selectedId === dstId);
     const isRootArc = srcId === DATA.meta.root_id;
     const sameRow = Math.abs(a.cy - b.cy) < 12;
-    if (!noSel && !active && !isRootArc) return;
+    if (!active && !isRootArc) return;
     const targetLayer = (active || isRootArc) ? arcsFgLayer : arcsBgLayer;
 
     if (sameRow) {
@@ -2152,10 +2223,10 @@ function renderTreeSephiroth() {
   }
   const inspireEdges = [];
   const seenInspire = new Set();
-  if (state.showInspiration && !state.selectedRefId) {
+  if (!state.selectedRefId) {
     for (const n of Object.values(DATA.nodes)) {
       for (const edge of (n.inspired_by || [])) {
-        if (noSel || state.selectedId === n.id || state.selectedId === edge.id) {
+        if ((noSel && state.showInspiration) || state.selectedId === n.id || state.selectedId === edge.id) {
           const srcVis = visibleAnchor(edge.id);
           const dstVis = visibleAnchor(n.id);
           const key = `${srcVis}->${dstVis}`;
@@ -2211,7 +2282,7 @@ function renderTreeSephiroth() {
   });
 
   // 2c. External reference star-crown strip (above Kether)
-  if (state.showRefs && Object.keys(state.refLayout).length) {
+  if (Object.keys(state.refLayout).length) {
     const refVals = Object.values(state.refLayout);
     const crownMinX = Math.min(...refVals.map(p => p.x));
     const crownMaxX = Math.max(...refVals.map(p => p.x + p.w));
@@ -2264,7 +2335,7 @@ function renderTreeSephiroth() {
       const rp = state.refLayout[r.id];
       if (!rp) continue;
       for (const u of (r.used_by || [])) {
-        if (noSel || state.selectedRefId === r.id || (!state.selectedRefId && state.selectedId === u.id)) {
+        if ((noSel && state.showRefs) || state.selectedRefId === r.id || (!state.selectedRefId && state.selectedId === u.id)) {
           const dstVis = visibleAnchor(u.id);
           const key = `${r.id}->${dstVis}`;
           if (dstVis && state.layout[dstVis] && !seenRef.has(key)) {
@@ -2486,82 +2557,6 @@ function drawLeafPillsSephiroth(g, n, y) {
   });
 }
 
-function drawDeltaTag(g, n, x, y) {
-  const L = t();
-  let text = "", bg = "#f2f1ec", fg = "#6d6b65";
-  if (n.is_placeholder) {
-    text = L.placeholderCardTag; bg = "#f2eefc"; fg = "#6250d6";
-  } else if (n.delta_bpb != null) {
-    text = fmtDelta(n.delta_bpb);
-    if (n.in_noise) { bg = "#f0efe9"; fg = "#7a7872"; text += " " + L.deltaNoiseShort; }
-    else if (n.delta_bpb < 0) { bg = "#e6f7ef"; fg = "#0e7a53"; }
-    else { bg = "#fdeeee"; fg = "#c73534"; }
-  } else if (n.compare_to && DATA.nodes[n.compare_to]?.is_placeholder) {
-    text = L.placeholderRefPending; bg = "#f2f1ec"; fg = "#7a7872";
-  } else if (n.status === "adopted" && n.parent === DATA.meta.root_id && DATA.nodes[DATA.meta.root_id]?.cross_compare) {
-    text = L.deltaSeeArc; bg = "#eef5fd"; fg = "#2a78d6";
-  } else if (n.compare_to == null && n.status !== "root") {
-    text = L.deltaStandalone; bg = "#f2f1ec"; fg = "#7a7872";
-  }
-  if (!text) return;
-  const w = Math.max(60, Math.round(text.length * 7.1 + 14));
-  g.appendChild(elNS("rect", { x, y, width: w, height: 18, rx: 9, fill: bg }));
-  g.appendChild(elNS("text", {
-    x: x + w / 2, y: y + 12.5, "text-anchor": "middle",
-    "font-size": 10.5, "font-weight": 700, fill: fg, "font-family": "var(--mono)",
-  }, text));
-}
-
-function drawLeafPills(g, n, startX, y) {
-  const a = n.artifacts;
-  const hasT2 = n.bench && n.bench.tier === "tier2";
-  const hasBench = Boolean(n.bench);
-  const pills = [
-    {
-      label: a.ckpt_exists ? "ckpt" : "no-ckpt",
-      ok: a.ckpt_exists,
-      tab: "artifacts",
-      bg: a.ckpt_exists ? "#edf5ef" : "#f4f3ee",
-      fg: a.ckpt_exists ? "#1c6b48" : "#9c9a92",
-    },
-    {
-      label: hasT2 ? "T2" : (hasBench ? "T1" : "no-eval"),
-      ok: hasBench,
-      tab: "bench",
-      bg: hasT2 ? "#eaf2fc" : (hasBench ? "#f0f4fa" : "#f4f3ee"),
-      fg: hasT2 ? "#1f5fb0" : (hasBench ? "#4a6fa0" : "#9c9a92"),
-    },
-    {
-      label: "samples",
-      ok: a.samples_exists,
-      tab: "artifacts",
-      bg: a.samples_exists ? "#f5f0fb" : "#f4f3ee",
-      fg: a.samples_exists ? "#5b44b8" : "#9c9a92",
-    },
-  ];
-  let cx = startX;
-  for (const pl of pills) {
-    const w = Math.max(32, Math.round(pl.label.length * 6.4 + 18));
-    const pg = elNS("g", { class: "leaf-pill", transform: `translate(${cx}, ${y})` });
-    pg.appendChild(elNS("rect", {
-      x: 0, y: 0, width: w, height: 17, rx: 8.5, fill: pl.bg,
-      stroke: pl.ok ? "rgba(0,0,0,0.06)" : "none",
-    }));
-    pg.appendChild(elNS("circle", {
-      cx: 7, cy: 8.5, r: 2.4, fill: pl.ok ? pl.fg : "#c7c5bc",
-    }));
-    pg.appendChild(elNS("text", {
-      x: 13, y: 12, "font-size": 10, "font-weight": 600, fill: pl.fg, "font-family": "var(--mono)",
-    }, pl.label));
-    pg.addEventListener("click", (ev) => {
-      ev.stopPropagation();
-      selectNode(n.id, pl.tab);
-    });
-    g.appendChild(pg);
-    cx += w + 5;
-  }
-}
-
 function selectNode(id, tab = null) {
   if (!DATA.nodes[id]) return;
   state.selectedRefId = null;
@@ -2574,15 +2569,12 @@ function selectNode(id, tab = null) {
   }
   renderTree();
   renderDrawer();
+  ensureVisible(id);
 }
 
 function selectRef(rid) {
   if (!DATA.refs || !DATA.refs[rid]) return;
   state.selectedRefId = rid;
-  if (!state.showRefs) {
-    state.showRefs = true;
-    renderChrome();
-  }
   renderTree();
   renderDrawer();
 }
@@ -2640,7 +2632,7 @@ function renderOverviewDrawer() {
 
 function renderRefDrawer(r) {
   const L = t();
-  document.getElementById("d-badges").innerHTML = `<span class="badge badge-ref">📚 ${esc(refKindLabel(r.kind))}</span>`;
+  document.getElementById("d-badges").innerHTML = `<span class="badge badge-ref">${esc(refKindLabel(r.kind))}</span>`;
   document.getElementById("d-title").textContent = pick(r, "label") || r.id;
   document.getElementById("d-runid").innerHTML = `<span>${esc(r.authors || r.id)}</span>`;
   document.getElementById("d-tabs").style.display = "none";
@@ -2759,7 +2751,7 @@ function renderInspirationBlocks(n) {
       const ext = x.primary_url
         ? `<a class="ext-mini" href="${esc(x.primary_url)}" target="_blank" rel="noopener noreferrer">${esc(L.refOpenPaper)}</a>`
         : "";
-      return `<div class="ref-item">📚 <button class="link-btn" style="color:var(--teal-dark)" data-ref="${esc(x.id)}">${esc(pick(x, "label") || x.id)}</button>${ext}${r ? `<span class="reason">${esc(r)}</span>` : ""}</div>`;
+      return `<div class="ref-item"><button class="link-btn" style="color:var(--ref-dark)" data-ref="${esc(x.id)}">${esc(pick(x, "label") || x.id)}</button>${ext}${r ? `<span class="reason">${esc(r)}</span>` : ""}</div>`;
     }).join("");
     out.push(`<div class="section-h">${esc(L.sectionExternalRefs)}</div><div class="inspire-list">${items}</div>`);
   }
@@ -2955,7 +2947,7 @@ function renderBenchTab(n) {
   return html;
 }
 
-const SERIES_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"];
+const SERIES_COLORS = ["#0d7680", "#0f5499", "#990f3d", "#c27a00", "#5b4a8f", "#3d8a3f", "#c2567a", "#6b5b4f"];
 
 function renderScalingChart(sc) {
   const L = t();
@@ -3269,22 +3261,58 @@ function applyTransform() {
   vp.setAttribute("transform", `translate(${state.pan.x}, ${state.pan.y}) scale(${state.pan.scale})`);
 }
 
+function contentBounds() {
+  const boxes = Object.values(state.refLayout || {}).map(r => ({ x: r.x, y: r.y - 24, w: r.w, h: r.h + 24 }));
+  if (isSephiroth()) {
+    for (const p of Object.values(state.layout)) boxes.push({ x: p.x - 140, y: p.y - 34, w: p.w + 280, h: p.h + 78 });
+  } else {
+    const pad = LAB.LANE_PAD;
+    for (const l of state.labLanes || []) boxes.push({ x: l.x - pad, y: l.top - pad, w: l.right - l.x + 2 * pad, h: l.bottom - l.top + 2 * pad });
+  }
+  if (!boxes.length) return null;
+  return {
+    minX: Math.min(...boxes.map(b => b.x)), maxX: Math.max(...boxes.map(b => b.x + b.w)),
+    minY: Math.min(...boxes.map(b => b.y)), maxY: Math.max(...boxes.map(b => b.y + b.h)),
+  };
+}
+
 function fitToView() {
   const wrap = document.getElementById("canvas-wrap");
-  const pts = Object.values(state.layout).concat(Object.values(state.refLayout || {}));
-  if (!pts.length) return;
-  const padL = isSephiroth() ? 140 : 24;
-  const padR = isSephiroth() ? 140 : 140;
-  const minX = Math.min(...pts.map(p => p.x)) - padL;
-  const maxX = Math.max(...pts.map(p => p.x + p.w)) + padR;
-  const minY = Math.min(...pts.map(p => p.y)) - 34;
-  const maxY = Math.max(...pts.map(p => p.y + p.h)) + 44;
+  const b = contentBounds();
+  if (!b) return;
   const cw = wrap.clientWidth, ch = wrap.clientHeight;
-  const scale = Math.min(1.05, Math.max(0.28, Math.min(cw / (maxX - minX), ch / (maxY - minY))));
+  const top = (document.getElementById("toolbar")?.offsetHeight || 0) + 22;
+  const legend = document.getElementById("canvas-legend");
+  const bottom = (legend && legend.offsetParent ? legend.offsetHeight : 0) + 20;
+  const side = 24;
+  const availW = Math.max(120, cw - 2 * side), availH = Math.max(120, ch - top - bottom);
+  const w = b.maxX - b.minX, h = b.maxY - b.minY;
+  // Fit the width; shrink for height only down to a readable size, then show the top and let the
+  // reader drag down (an expanded lane can be several screens tall).
+  const scale = Math.max(0.2, Math.min(1, availW / w, Math.max(availH / h, 0.55)));
   state.pan.scale = scale;
-  state.pan.x = (cw - (maxX - minX) * scale) / 2 - minX * scale;
-  state.pan.y = (ch - (maxY - minY) * scale) / 2 - minY * scale;
+  state.pan.x = side + Math.max(0, (availW - w * scale) / 2) - b.minX * scale;
+  state.pan.y = top + Math.max(0, (availH - h * scale) / 2) - b.minY * scale;
   applyTransform();
+}
+
+// Pan just enough to bring a node into view (used when jumping to a node from the drawer).
+function ensureVisible(id) {
+  const p = state.layout[id];
+  if (!p) return;
+  const wrap = document.getElementById("canvas-wrap");
+  const s = state.pan.scale;
+  const x0 = p.x * s + state.pan.x, y0 = p.y * s + state.pan.y;
+  const x1 = x0 + p.w * s, y1 = y0 + p.h * s;
+  const m = 40;
+  let dx = 0, dy = 0;
+  if (x0 < m) dx = m - x0; else if (x1 > wrap.clientWidth - m) dx = wrap.clientWidth - m - x1;
+  if (y0 < m) dy = m - y0; else if (y1 > wrap.clientHeight - m) dy = wrap.clientHeight - m - y1;
+  if (dx || dy) {
+    state.pan.x += dx;
+    state.pan.y += dy;
+    applyTransform();
+  }
 }
 
 function applySkinAttr() {
@@ -3304,22 +3332,30 @@ function renderChrome() {
   const root = DATA.nodes[DATA.meta.root_id];
   const head = DATA.nodes[DATA.meta.head_id];
   const rootBpbStr = root?.is_placeholder
-    ? (root.val_bpb != null ? `~${fmtBpb(root.val_bpb)} (${L.placeholderShort})` : L.placeholderShort)
+    ? (root.val_bpb != null ? `~${fmtBpb(root.val_bpb)}` : L.placeholderShort)
     : fmtBpb(root?.val_bpb);
-  document.getElementById("trunk-summary").textContent =
-    L.trunkSummary(rootBpbStr, fmtBpb(head?.val_bpb), DATA.meta.total_runs);
+  document.getElementById("trunk-summary").innerHTML =
+    `<span class="hs-label">${esc(L.statFrom)}</span><span class="hs-num">${esc(rootBpbStr)}</span>` +
+    `<span class="hs-arrow">→</span>` +
+    `<span class="hs-label">${esc(L.statTo)}</span><span class="hs-num hs-head">${esc(fmtBpb(head?.val_bpb))}</span>` +
+    `<span class="hs-unit">${esc(L.statUnit(DATA.meta.total_runs))}</span>`;
 
   document.getElementById("search-input").placeholder = L.searchPlaceholder;
   document.getElementById("btn-trunk").textContent = L.btnTrunk;
+  document.getElementById("btn-trunk").title = L.tipTrunk;
+  document.getElementById("btn-trunk").classList.toggle("active", state.trunkOnly);
   const btnInspire = document.getElementById("btn-inspire");
   btnInspire.textContent = L.btnInspire;
   btnInspire.classList.toggle("active", state.showInspiration);
+  btnInspire.title = L.tipInspire;
   const btnRefs = document.getElementById("btn-refs");
   btnRefs.textContent = L.btnRefs;
   btnRefs.classList.toggle("active", state.showRefs);
+  btnRefs.title = L.tipRefs;
   document.getElementById("btn-expand").textContent = L.btnExpand;
   document.getElementById("btn-collapse").textContent = L.btnCollapse;
   document.getElementById("btn-fit").textContent = L.btnFit;
+  document.getElementById("btn-fit").title = L.tipFit;
 
   document.getElementById("skin-lab").textContent = L.skinLab;
   document.getElementById("skin-sephiroth").textContent = L.skinSephiroth;
@@ -3334,18 +3370,17 @@ function renderChrome() {
   document.getElementById("lang-zh").classList.toggle("active", state.lang === "zh");
   document.getElementById("lang-en").classList.toggle("active", state.lang === "en");
 
-  const swTrunk = isSephiroth() ? "#c9a66b" : "#1baf7a";
-  const swMile = isSephiroth() ? "#d8a254" : "#d98a00";
-  const swBranch = isSephiroth() ? "#6a5c47" : "#c3c2b7";
-  const swRej = isSephiroth() ? "#b56354" : "#d39a92";
-  document.getElementById("canvas-legend").innerHTML = `
-    <span class="legend-item"><span class="swatch" style="background:${swTrunk}"></span>${L.legendTrunk}</span>
-    <span class="legend-item"><span class="swatch" style="background:${swMile}"></span>${L.legendMilestone}</span>
-    <span class="legend-item"><span class="swatch" style="background:${swBranch}"></span>${L.legendBranch}</span>
-    <span class="legend-item"><span class="swatch" style="background:${swRej}"></span>${L.legendRejected}</span>
-    <span class="legend-item"><span class="swatch-line"></span>${L.legendArc}</span>
-    <span class="legend-item"><span class="swatch-inspire"></span>${L.legendInspire}</span>
-    <span class="legend-item"><span class="swatch-ref"></span>${L.legendRef}</span>`;
+  document.getElementById("canvas-legend").innerHTML = [
+    `<span class="legend-item"><span class="sw-trunk"></span>${esc(L.legendTrunk)}</span>`,
+    `<span class="legend-item"><span class="sw-card sw-head"></span>${esc(L.legendHead)}</span>`,
+    `<span class="legend-item"><span class="sw-card"></span>${esc(L.legendBranch)}</span>`,
+    `<span class="legend-item"><span class="sw-card sw-rejected"></span>${esc(L.legendRejected)}</span>`,
+    `<span class="legend-item"><span class="sw-chip sw-good">−</span><span class="sw-chip sw-bad">+</span>${esc(L.legendDelta)}</span>`,
+    `<span class="legend-item"><span class="swatch-line"></span>${esc(L.legendArc)}</span>`,
+    `<span class="legend-item"><span class="swatch-inspire"></span>${esc(L.legendInspire)}</span>`,
+    `<span class="legend-item"><span class="swatch-ref"></span>${esc(L.legendRef)}</span>`,
+    `<span class="legend-item legend-note">${esc(L.legendLinksNote)}</span>`,
+  ].join("");
 
   const msgs = [];
   if (DATA.uncataloged?.length) {
@@ -3391,6 +3426,7 @@ function initInteractions() {
       e.target.closest(".node-g")
       || e.target.closest(".ref-node-g")
       || e.target.closest(".legend")
+      || e.target.closest(".toolbar")
       || e.target.closest("button")
     ) return;
     dragging = true; moved = false; sx = e.clientX; sy = e.clientY; ox = state.pan.x; oy = state.pan.y;
@@ -3439,12 +3475,7 @@ function initInteractions() {
   document.getElementById("btn-refs").addEventListener("click", e => {
     state.showRefs = !state.showRefs;
     e.target.classList.toggle("active", state.showRefs);
-    if (!state.showRefs && state.selectedRefId) {
-      state.selectedRefId = null;
-      renderDrawer();
-    }
     renderTree();
-    fitToView();
   });
   document.getElementById("btn-expand").addEventListener("click", () => {
     for (const id of Object.keys(DATA.nodes)) if (DATA.nodes[id].is_group) state.collapsed[id] = false;
@@ -3485,6 +3516,9 @@ initInteractions();
 renderTree();
 renderDrawer();
 fitToView();
+// Card text is truncated by measured width: redraw once the web font has arrived.
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => renderTree());
+window.addEventListener("resize", () => fitToView());
 </script>
 </body>
 </html>
