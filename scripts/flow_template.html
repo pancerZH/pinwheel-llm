@@ -97,7 +97,7 @@ aside{position:sticky;top:12px;align-self:start;max-height:calc(100vh - 24px);ov
 .heads button{border:1px solid var(--line);background:var(--card);border-radius:6px;padding:4px;font-size:13px;text-align:center}
 .heads button.on{border:2px solid var(--ink)}
 .heads canvas{display:block;width:100%;aspect-ratio:1;image-rendering:pixelated}
-.bigatt canvas{display:block;max-width:100%;cursor:pointer}
+.bigatt canvas{display:block;max-width:100%;height:auto;cursor:pointer}
 .scroll{overflow-x:auto}
 .bars{display:grid;gap:3px;margin-top:6px}
 .bars .r{display:grid;grid-template-columns:minmax(0,10em) minmax(0,1fr) 5.2em;gap:8px;align-items:center;font-size:14px}
@@ -379,12 +379,12 @@ function attnThumb(id, a, head) {
 }
 function attnBig(id, a, head) {
   const cv = document.getElementById(id); if (!cv) return;
-  const cell = 15, lab = 96, dpr = window.devicePixelRatio || 1;
-  cv.width = (lab + T * cell) * dpr; cv.height = T * cell * dpr;
-  cv.style.width = (lab + T * cell) + 'px'; cv.style.height = T * cell + 'px';
+  // size the cells to the column, so the grid is drawn at the size it is shown
+  const lab = 96, cell = Math.max(8, Math.min(15, Math.floor((cv.parentElement.clientWidth - lab) / T))), W = lab + T * cell, dpr = window.devicePixelRatio || 1;
+  cv.width = W * dpr; cv.height = T * cell * dpr; cv.style.width = W + 'px';
   const ctx = cv.getContext('2d'); ctx.scale(dpr, dpr);
   const z = rgb('--card'), c1 = rgb('--teal'), m = rgb('--sub'), ink = `rgb(${rgb('--ink').join(',')})`;
-  ctx.font = '13px ' + getComputedStyle(document.body).getPropertyValue('--mono');
+  ctx.font = Math.min(13, cell) + 'px ' + getComputedStyle(document.body).getPropertyValue('--mono');
   ctx.textBaseline = 'middle'; ctx.textAlign = 'right';
   for (let i = 0; i < T; i++) {
     ctx.fillStyle = i === S.pos ? ink : `rgb(${rgb('--ink2').join(',')})`;
@@ -398,7 +398,8 @@ function attnBig(id, a, head) {
   ctx.strokeStyle = ink; ctx.lineWidth = 2;
   ctx.strokeRect(lab - 1, S.pos * cell - 1, T * cell, cell + 1);
   cv.onmousemove = e => {
-    const r = cv.getBoundingClientRect(), j = Math.floor((e.clientX - r.left - lab) / cell), i = Math.floor((e.clientY - r.top) / cell);
+    const r = cv.getBoundingClientRect(), k = r.width / W;  // a narrow phone may still shrink it
+    const j = Math.floor(((e.clientX - r.left) / k - lab) / cell), i = Math.floor((e.clientY - r.top) / k / cell);
     if (j < 0 || j >= T || i < 0 || i >= T || j > i) return tip(null);
     const p = pct(a[(head * T + i) * T + j] / 255);
     tip(e, L(`‹${tok(INP[i])}› 看 ‹${tok(INP[j])}›：${p}`, `‹${tok(INP[i])}› attends to ‹${tok(INP[j])}›: ${p}`));
