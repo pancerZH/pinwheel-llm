@@ -1736,13 +1736,15 @@ function renderTreeSephiroth() {
     crossPairs.push([id, n.compare_to]);
   }
   const treeMinX = allPos.length ? Math.min(...allPos.map(p => p.x)) : -200;
+  const treeMaxX = allPos.length ? Math.max(...allPos.map(p => p.x + p.w)) : 200;
   const sameRowRank = {};
   const sameRowGroupCount = {};
   crossPairs.forEach(([s, d]) => {
     const a = state.layout[s], b = state.layout[d];
     if (Math.abs(a.cy - b.cy) < 12) sameRowGroupCount[d] = (sameRowGroupCount[d] || 0) + 1;
   });
-  let outerArcIdx = 0;
+  let leftOuterIdx = 0;
+  let rightOuterIdx = 0;
 
   crossPairs.forEach(([srcId, dstId]) => {
     const a = state.layout[srcId], b = state.layout[dstId];
@@ -1783,11 +1785,21 @@ function renderTreeSephiroth() {
       return;
     }
 
-    // Vertical / cross-tier comparison arc (e.g., Kether root <-> Malkuth HEAD): sweep gracefully along the outer left flank
-    const idx = outerArcIdx++;
-    const x1 = a.cx - a.r - 4, y1 = a.cy;
-    const x2 = b.cx - b.r - 4, y2 = b.cy;
-    const outerX = Math.min(treeMinX - 54, Math.min(x1, x2) - 96) - idx * 36;
+    // Balance vertical/cross-tier arcs across left and right flanks:
+    // Follow the side the endpoints sit on, or alternate when centered on the Middle Pillar.
+    const avgCx = (a.cx + b.cx) / 2;
+    let goRight;
+    if (isRootArc) goRight = false;
+    else if (Math.abs(avgCx) > 15) goRight = avgCx > 0;
+    else goRight = leftOuterIdx > rightOuterIdx;
+
+    const sideIdx = goRight ? rightOuterIdx++ : leftOuterIdx++;
+    const x1 = goRight ? (a.cx + a.r + 4) : (a.cx - a.r - 4);
+    const x2 = goRight ? (b.cx + b.r + 4) : (b.cx - b.r - 4);
+    const y1 = a.cy, y2 = b.cy;
+    const outerX = goRight
+      ? Math.max(treeMaxX + 54, Math.max(x1, x2) + 96) + sideIdx * 36
+      : Math.min(treeMinX - 54, Math.min(x1, x2) - 96) - sideIdx * 36;
     const d = `M ${x1} ${y1} C ${outerX} ${y1}, ${outerX} ${y2}, ${x2} ${y2}`;
     targetLayer.appendChild(elNS("path", {
       d, fill: "none", stroke: "#7ea8c4",
@@ -1838,7 +1850,6 @@ function renderTreeSephiroth() {
       }
     }
   }
-  const treeMaxX = allPos.length ? Math.max(...allPos.map(p => p.x + p.w)) : 200;
   inspireEdges.forEach((ie, idx) => {
     const a = state.layout[ie.srcId], b = state.layout[ie.dstId];
     const seg = clippedSegment(a, b, 5);
@@ -2850,8 +2861,8 @@ function fitToView() {
   const wrap = document.getElementById("canvas-wrap");
   const pts = Object.values(state.layout).concat(Object.values(state.refLayout || {}));
   if (!pts.length) return;
-  const padL = isSephiroth() ? 130 : 24;
-  const padR = isSephiroth() ? 60 : 140;
+  const padL = isSephiroth() ? 140 : 24;
+  const padR = isSephiroth() ? 140 : 140;
   const minX = Math.min(...pts.map(p => p.x)) - padL;
   const maxX = Math.max(...pts.map(p => p.x + p.w)) + padR;
   const minY = Math.min(...pts.map(p => p.y)) - 34;
