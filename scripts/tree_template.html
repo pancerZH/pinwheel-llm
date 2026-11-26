@@ -67,15 +67,15 @@
   .btn:hover { background: var(--subtle); border-color: var(--axis); color: var(--ink); }
   .btn.active { background: var(--blue-bg); border-color: var(--blue); color: var(--blue); font-weight: 600; }
 
-  .lang-switch {
+  .lang-switch, .skin-switch {
     display: inline-flex; border: 1px solid var(--axis); border-radius: 6px; overflow: hidden;
     background: var(--surface); margin-left: 2px;
   }
-  .lang-switch button {
+  .lang-switch button, .skin-switch button {
     border: none; background: transparent; padding: 4px 8px; font-size: 11.5px; font-weight: 600;
     color: var(--ink-2); cursor: pointer;
   }
-  .lang-switch button.active { background: var(--ink); color: #ffffff; }
+  .lang-switch button.active, .skin-switch button.active { background: var(--ink); color: var(--panel); }
 
   /* Alert banner for uncataloged / running runs */
   .banner {
@@ -297,6 +297,180 @@
   .leaf-pill:hover rect { opacity: 0.85; }
   .toggle-btn { cursor: pointer; }
   .toggle-btn:hover rect { fill: #e9e7de; }
+
+  /* ==================== Kabbalah Tree of Life (Sephiroth) Skin ==================== */
+  html[data-skin="sephiroth"] {
+    --surface: #151310;
+    --panel: #1b1814;
+    --subtle: #231f19;
+    --ink: #e8decb;
+    --ink-2: #b9ad97;
+    --muted: #887c67;
+    --grid: #322b21;
+    --axis: #574a37;
+    --blue: #7ea8c4;
+    --blue-bg: rgba(126, 168, 196, 0.13);
+    --green: #c9a66b;
+    --green-dark: #e2c48c;
+    --green-bg: rgba(201, 166, 107, 0.14);
+    --red: #c96f5e;
+    --red-bg: rgba(201, 111, 94, 0.14);
+    --amber: #d8a254;
+    --amber-bg: rgba(216, 162, 84, 0.13);
+    --teal: #74aba2;
+    --teal-dark: #98cbc2;
+    --teal-bg: rgba(116, 171, 162, 0.13);
+    --purple: #b196ce;
+    --sans: "Songti SC", "STSong", "Noto Serif CJK SC", "Source Han Serif SC", "Cormorant Garamond", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  }
+  html[data-skin="sephiroth"] body {
+    font-weight: 300;
+    letter-spacing: 0.02em;
+  }
+  html[data-skin="sephiroth"] header {
+    background: linear-gradient(180deg, #1f1b16 0%, #191612 100%);
+    border-bottom: 1px solid #383024;
+  }
+  html[data-skin="sephiroth"] .brand h1 {
+    font-weight: 400;
+    letter-spacing: 0.12em;
+    color: #eadcc3;
+  }
+  html[data-skin="sephiroth"] .trunk-pill {
+    background: rgba(201, 166, 107, 0.12);
+    color: #e2c48c;
+    border-color: rgba(201, 166, 107, 0.36);
+    font-weight: 400;
+    letter-spacing: 0.04em;
+  }
+  html[data-skin="sephiroth"] .controls input[type="search"] {
+    background: #14120f;
+    border-color: #3d3428;
+    color: var(--ink);
+    font-weight: 300;
+  }
+  html[data-skin="sephiroth"] .controls input[type="search"]:focus {
+    border-color: #c9a66b;
+    background: #181511;
+  }
+  html[data-skin="sephiroth"] .btn {
+    background: #1d1a15;
+    border-color: #383024;
+    color: var(--ink-2);
+    font-weight: 300;
+    letter-spacing: 0.04em;
+  }
+  html[data-skin="sephiroth"] .btn:hover {
+    background: #28231c;
+    border-color: #6b5b43;
+    color: #efe5d3;
+  }
+  html[data-skin="sephiroth"] .btn.active {
+    background: rgba(201, 166, 107, 0.16);
+    border-color: #c9a66b;
+    color: #e8cb92;
+    font-weight: 400;
+  }
+  html[data-skin="sephiroth"] .lang-switch,
+  html[data-skin="sephiroth"] .skin-switch {
+    border-color: #4a3f2f;
+    background: #151310;
+  }
+  html[data-skin="sephiroth"] .lang-switch button,
+  html[data-skin="sephiroth"] .skin-switch button {
+    font-weight: 400;
+    letter-spacing: 0.04em;
+  }
+  html[data-skin="sephiroth"] .lang-switch button.active,
+  html[data-skin="sephiroth"] .skin-switch button.active {
+    background: #c9a66b;
+    color: #16130f;
+  }
+  html[data-skin="sephiroth"] .banner {
+    background: rgba(216, 162, 84, 0.12);
+    border-bottom-color: rgba(216, 162, 84, 0.3);
+    color: #dfba7a;
+  }
+  html[data-skin="sephiroth"] .canvas-wrap {
+    background-color: #14120f;
+    background-image:
+      radial-gradient(ellipse at 50% 35%, rgba(201, 166, 107, 0.065) 0%, rgba(20, 18, 15, 0) 68%),
+      radial-gradient(rgba(201, 166, 107, 0.14) 0.75px, transparent 0.75px);
+    background-size: 100% 100%, 28px 28px;
+  }
+  html[data-skin="sephiroth"] .legend {
+    background: rgba(24, 21, 17, 0.88);
+    border-color: #3a3226;
+    color: var(--ink-2);
+    letter-spacing: 0.04em;
+  }
+  html[data-skin="sephiroth"] aside.drawer {
+    background: linear-gradient(180deg, #1d1914 0%, #171410 100%);
+    border-left: 1px solid #3a3124;
+  }
+  html[data-skin="sephiroth"] .drawer-title {
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    color: #f0e6d4;
+  }
+  html[data-skin="sephiroth"] .badge { font-weight: 400; letter-spacing: 0.05em; }
+  html[data-skin="sephiroth"] .badge-root { background: rgba(177,150,206,0.14); color: #cdb7e6; border-color: rgba(177,150,206,0.38); }
+  html[data-skin="sephiroth"] .badge-adopted { background: rgba(201,166,107,0.16); color: #e6c990; border-color: rgba(201,166,107,0.42); }
+  html[data-skin="sephiroth"] .badge-branch { background: rgba(136,124,103,0.14); color: #bfb39d; border-color: #3e3529; }
+  html[data-skin="sephiroth"] .badge-rejected { background: rgba(201,111,94,0.15); color: #df9081; border-color: rgba(201,111,94,0.4); }
+  html[data-skin="sephiroth"] .badge-group { background: rgba(216,162,84,0.14); color: #e2b872; border-color: rgba(216,162,84,0.38); }
+  html[data-skin="sephiroth"] .badge-milestone { background: rgba(201,166,107,0.18); color: #ebd099; border-color: rgba(201,166,107,0.48); }
+  html[data-skin="sephiroth"] .badge-ref { background: rgba(116,171,162,0.15); color: #98cbc2; border-color: rgba(116,171,162,0.4); }
+  html[data-skin="sephiroth"] .tabs { background: #161310; border-bottom-color: #342d22; }
+  html[data-skin="sephiroth"] .tab { font-weight: 300; letter-spacing: 0.06em; color: var(--muted); }
+  html[data-skin="sephiroth"] .tab:hover { color: var(--ink); }
+  html[data-skin="sephiroth"] .tab.active { color: #e4c68e; border-bottom-color: #c9a66b; font-weight: 400; }
+  html[data-skin="sephiroth"] .takeaway-box {
+    background: #211d17; border-left-width: 2px; border-left-color: #c9a66b; color: #e8decb;
+  }
+  html[data-skin="sephiroth"] .takeaway-box.branch { border-left-color: #6b5d49; }
+  html[data-skin="sephiroth"] .takeaway-box.root { border-left-color: #b196ce; }
+  html[data-skin="sephiroth"] .protocol-box {
+    background: rgba(126,168,196,0.1); border-color: rgba(126,168,196,0.3); color: #b5cfe0;
+  }
+  html[data-skin="sephiroth"] .protocol-box strong { color: #d4e6f2; font-weight: 500; }
+  html[data-skin="sephiroth"] .kpi { background: #171410; border-color: #332c22; }
+  html[data-skin="sephiroth"] .kpi-val { font-weight: 400; color: #f0e6d4; }
+  html[data-skin="sephiroth"] .section-h { font-weight: 400; letter-spacing: 0.14em; color: #9f8f75; }
+  html[data-skin="sephiroth"] .meta-list { background: #171410; border-color: #332c22; }
+  html[data-skin="sephiroth"] .link-btn { color: #d8b87c; }
+  html[data-skin="sephiroth"] .link-btn:hover { color: #f0d7a4; }
+  html[data-skin="sephiroth"] .inspire-item {
+    background: rgba(216,162,84,0.1); border-color: rgba(216,162,84,0.3); color: #e5be7c;
+  }
+  html[data-skin="sephiroth"] .ref-item {
+    background: rgba(116,171,162,0.1); border-color: rgba(116,171,162,0.3); color: #98cbc2;
+  }
+  html[data-skin="sephiroth"] .ref-summary-box {
+    background: rgba(116,171,162,0.1); border-left-width: 2px; border-left-color: #74aba2; color: #e8decb;
+  }
+  html[data-skin="sephiroth"] .ext-link {
+    background: #171410; border-color: rgba(116,171,162,0.32); color: #98cbc2; font-weight: 400;
+  }
+  html[data-skin="sephiroth"] .ext-link:hover { background: rgba(116,171,162,0.16); border-color: #74aba2; }
+  html[data-skin="sephiroth"] .curve-wrap { background: #161310; border-color: #332c22; }
+  html[data-skin="sephiroth"] .sample-controls select {
+    background: #161310; border-color: #463b2c; color: var(--ink);
+  }
+  html[data-skin="sephiroth"] .sample-card { background: #171410; border-color: #332c22; color: #e2d8c5; }
+  html[data-skin="sephiroth"] .sample-card.sample-ref { background: #1e1a14; }
+  html[data-skin="sephiroth"] .sample-prompt { background: rgba(201,166,107,0.18); color: #f1dfbc; font-weight: 500; }
+  html[data-skin="sephiroth"] .artifact-row { background: #171410; border-color: #332c22; }
+  html[data-skin="sephiroth"] .node-g.selected .node-rect {
+    stroke: #f0d7a2 !important;
+    filter: drop-shadow(0 0 12px rgba(201, 166, 107, 0.42));
+  }
+  html[data-skin="sephiroth"] .ref-node-g.selected .node-rect {
+    stroke: #98cbc2 !important;
+    filter: drop-shadow(0 0 10px rgba(116, 171, 162, 0.38));
+  }
+  html[data-skin="sephiroth"] .toggle-btn:hover rect { fill: rgba(201, 166, 107, 0.24); }
 </style>
 </head>
 <body>
@@ -315,6 +489,10 @@
       <button class="btn" id="btn-expand">展开全部簇</button>
       <button class="btn" id="btn-collapse">折叠实验簇</button>
       <button class="btn" id="btn-fit">适应画布</button>
+      <div class="skin-switch" role="group" aria-label="Skin">
+        <button type="button" id="skin-lab" data-skin="lab">纸面</button>
+        <button type="button" id="skin-sephiroth" data-skin="sephiroth">生命树</button>
+      </div>
       <div class="lang-switch" role="group" aria-label="Language">
         <button type="button" id="lang-zh" data-lang="zh">中文</button>
         <button type="button" id="lang-en" data-lang="en">EN</button>
@@ -337,8 +515,22 @@
           <marker id="arrow-teal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#0f8b8d"/>
           </marker>
+          <marker id="arrow-gold" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#c9a66b"/>
+          </marker>
+          <marker id="arrow-sep-blue" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#7ea8c4"/>
+          </marker>
+          <marker id="arrow-sep-teal" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#74aba2"/>
+          </marker>
+          <filter id="gold-glow" x="-30%" y="-30%" width="160%" height="160%">
+            <feGaussianBlur stdDeviation="3.2" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
         </defs>
         <g id="viewport">
+          <g id="decor-layer" style="pointer-events:none"></g>
           <g id="edges-layer"></g>
           <g id="arcs-bg-layer"></g>
           <g id="refs-layer"></g>
@@ -389,6 +581,8 @@ const I18N = {
     btnExpand: "展开全部簇",
     btnCollapse: "折叠实验簇",
     btnFit: "适应画布",
+    skinLab: "纸面",
+    skinSephiroth: "生命树",
     legendTrunk: "主干（采用）",
     legendMilestone: "里程碑（大图标）",
     legendBranch: "树枝（探索/校验）",
@@ -510,6 +704,8 @@ const I18N = {
     btnExpand: "Expand all",
     btnCollapse: "Collapse groups",
     btnFit: "Fit view",
+    skinLab: "Paper",
+    skinSephiroth: "Sephiroth",
     legendTrunk: "Trunk (adopted)",
     legendMilestone: "Milestone (large icon)",
     legendBranch: "Branch (exploratory / check)",
@@ -632,8 +828,17 @@ function savedLang() {
   return "zh";
 }
 
+function savedSkin() {
+  try {
+    const v = localStorage.getItem("pinwheel-tree-skin");
+    if (v === "lab" || v === "sephiroth") return v;
+  } catch (_) {}
+  return "lab";
+}
+
 const state = {
   lang: savedLang(),
+  skin: savedSkin(),
   selectedId: DATA.meta.head_id,
   selectedRefId: null,
   activeTab: "overview",
@@ -648,6 +853,41 @@ const state = {
   layout: {},
   refLayout: {},
 };
+
+function isSephiroth() { return state.skin === "sephiroth"; }
+
+function chartTheme() {
+  if (isSephiroth()) {
+    return {
+      grid: "#2c251c",
+      gridSub: "#252018",
+      axis: "#574a37",
+      tick: "#8e826d",
+      fit: "#c9a66b",
+      bestLine: "#c9a66b",
+      bestRing: "#e8decb",
+      dotStroke: "#161310",
+      curLine: "#d4b072",
+      refLine: "#847965",
+      branchLine: "#7ea8c4",
+      series: ["#d4b072", "#c96f5e", "#74aba2", "#b196ce", "#7ea8c4", "#d8a254", "#98b88a", "#c98b9e"],
+    };
+  }
+  return {
+    grid: "#e1e0d9",
+    gridSub: "#ecebe5",
+    axis: "#c3c2b7",
+    tick: "#898781",
+    fit: "#52514e",
+    bestLine: "#1baf7a",
+    bestRing: "#0b0b0b",
+    dotStroke: "#fcfcfb",
+    curLine: "#2a78d6",
+    refLine: "#898781",
+    branchLine: "#2a78d6",
+    series: SERIES_COLORS,
+  };
+}
 
 for (const [id, n] of Object.entries(DATA.nodes)) {
   if (n.is_group && n.collapsed) state.collapsed[id] = true;
@@ -690,7 +930,154 @@ function visibleChildren(id) {
   return kids;
 }
 
+function sephirothNodeBox(n) {
+  const big = isMilestoneNode(n);
+  if (big && n.is_group) return { r: 52, w: 128, h: 138 };
+  if (big) return { r: 56, w: 146, h: 148 };
+  if (n.is_group) return { r: 44, w: 118, h: 120 };
+  return { r: 42, w: 122, h: 118 };
+}
+
+function computeLayoutSephiroth() {
+  // Top-down Kabbalah Tree of Life layout:
+  // Middle Pillar (trunk) runs vertically along x = 0; side branches alternate symmetrically
+  // to the Left (Severity) and Right (Mercy) pillars with independent waterlines so zero boxes overlap.
+  const HGAP = 22;
+  const VGAP = 46;
+  const PILLAR_GAP = 54;
+  const TRUNK_GAP = 64;
+  const subW = {};
+  const subH = {};
+
+  function measureSub(id) {
+    const sz = sephirothNodeBox(DATA.nodes[id]);
+    const kids = visibleChildren(id);
+    if (!kids.length) {
+      subW[id] = sz.w;
+      subH[id] = sz.h;
+      return;
+    }
+    let totalW = 0, maxKidH = 0;
+    kids.forEach((c, i) => {
+      measureSub(c);
+      totalW += subW[c] + (i > 0 ? HGAP : 0);
+      maxKidH = Math.max(maxKidH, subH[c]);
+    });
+    subW[id] = Math.max(sz.w, totalW);
+    subH[id] = sz.h + VGAP + maxKidH;
+  }
+
+  const pos = {};
+  function placeSub(id, centerX, topY) {
+    const sz = sephirothNodeBox(DATA.nodes[id]);
+    pos[id] = {
+      x: centerX - sz.w / 2,
+      y: topY,
+      w: sz.w,
+      h: sz.h,
+      cx: centerX,
+      cy: topY + sz.r + 4,
+      r: sz.r,
+    };
+    const kids = visibleChildren(id);
+    if (!kids.length) return;
+    let totalW = 0;
+    kids.forEach((c, i) => { totalW += subW[c] + (i > 0 ? HGAP : 0); });
+    let curX = centerX - totalW / 2;
+    const childY = topY + sz.h + VGAP;
+    for (const c of kids) {
+      placeSub(c, curX + subW[c] / 2, childY);
+      curX += subW[c] + HGAP;
+    }
+  }
+
+  // Walk visible trunk chain from root
+  const trunk = [];
+  let cur = DATA.meta.root_id;
+  while (cur && DATA.nodes[cur]) {
+    trunk.push(cur);
+    const kids = visibleChildren(cur);
+    const next = kids.find(c => DATA.nodes[c].status === "adopted");
+    if (!next) break;
+    cur = next;
+  }
+
+  const hasRefsStrip = state.showRefs && Object.keys(DATA.refs || {}).length > 0;
+  let midY = hasRefsStrip ? 168 : 64;
+  let leftWater = midY - 24;
+  let rightWater = midY - 24;
+  const maxTrunkHalf = Math.max(...trunk.map(id => sephirothNodeBox(DATA.nodes[id]).w / 2));
+
+  for (const tid of trunk) {
+    const sz = sephirothNodeBox(DATA.nodes[tid]);
+    pos[tid] = {
+      x: -sz.w / 2,
+      y: midY,
+      w: sz.w,
+      h: sz.h,
+      cx: 0,
+      cy: midY + sz.r + 4,
+      r: sz.r,
+    };
+
+    const sideKids = visibleChildren(tid).filter(c => DATA.nodes[c].status !== "adopted");
+    const leftKids = [];
+    const rightKids = [];
+    sideKids.forEach((c, idx) => {
+      measureSub(c);
+      if (idx % 2 === 0) leftKids.push(c);
+      else rightKids.push(c);
+    });
+
+    if (leftKids.length) {
+      const startY = Math.max(midY + 26, leftWater + 34);
+      let cursorX = -(maxTrunkHalf + PILLAR_GAP);
+      let maxH = 0;
+      for (const c of leftKids) {
+        placeSub(c, cursorX - subW[c] / 2, startY);
+        cursorX -= subW[c] + HGAP;
+        maxH = Math.max(maxH, subH[c]);
+      }
+      leftWater = startY + maxH;
+    }
+
+    if (rightKids.length) {
+      const startY = Math.max(midY + 26, rightWater + 34);
+      let cursorX = maxTrunkHalf + PILLAR_GAP;
+      let maxH = 0;
+      for (const c of rightKids) {
+        placeSub(c, cursorX + subW[c] / 2, startY);
+        cursorX += subW[c] + HGAP;
+        maxH = Math.max(maxH, subH[c]);
+      }
+      rightWater = startY + maxH;
+    }
+
+    midY += sz.h + TRUNK_GAP;
+  }
+
+  state.layout = pos;
+
+  // Center external reference emblems like the Ain Soph crown above Kether
+  const refPos = {};
+  if (hasRefsStrip) {
+    const REFS = Object.values(DATA.refs || {});
+    const RW = 196, RH = 58, RGAP = 18;
+    const totalW = REFS.length * RW + Math.max(0, REFS.length - 1) * RGAP;
+    let rx = -totalW / 2;
+    for (const r of REFS) {
+      refPos[r.id] = { x: rx, y: 30, w: RW, h: RH, cx: rx + RW / 2, cy: 30 + RH / 2 };
+      rx += RW + RGAP;
+    }
+  }
+  state.refLayout = refPos;
+}
+
 function computeLayout() {
+  if (isSephiroth()) {
+    computeLayoutSephiroth();
+    return;
+  }
   const X_GAP = 66;
   const Y_GAP = 18;
   const subH = {};
@@ -817,6 +1204,12 @@ function refKindLabel(kind) {
 
 function renderTree() {
   computeLayout();
+  const decorLayer = document.getElementById("decor-layer");
+  decorLayer.innerHTML = "";
+  if (isSephiroth()) {
+    renderTreeSephiroth();
+    return;
+  }
   const L = t();
   const edgesLayer = document.getElementById("edges-layer");
   const arcsBgLayer = document.getElementById("arcs-bg-layer");
@@ -1210,6 +1603,536 @@ function renderTree() {
     g.addEventListener("click", () => selectNode(id));
     nodesLayer.appendChild(g);
   }
+}
+
+const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+
+function renderTreeSephiroth() {
+  const L = t();
+  const decorLayer = document.getElementById("decor-layer");
+  const edgesLayer = document.getElementById("edges-layer");
+  const arcsBgLayer = document.getElementById("arcs-bg-layer");
+  const refsLayer = document.getElementById("refs-layer");
+  const arcsFgLayer = document.getElementById("arcs-fg-layer");
+  const nodesLayer = document.getElementById("nodes-layer");
+  decorLayer.innerHTML = "";
+  edgesLayer.innerHTML = "";
+  arcsBgLayer.innerHTML = "";
+  refsLayer.innerHTML = "";
+  arcsFgLayer.innerHTML = "";
+  nodesLayer.innerHTML = "";
+
+  const q = state.search.trim().toLowerCase();
+  const matches = new Set();
+  const refMatches = new Set();
+  if (q) {
+    for (const n of Object.values(DATA.nodes)) {
+      const hay = `${n.id} ${n.label} ${n.label_en} ${n.milestone} ${n.milestone_en} ${n.takeaway} ${n.takeaway_en}`.toLowerCase();
+      if (hay.includes(q)) matches.add(n.id);
+    }
+    for (const r of Object.values(DATA.refs || {})) {
+      const hay = `${r.id} ${r.label} ${r.label_en} ${r.authors} ${r.summary} ${r.summary_en}`.toLowerCase();
+      if (hay.includes(q)) refMatches.add(r.id);
+    }
+  }
+
+  // 0. Sacred geometry backdrop: three pillars + subtle concentric astrolabe rings + Ain Soph arc
+  const allPos = Object.values(state.layout);
+  if (allPos.length) {
+    const minY = Math.min(...allPos.map(p => p.cy)) - 70;
+    const maxY = Math.max(...allPos.map(p => p.cy)) + 70;
+    const midY = (minY + maxY) / 2;
+    const minX = Math.min(...allPos.map(p => p.x));
+    const maxX = Math.max(...allPos.map(p => p.x + p.w));
+    const spanR = Math.max(240, Math.min(460, (maxY - minY) * 0.44));
+
+    // Middle pillar axis + symmetric side pillar guidelines
+    decorLayer.appendChild(elNS("line", {
+      x1: 0, y1: minY, x2: 0, y2: maxY,
+      stroke: "#c9a66b", "stroke-width": 0.8, opacity: 0.18, "stroke-dasharray": "3 6",
+    }));
+    const sideGuide = Math.max(180, Math.min(280, Math.max(Math.abs(minX), Math.abs(maxX)) * 0.52));
+    for (const gx of [-sideGuide, sideGuide]) {
+      decorLayer.appendChild(elNS("line", {
+        x1: gx, y1: minY + 40, x2: gx, y2: maxY - 20,
+        stroke: "#c9a66b", "stroke-width": 0.6, opacity: 0.09, "stroke-dasharray": "2 8",
+      }));
+    }
+    // Concentric astrolabe circles around the heart of the tree
+    for (const rad of [spanR * 0.62, spanR, spanR * 1.18]) {
+      decorLayer.appendChild(elNS("circle", {
+        cx: 0, cy: midY, r: rad, fill: "none",
+        stroke: "#c9a66b", "stroke-width": 0.7, opacity: 0.08,
+        "stroke-dasharray": rad === spanR ? "none" : "4 6",
+      }));
+    }
+    // Delicate triple veil arc above Kether (root)
+    const rootP = state.layout[DATA.meta.root_id];
+    if (rootP) {
+      for (let i = 0; i < 3; i++) {
+        const ar = 76 + i * 16;
+        decorLayer.appendChild(elNS("path", {
+          d: `M ${-ar} ${rootP.cy - 22} A ${ar} ${ar * 0.52} 0 0 1 ${ar} ${rootP.cy - 22}`,
+          fill: "none", stroke: "#c9a66b", "stroke-width": 0.7, opacity: 0.18 - i * 0.045,
+        }));
+      }
+    }
+  }
+
+  // Helper: clip straight line segment at the outer perimeter of two Sephiroth circles
+  function clippedSegment(p1, p2, pad = 4) {
+    const dx = p2.cx - p1.cx, dy = p2.cy - p1.cy;
+    const dist = Math.hypot(dx, dy) || 1;
+    const ux = dx / dist, uy = dy / dist;
+    return {
+      x1: p1.cx + ux * (p1.r + pad),
+      y1: p1.cy + uy * (p1.r + pad),
+      x2: p2.cx - ux * (p2.r + pad),
+      y2: p2.cy - uy * (p2.r + pad),
+      ux, uy,
+    };
+  }
+
+  // 1. Sacred Paths (tree edges)
+  for (const [id, p] of Object.entries(state.layout)) {
+    const n = DATA.nodes[id];
+    if (!n.parent || !state.layout[n.parent]) continue;
+    const par = state.layout[n.parent];
+    const seg = clippedSegment(par, p, 4);
+    const isTrunk = trunkSet.has(id) && trunkSet.has(n.parent);
+    const dim = q && !matches.has(id);
+
+    if (isTrunk) {
+      // Classic Kabbalah double-line golden path along the Middle Pillar
+      const nx = -seg.uy * 2.8, ny = seg.ux * 2.8;
+      const op = dim ? 0.18 : 0.82;
+      edgesLayer.appendChild(elNS("line", {
+        x1: seg.x1, y1: seg.y1, x2: seg.x2, y2: seg.y2,
+        stroke: "#c9a66b", "stroke-width": 5, opacity: dim ? 0.04 : 0.1,
+      }));
+      for (const sgn of [-1, 1]) {
+        edgesLayer.appendChild(elNS("line", {
+          x1: seg.x1 + nx * sgn, y1: seg.y1 + ny * sgn,
+          x2: seg.x2 + nx * sgn, y2: seg.y2 + ny * sgn,
+          stroke: "#c9a66b", "stroke-width": 1.15, opacity: op,
+        }));
+      }
+    } else {
+      const stroke = n.status === "rejected" ? "#a65c4e" : "#78674d";
+      const line = elNS("line", {
+        x1: seg.x1, y1: seg.y1, x2: seg.x2, y2: seg.y2,
+        stroke, "stroke-width": 1.15, opacity: dim ? 0.16 : 0.65,
+      });
+      if (n.status === "rejected") line.setAttribute("stroke-dasharray", "4 4");
+      edgesLayer.appendChild(line);
+    }
+  }
+
+  // 2. Cross-recipe & sibling comparison arcs in vertical layout
+  const crossPairs = [];
+  for (const [id] of Object.entries(state.layout)) {
+    const n = DATA.nodes[id];
+    if (!n.cross_compare || !n.compare_to || !state.layout[n.compare_to]) continue;
+    crossPairs.push([id, n.compare_to]);
+  }
+  const treeMinX = allPos.length ? Math.min(...allPos.map(p => p.x)) : -200;
+  const sameRowRank = {};
+  const sameRowGroupCount = {};
+  crossPairs.forEach(([s, d]) => {
+    const a = state.layout[s], b = state.layout[d];
+    if (Math.abs(a.cy - b.cy) < 12) sameRowGroupCount[d] = (sameRowGroupCount[d] || 0) + 1;
+  });
+  let outerArcIdx = 0;
+
+  crossPairs.forEach(([srcId, dstId]) => {
+    const a = state.layout[srcId], b = state.layout[dstId];
+    const src = DATA.nodes[srcId];
+    const active = !state.selectedRefId && (state.selectedId === srcId || state.selectedId === dstId);
+    const isRootArc = srcId === DATA.meta.root_id;
+    const sameRow = Math.abs(a.cy - b.cy) < 12;
+    const targetLayer = (active || isRootArc) ? arcsFgLayer : arcsBgLayer;
+
+    if (sameRow) {
+      // Horizontal sibling row: swing beneath the row cleanly
+      const rank = sameRowRank[dstId] || 0;
+      sameRowRank[dstId] = rank + 1;
+      const y1 = a.y + a.h + 2, y2 = b.y + b.h + 2;
+      const outY = Math.max(y1, y2) + 22 + rank * 18;
+      const d = `M ${a.cx} ${y1} C ${a.cx} ${outY}, ${b.cx} ${outY}, ${b.cx} ${y2}`;
+      targetLayer.appendChild(elNS("path", {
+        d, fill: "none", stroke: "#7ea8c4",
+        "stroke-width": active ? 2.0 : 1.3,
+        "stroke-dasharray": "4 4",
+        opacity: active ? 0.92 : 0.28,
+        "marker-end": "url(#arrow-sep-blue)",
+      }));
+      if (active) {
+        const txt = src.delta_bpb != null ? `${fmtDelta(src.delta_bpb)} BPB` : L.arcFallback(src.compare_to);
+        const pillW = Math.max(82, Math.round(txt.length * 6.8 + 16));
+        const px = a.cx - pillW / 2;
+        const py = outY + 4;
+        targetLayer.appendChild(elNS("rect", {
+          x: px, y: py, width: pillW, height: 20, rx: 10,
+          fill: "#1a2228", stroke: "#7ea8c4", "stroke-width": 1,
+        }));
+        targetLayer.appendChild(elNS("text", {
+          x: a.cx, y: py + 13.5, "text-anchor": "middle",
+          "font-size": 10.5, "font-weight": 400, fill: "#b8d6ea", "font-family": "var(--mono)",
+        }, txt));
+      }
+      return;
+    }
+
+    // Vertical / cross-tier comparison arc (e.g., Kether root <-> Malkuth HEAD): sweep gracefully along the outer left flank
+    const idx = outerArcIdx++;
+    const x1 = a.cx - a.r - 4, y1 = a.cy;
+    const x2 = b.cx - b.r - 4, y2 = b.cy;
+    const outerX = Math.min(treeMinX - 54, Math.min(x1, x2) - 96) - idx * 36;
+    const d = `M ${x1} ${y1} C ${outerX} ${y1}, ${outerX} ${y2}, ${x2} ${y2}`;
+    targetLayer.appendChild(elNS("path", {
+      d, fill: "none", stroke: "#7ea8c4",
+      "stroke-width": active ? 2.2 : 1.4,
+      "stroke-dasharray": "5 5",
+      opacity: active ? 0.92 : (isRootArc ? 0.5 : 0.25),
+      "marker-end": "url(#arrow-sep-blue)",
+    }));
+
+    if (active || isRootArc) {
+      const lx = outerX * 0.75 + ((x1 + x2) / 2) * 0.25;
+      const ly = (y1 + y2) / 2;
+      const txt = src.delta_bpb != null
+        ? (isRootArc
+            ? L.arcRootLabel(fmtDelta(-src.delta_bpb))
+            : L.arcOtherLabel(src.compare_to, fmtDelta(src.delta_bpb)))
+        : L.arcFallback(src.compare_to);
+      const charW = state.lang === "en" ? 6.4 : 8.4;
+      const pillW = Math.max(176, Math.round(txt.length * charW + 24));
+      targetLayer.appendChild(elNS("rect", {
+        x: lx - pillW / 2, y: ly - 11, width: pillW, height: 22, rx: 11,
+        fill: "#182026", stroke: active ? "#7ea8c4" : "rgba(126,168,196,0.45)", "stroke-width": 1,
+      }));
+      targetLayer.appendChild(elNS("text", {
+        x: lx, y: ly + 3.5, "text-anchor": "middle",
+        "font-size": 10.5, "font-weight": 400, fill: "#b8d6ea",
+      }, txt));
+    }
+  });
+
+  // 2b. Inspiration secret paths (amber dotted arcs on select)
+  function visibleAnchor(id) {
+    let cur = id;
+    while (cur && !state.layout[cur]) cur = DATA.nodes[cur]?.parent;
+    return cur;
+  }
+  const inspireEdges = [];
+  if (state.showInspiration && !state.selectedRefId) {
+    for (const n of Object.values(DATA.nodes)) {
+      for (const edge of (n.inspired_by || [])) {
+        if (state.selectedId === n.id || state.selectedId === edge.id) {
+          const srcVis = visibleAnchor(edge.id);
+          const dstVis = visibleAnchor(n.id);
+          if (srcVis && dstVis && srcVis !== dstVis) {
+            inspireEdges.push({ srcId: srcVis, dstId: dstVis, reason: pick(edge, "reason") });
+          }
+        }
+      }
+    }
+  }
+  const treeMaxX = allPos.length ? Math.max(...allPos.map(p => p.x + p.w)) : 200;
+  inspireEdges.forEach((ie, idx) => {
+    const a = state.layout[ie.srcId], b = state.layout[ie.dstId];
+    const seg = clippedSegment(a, b, 5);
+    const mx = (seg.x1 + seg.x2) / 2;
+    const my = (seg.y1 + seg.y2) / 2;
+    // Curve gently outward toward whichever side has space
+    const bendSign = (a.cx + b.cx) >= 0 ? 1 : -1;
+    const bend = (62 + idx * 34) * bendSign;
+    const cx = mx + bend;
+    const cy = my;
+    const d = `M ${seg.x1} ${seg.y1} Q ${cx} ${cy}, ${seg.x2} ${seg.y2}`;
+    arcsFgLayer.appendChild(elNS("path", {
+      d, fill: "none", stroke: "#d8a254", "stroke-width": 1.9,
+      "stroke-dasharray": "2.5 4.5", "stroke-linecap": "round", opacity: 0.92,
+      "marker-end": "url(#arrow-gold)",
+    }));
+    const lx = (seg.x1 + seg.x2) / 4 + cx / 2;
+    const ly = (seg.y1 + seg.y2) / 4 + cy / 2;
+    const rawTxt = ie.reason ? `${L.inspireBadge} · ${truncLang(ie.reason, 20, 34)}` : L.inspireBadge;
+    const charW = state.lang === "en" ? 6.2 : 8.4;
+    const pillW = Math.max(88, Math.round(rawTxt.length * charW + 18));
+    arcsFgLayer.appendChild(elNS("rect", {
+      x: lx - pillW / 2, y: ly - 11, width: pillW, height: 22, rx: 11,
+      fill: "#221c13", stroke: "#d8a254", "stroke-width": 1,
+    }));
+    arcsFgLayer.appendChild(elNS("text", {
+      x: lx, y: ly + 3.5, "text-anchor": "middle",
+      "font-size": 10.5, "font-weight": 400, fill: "#e8c486",
+    }, rawTxt));
+  });
+
+  // 2c. External reference star-crown strip (above Kether)
+  if (state.showRefs && Object.keys(state.refLayout).length) {
+    const refVals = Object.values(state.refLayout);
+    const crownMinX = Math.min(...refVals.map(p => p.x));
+    const crownMaxX = Math.max(...refVals.map(p => p.x + p.w));
+    refsLayer.appendChild(elNS("text", {
+      x: (crownMinX + crownMaxX) / 2, y: 18, "text-anchor": "middle",
+      "font-size": 10.5, "font-weight": 400, "letter-spacing": "0.14em", fill: "#74aba2", opacity: 0.9,
+    }, `✦  ${L.refStripLabel}  ✦`));
+
+    for (const [rid, rp] of Object.entries(state.refLayout)) {
+      const r = DATA.refs[rid];
+      const isSel = state.selectedRefId === rid;
+      const rg = elNS("g", {
+        class: [
+          "ref-node-g",
+          isSel ? "selected" : "",
+          q && !refMatches.has(rid) ? "dim" : "",
+        ].filter(Boolean).join(" "),
+        transform: `translate(${rp.x}, ${rp.y})`,
+      });
+      // Chamfered octagon antique tablet for external knowledge cards
+      const c = 10, w = rp.w, h = rp.h;
+      const pts = `${c},0 ${w - c},0 ${w},${c} ${w},${h - c} ${w - c},${h} ${c},${h} 0,${h - c} 0,${c}`;
+      rg.appendChild(elNS("polygon", {
+        class: "node-rect", points: pts,
+        fill: isSel ? "#1b2826" : "#171f1e",
+        stroke: isSel ? "#98cbc2" : "#4b746d",
+        "stroke-width": isSel ? 1.8 : 1.1,
+      }));
+      rg.appendChild(elNS("text", {
+        x: 12, y: 18, "font-size": 9.5, "font-weight": 400, "letter-spacing": "0.08em", fill: "#74aba2",
+      }, refKindLabel(r.kind)));
+      rg.appendChild(elNS("text", {
+        x: w - 12, y: 18, "text-anchor": "end", "font-size": 9.2, fill: "#6b8b86",
+      }, L.refUsedCount((r.used_by || []).length)));
+      rg.appendChild(elNS("text", {
+        x: 12, y: 36, "font-size": 12, "font-weight": 400, fill: "#e8decb",
+      }, truncLang(pick(r, "label") || r.id, 13, 22)));
+      rg.appendChild(elNS("text", {
+        x: 12, y: 50, "font-size": 9.5, fill: "#839995",
+      }, trunc(r.authors || (r.links[0]?.label || ""), 26)));
+
+      rg.addEventListener("click", () => selectRef(rid));
+      refsLayer.appendChild(rg);
+    }
+
+    // Teal light rays from crown refs to linked Sephiroth
+    const refEdges = [];
+    for (const r of Object.values(DATA.refs || {})) {
+      const rp = state.refLayout[r.id];
+      if (!rp) continue;
+      for (const u of (r.used_by || [])) {
+        if (state.selectedRefId === r.id || (!state.selectedRefId && state.selectedId === u.id)) {
+          const dstVis = visibleAnchor(u.id);
+          if (dstVis && state.layout[dstVis]) refEdges.push({ refId: r.id, dstId: dstVis });
+        }
+      }
+    }
+    refEdges.forEach((re, idx) => {
+      const rp = state.refLayout[re.refId], dp = state.layout[re.dstId];
+      const x1 = rp.cx, y1 = rp.y + rp.h + 2;
+      const x2 = dp.cx, y2 = dp.cy - dp.r - 4;
+      const midY = y1 + (y2 - y1) * (0.35 + (idx % 3) * 0.14);
+      const d = `M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`;
+      arcsFgLayer.appendChild(elNS("path", {
+        d, fill: "none", stroke: "#74aba2", "stroke-width": 1.6,
+        "stroke-dasharray": "6 3 2 3", opacity: 0.88,
+        "marker-end": "url(#arrow-sep-teal)",
+      }));
+    });
+  }
+
+  // 3. Sephiroth Nodes (circular antique sigils)
+  const trunkIndex = {};
+  DATA.meta.trunk.forEach((tid, i) => { trunkIndex[tid] = i; });
+
+  for (const [id, p] of Object.entries(state.layout)) {
+    const n = DATA.nodes[id];
+    const big = isMilestoneNode(n);
+    const r = p.r;
+    const isSel = !state.selectedRefId && state.selectedId === id;
+    const g = elNS("g", {
+      class: [
+        "node-g",
+        isSel ? "selected" : "",
+        q && !matches.has(id) ? "dim" : "",
+      ].filter(Boolean).join(" "),
+      transform: `translate(${p.cx}, ${p.cy})`,
+    });
+
+    // Palette per Sephirah role
+    let fill = "#1c1915", stroke = "#6a5c47", innerStroke = "rgba(201,166,107,0.22)", accent = "#c9a66b";
+    if (n.status === "root") {
+      fill = "#201a24"; stroke = "#b196ce"; innerStroke = "rgba(177,150,206,0.35)"; accent = "#cbb5e4";
+    } else if (n.is_head) {
+      fill = "#231e15"; stroke = "#e2c48c"; innerStroke = "rgba(226,196,140,0.45)"; accent = "#f0d7a2";
+    } else if (n.status === "adopted") {
+      fill = "#1f1b14"; stroke = "#c9a66b"; innerStroke = "rgba(201,166,107,0.35)"; accent = "#dfbe82";
+    } else if (n.status === "rejected") {
+      fill = "#211715"; stroke = "#b56354"; innerStroke = "rgba(181,99,84,0.3)"; accent = "#d98879";
+    } else if (n.is_group) {
+      fill = "#201b13"; stroke = "#c8964e"; innerStroke = "rgba(200,150,78,0.34)"; accent = "#e2b872";
+    } else if (big) {
+      fill = "#211c13"; stroke = "#d8a254"; innerStroke = "rgba(216,162,84,0.38)"; accent = "#e8be7a";
+    }
+
+    // Subtle golden aura behind milestone / HEAD nodes
+    if (n.is_head || n.status === "root") {
+      g.appendChild(elNS("circle", {
+        cx: 0, cy: 0, r: r + 7, fill: "none",
+        stroke: stroke, "stroke-width": 0.9, opacity: 0.28, "stroke-dasharray": "2 4",
+      }));
+    }
+
+    // Outer circle
+    const outer = elNS("circle", {
+      class: "node-rect", cx: 0, cy: 0, r, fill, stroke,
+      "stroke-width": big ? 1.8 : 1.2,
+    });
+    if (n.status === "rejected") outer.setAttribute("stroke-dasharray", "5 4");
+    else if (n.is_group && state.collapsed[id]) outer.setAttribute("stroke-dasharray", "6 3");
+    if (n.is_head) outer.setAttribute("filter", "url(#gold-glow)");
+    g.appendChild(outer);
+
+    // Inner sacred ring & cardinal tick marks on milestones; inscribed diamond on group clusters
+    if (n.is_group) {
+      const dr = r * 0.72;
+      g.appendChild(elNS("polygon", {
+        points: `0,${-dr} ${dr},0 0,${dr} ${-dr},0`,
+        fill: "none", stroke: innerStroke, "stroke-width": 0.9,
+      }));
+    } else if (big) {
+      g.appendChild(elNS("circle", {
+        cx: 0, cy: 0, r: r - 5.5, fill: "none", stroke: innerStroke, "stroke-width": 0.85,
+      }));
+      for (const [tx1, ty1, tx2, ty2] of [
+        [0, -r - 3, 0, -r + 4], [0, r - 4, 0, r + 3],
+        [-r - 3, 0, -r + 4, 0], [r - 4, 0, r + 3, 0],
+      ]) {
+        g.appendChild(elNS("line", {
+          x1: tx1, y1: ty1, x2: tx2, y2: ty2, stroke: accent, "stroke-width": 1.0, opacity: 0.75,
+        }));
+      }
+    }
+
+    // Top numeral / emblem inside circle
+    if (big) {
+      const sigil = trunkIndex[id] != null ? (ROMAN[trunkIndex[id]] || "✦") : "✦";
+      g.appendChild(elNS("text", {
+        x: 0, y: -r + 17, "text-anchor": "middle",
+        "font-size": 10.5, "font-weight": 400, "letter-spacing": "0.14em", fill: accent,
+      }, sigil));
+    }
+
+    // Label (thin antique serif)
+    const lblMaxZh = big ? 8 : 7;
+    const lblMaxEn = big ? 14 : 12;
+    g.appendChild(elNS("text", {
+      x: 0, y: big ? -11 : -9, "text-anchor": "middle",
+      "font-size": big ? 12.2 : 11, "font-weight": 400, "letter-spacing": "0.04em", fill: "#efe5d3",
+    }, truncLang(nodeLabel(n), lblMaxZh, lblMaxEn)));
+
+    // Main metric (val BPB or group best)
+    if (n.is_group) {
+      const gs = n.group_stats || {};
+      g.appendChild(elNS("text", {
+        x: 0, y: 10, "text-anchor": "middle",
+        "font-size": big ? 13 : 11.5, "font-weight": 400, fill: accent, "font-family": "var(--mono)",
+      }, fmtBpb(gs.best_bpb)));
+      g.appendChild(elNS("text", {
+        x: 0, y: 24, "text-anchor": "middle",
+        "font-size": 9.5, fill: "#9e917c",
+      }, `${gs.count || 0} runs`));
+    } else {
+      g.appendChild(elNS("text", {
+        x: 0, y: big ? 11 : 10, "text-anchor": "middle",
+        "font-size": big ? 15 : 12.5, "font-weight": 400, fill: "#f4ead7", "font-family": "var(--mono)",
+      }, fmtBpb(n.val_bpb)));
+
+      // Delicate delta inscription below BPB
+      let dTxt = "", dCol = "#968a75";
+      if (n.delta_bpb != null) {
+        dTxt = fmtDelta(n.delta_bpb);
+        if (n.in_noise) { dCol = "#8a7f6c"; dTxt += " · " + L.deltaNoiseShort; }
+        else if (n.delta_bpb < 0) dCol = "#dfbe82";
+        else dCol = "#d98474";
+      } else if (n.status === "adopted" && n.parent === DATA.meta.root_id) {
+        dTxt = L.deltaSeeArc; dCol = "#8eb4cc";
+      } else if (n.compare_to == null && n.status !== "root") {
+        dTxt = L.deltaStandalone; dCol = "#8a7f6c";
+      }
+      if (dTxt) {
+        g.appendChild(elNS("text", {
+          x: 0, y: big ? 28 : 24, "text-anchor": "middle",
+          "font-size": 9.6, "font-weight": 400, fill: dCol, "font-family": "var(--mono)",
+        }, dTxt));
+      }
+    }
+
+    // Bottom centered compact artifact leaf pills or group expand/collapse seal
+    const footY = r + 9;
+    if (n.is_group) {
+      const isCol = Boolean(state.collapsed[id]);
+      const gs = n.group_stats || {};
+      const btnText = isCol ? `✦ +${gs.count || n.children.length}` : "✦ −";
+      const bw = Math.max(54, btnText.length * 8 + 16);
+      const tg = elNS("g", { class: "toggle-btn", transform: `translate(${-bw / 2}, ${footY})` });
+      tg.appendChild(elNS("rect", {
+        x: 0, y: 0, width: bw, height: 18, rx: 9,
+        fill: "#231d14", stroke: "#c8964e", "stroke-width": 0.9,
+      }));
+      tg.appendChild(elNS("text", {
+        x: bw / 2, y: 12.5, "text-anchor": "middle",
+        "font-size": 10, "font-weight": 400, fill: "#e6c384",
+      }, btnText));
+      tg.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        state.collapsed[id] = !state.collapsed[id];
+        renderTree();
+      });
+      g.appendChild(tg);
+    } else if (n.artifacts) {
+      drawLeafPillsSephiroth(g, n, footY);
+    }
+
+    g.addEventListener("click", () => selectNode(id));
+    nodesLayer.appendChild(g);
+  }
+}
+
+function drawLeafPillsSephiroth(g, n, y) {
+  const a = n.artifacts;
+  const hasT2 = n.bench && n.bench.tier === "tier2";
+  const hasBench = Boolean(n.bench);
+  const pills = [
+    { label: "ckpt", ok: a.ckpt_exists, tab: "artifacts", fg: a.ckpt_exists ? "#d6b77c" : "#645b4d" },
+    { label: hasT2 ? "T2" : (hasBench ? "T1" : "—"), ok: hasBench, tab: "bench", fg: hasT2 ? "#8eb4cc" : (hasBench ? "#7a98ad" : "#645b4d") },
+    { label: "smp", ok: a.samples_exists, tab: "artifacts", fg: a.samples_exists ? "#b89fd4" : "#645b4d" },
+  ];
+  const widths = pills.map(pl => Math.max(24, Math.round(pl.label.length * 6.2 + 12)));
+  const totalW = widths.reduce((s, w) => s + w, 0) + (pills.length - 1) * 4;
+  let cx = -totalW / 2;
+  pills.forEach((pl, i) => {
+    const w = widths[i];
+    const pg = elNS("g", { class: "leaf-pill", transform: `translate(${cx}, ${y})` });
+    pg.appendChild(elNS("rect", {
+      x: 0, y: 0, width: w, height: 16, rx: 8,
+      fill: pl.ok ? "#1f1b15" : "#161411",
+      stroke: pl.ok ? pl.fg : "#342d23",
+      "stroke-width": 0.75, opacity: pl.ok ? 0.92 : 0.55,
+    }));
+    pg.appendChild(elNS("text", {
+      x: w / 2, y: 11.2, "text-anchor": "middle",
+      "font-size": 9, "font-weight": 400, fill: pl.fg, "font-family": "var(--mono)",
+    }, pl.label));
+    pg.addEventListener("click", (ev) => {
+      ev.stopPropagation();
+      selectNode(n.id, pl.tab);
+    });
+    g.appendChild(pg);
+    cx += w + 4;
+  });
 }
 
 function drawDeltaTag(g, n, x, y) {
@@ -1615,12 +2538,13 @@ const SERIES_COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#
 
 function renderScalingChart(sc) {
   const L = t();
+  const CT = chartTheme();
   const pts = sc.points || [];
   if (!pts.length) return `<div class="empty-state">${L.curveGroupEmpty}</div>`;
 
   const lrs = sc.lrs || [];
   const bestSet = new Set(sc.best_ids || []);
-  const lrColor = lr => SERIES_COLORS[Math.max(0, lrs.indexOf(lr)) % SERIES_COLORS.length];
+  const lrColor = lr => CT.series[Math.max(0, lrs.indexOf(lr)) % CT.series.length];
   const fmtLr = lr => lr.toExponential(0).replace("e-0", "e-");
 
   const logCs = pts.map(p => Math.log10(p.compute));
@@ -1635,7 +2559,6 @@ function renderScalingChart(sc) {
   const sx = lc => ML + ((lc - minX) / (maxX - minX)) * pw;
   const sy = ly => MT + (1 - (ly - minY) / (maxY - minY)) * ph;
 
-  // Gridlines: nice BPB ticks on log-Y, integer powers of 10 on log-X
   let grid = "";
   const bpbTicks = [1.1, 1.2, 1.3, 1.4, 1.5, 1.6].filter(v => {
     const lv = Math.log10(v);
@@ -1643,26 +2566,24 @@ function renderScalingChart(sc) {
   });
   for (const yv of bpbTicks) {
     const yp = sy(Math.log10(yv)).toFixed(1);
-    grid += `<line x1="${ML}" y1="${yp}" x2="${W - MR}" y2="${yp}" stroke="#e1e0d9" stroke-width="1"/>`;
-    grid += `<text x="${ML - 6}" y="${Number(yp) + 3}" text-anchor="end" font-size="10" fill="#898781" font-family="var(--mono)">${yv.toFixed(1)}</text>`;
+    grid += `<line x1="${ML}" y1="${yp}" x2="${W - MR}" y2="${yp}" stroke="${CT.grid}" stroke-width="1"/>`;
+    grid += `<text x="${ML - 6}" y="${Number(yp) + 3}" text-anchor="end" font-size="10" fill="${CT.tick}" font-family="var(--mono)">${yv.toFixed(1)}</text>`;
   }
   const minExp = Math.ceil(minX), maxExp = Math.floor(maxX);
   for (let e = minExp; e <= maxExp; e++) {
     const xp = sx(e).toFixed(1);
-    grid += `<line x1="${xp}" y1="${MT}" x2="${xp}" y2="${H - MB}" stroke="#ecebe5" stroke-width="1"/>`;
-    grid += `<text x="${xp}" y="${H - 14}" text-anchor="middle" font-size="10" fill="#898781" font-family="var(--mono)">10^${e}</text>`;
+    grid += `<line x1="${xp}" y1="${MT}" x2="${xp}" y2="${H - MB}" stroke="${CT.gridSub}" stroke-width="1"/>`;
+    grid += `<text x="${xp}" y="${H - 14}" text-anchor="middle" font-size="10" fill="${CT.tick}" font-family="var(--mono)">10^${e}</text>`;
   }
 
-  // Power-law fit dashed line
   let fitSvg = "";
   if (sc.fit) {
     const x0 = Math.pow(10, minX + 0.04), x1 = Math.pow(10, maxX - 0.04);
     const y0 = sc.fit.a * Math.pow(x0, -sc.fit.b);
     const y1 = sc.fit.a * Math.pow(x1, -sc.fit.b);
-    fitSvg = `<line x1="${sx(Math.log10(x0)).toFixed(1)}" y1="${sy(Math.log10(y0)).toFixed(1)}" x2="${sx(Math.log10(x1)).toFixed(1)}" y2="${sy(Math.log10(y1)).toFixed(1)}" stroke="#52514e" stroke-width="1.8" stroke-dasharray="5 4"/>`;
+    fitSvg = `<line x1="${sx(Math.log10(x0)).toFixed(1)}" y1="${sy(Math.log10(y0)).toFixed(1)}" x2="${sx(Math.log10(x1)).toFixed(1)}" y2="${sy(Math.log10(y1)).toFixed(1)}" stroke="${CT.fit}" stroke-width="1.8" stroke-dasharray="5 4"/>`;
   }
 
-  // Group by model size to label each vertical column at the top
   const bySize = new Map();
   for (const p of pts) {
     if (!bySize.has(p.params)) bySize.set(p.params, []);
@@ -1676,35 +2597,32 @@ function renderScalingChart(sc) {
     bestPts.push(best);
     const xp = sx(Math.log10(top.compute)).toFixed(1);
     const yp = Math.max(MT + 2, sy(Math.log10(top.bpb)) - 10).toFixed(1);
-    sizeLabels += `<text x="${xp}" y="${yp}" text-anchor="middle" font-size="10.5" font-weight="700" fill="#52514e" font-family="var(--mono)">${top.params_m.toFixed(1)}M</text>`;
+    sizeLabels += `<text x="${xp}" y="${yp}" text-anchor="middle" font-size="10.5" font-weight="700" fill="${CT.fit}" font-family="var(--mono)">${top.params_m.toFixed(1)}M</text>`;
   }
 
-  // Subtle connecting line across the best-LR point of each model size
   const bestLine = bestPts.length >= 2
-    ? `<path d="${bestPts.map((p, i) => `${i === 0 ? "M" : "L"}${sx(Math.log10(p.compute)).toFixed(1)},${sy(Math.log10(p.bpb)).toFixed(1)}`).join(" ")}" fill="none" stroke="#1baf7a" stroke-width="1.6" opacity="0.55"/>`
+    ? `<path d="${bestPts.map((p, i) => `${i === 0 ? "M" : "L"}${sx(Math.log10(p.compute)).toFixed(1)},${sy(Math.log10(p.bpb)).toFixed(1)}`).join(" ")}" fill="none" stroke="${CT.bestLine}" stroke-width="1.6" opacity="0.55"/>`
     : "";
 
-  // Scatter points
   const dots = pts.map(p => {
     const cx = sx(Math.log10(p.compute)).toFixed(1);
     const cy = sy(Math.log10(p.bpb)).toFixed(1);
     const isBest = bestSet.has(p.id);
     const col = lrColor(p.lr);
     const tip = `${p.id}\n${p.params_m}M params · ${p.tokens_m}M tok\nlr ${fmtLr(p.lr)} · val BPB ${p.bpb.toFixed(4)}`;
-    return `${isBest ? `<circle cx="${cx}" cy="${cy}" r="7.2" fill="none" stroke="#0b0b0b" stroke-width="1.3" opacity="0.7"/>` : ""}
-      <circle cx="${cx}" cy="${cy}" r="${isBest ? 4.8 : 4.0}" fill="${col}" stroke="#fcfcfb" stroke-width="1.5" style="cursor:pointer" data-jump="${esc(p.id)}"><title>${esc(tip)}</title></circle>`;
+    return `${isBest ? `<circle cx="${cx}" cy="${cy}" r="7.2" fill="none" stroke="${CT.bestRing}" stroke-width="1.3" opacity="0.7"/>` : ""}
+      <circle cx="${cx}" cy="${cy}" r="${isBest ? 4.8 : 4.0}" fill="${col}" stroke="${CT.dotStroke}" stroke-width="1.5" style="cursor:pointer" data-jump="${esc(p.id)}"><title>${esc(tip)}</title></circle>`;
   }).join("");
 
   const legend = `<div class="curve-legend">
     ${lrs.map(lr => `<span><span class="curve-dot" style="background:${lrColor(lr)};height:8px;width:8px;border-radius:50%"></span>lr ${fmtLr(lr)}</span>`).join("")}
-    ${sc.fit ? `<span><span class="curve-dot" style="background:#52514e"></span>fit</span>` : ""}
+    ${sc.fit ? `<span><span class="curve-dot" style="background:${CT.fit}"></span>fit</span>` : ""}
   </div>`;
 
   const fitBanner = sc.fit
     ? `<div class="protocol-box" style="margin-bottom:10px"><strong>${esc(L.scalingFitLabel(sc.fit.a.toPrecision(3), sc.fit.b.toFixed(3), sc.fit.drop_per_2x_pct))}</strong></div>`
     : "";
 
-  // Size x LR matrix table
   const headerCells = lrs.map(lr => `<th>${fmtLr(lr)}</th>`).join("");
   const tableRows = [...bySize.entries()].sort((a, b) => a[0] - b[0]).map(([, group]) => {
     const byLr = {};
@@ -1726,10 +2644,10 @@ function renderScalingChart(sc) {
     ${legend}
     <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
       ${grid}
-      <line x1="${ML}" y1="${MT}" x2="${ML}" y2="${H - MB}" stroke="#c3c2b7"/>
-      <line x1="${ML}" y1="${H - MB}" x2="${W - MR}" y2="${H - MB}" stroke="#c3c2b7"/>
+      <line x1="${ML}" y1="${MT}" x2="${ML}" y2="${H - MB}" stroke="${CT.axis}"/>
+      <line x1="${ML}" y1="${H - MB}" x2="${W - MR}" y2="${H - MB}" stroke="${CT.axis}"/>
       ${fitSvg}${bestLine}${dots}${sizeLabels}
-      <text x="${(ML + W - MR) / 2}" y="${H - 2}" text-anchor="middle" font-size="9.5" fill="#898781">${esc(L.scalingAxisX)}</text>
+      <text x="${(ML + W - MR) / 2}" y="${H - 2}" text-anchor="middle" font-size="9.5" fill="${CT.tick}">${esc(L.scalingAxisX)}</text>
     </svg>
     <div class="note-small" style="margin-top:4px">${esc(L.scalingNote)}</div>
   </div>
@@ -1739,13 +2657,14 @@ function renderScalingChart(sc) {
 
 function renderGroupCurves(n) {
   const L = t();
+  const CT = chartTheme();
   const runs = collectDescRuns(n.id).filter(r => (r.val_curve || []).some(p => p[0] > 0));
   if (!runs.length) return `<div class="empty-state">${L.curveGroupEmpty}</div>`;
 
   const shown = runs.slice(0, 8);
   const series = shown.map((r, idx) => ({
     run: r,
-    color: SERIES_COLORS[idx % SERIES_COLORS.length],
+    color: CT.series[idx % CT.series.length],
     pts: r.val_curve.filter(p => p[0] > 0),
   }));
   const all = series.flatMap(s => s.pts);
@@ -1765,12 +2684,12 @@ function renderGroupCurves(n) {
   for (let i = 0; i <= 4; i++) {
     const yv = minY + (maxY - minY) * (i / 4);
     const yp = sy(yv).toFixed(1);
-    grid += `<line x1="${ML}" y1="${yp}" x2="${W - MR}" y2="${yp}" stroke="#e1e0d9" stroke-width="1"/>`;
-    grid += `<text x="${ML - 6}" y="${Number(yp) + 3}" text-anchor="end" font-size="10" fill="#898781" font-family="var(--mono)">${yv.toFixed(2)}</text>`;
+    grid += `<line x1="${ML}" y1="${yp}" x2="${W - MR}" y2="${yp}" stroke="${CT.grid}" stroke-width="1"/>`;
+    grid += `<text x="${ML - 6}" y="${Number(yp) + 3}" text-anchor="end" font-size="10" fill="${CT.tick}" font-family="var(--mono)">${yv.toFixed(2)}</text>`;
   }
   for (let i = 0; i <= 4; i++) {
     const xv = maxX * (i / 4);
-    grid += `<text x="${sx(xv).toFixed(1)}" y="${H - 10}" text-anchor="middle" font-size="10" fill="#898781" font-family="var(--mono)">${Math.round(xv)}M</text>`;
+    grid += `<text x="${sx(xv).toFixed(1)}" y="${H - 10}" text-anchor="middle" font-size="10" fill="${CT.tick}" font-family="var(--mono)">${Math.round(xv)}M</text>`;
   }
 
   const lines = series.map(s =>
@@ -1785,8 +2704,8 @@ function renderGroupCurves(n) {
   return `<div class="curve-wrap">${legend}
     <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
       ${grid}
-      <line x1="${ML}" y1="${MT}" x2="${ML}" y2="${H - MB}" stroke="#c3c2b7"/>
-      <line x1="${ML}" y1="${H - MB}" x2="${W - MR}" y2="${H - MB}" stroke="#c3c2b7"/>
+      <line x1="${ML}" y1="${MT}" x2="${ML}" y2="${H - MB}" stroke="${CT.axis}"/>
+      <line x1="${ML}" y1="${H - MB}" x2="${W - MR}" y2="${H - MB}" stroke="${CT.axis}"/>
       ${lines}
     </svg>
     <div class="note-small" style="margin-top:4px">${esc(L.curveGroupNote)}</div>
@@ -1795,6 +2714,7 @@ function renderGroupCurves(n) {
 
 function renderCurveTab(n) {
   const L = t();
+  const CT = chartTheme();
   if (n.scaling_chart) return renderScalingChart(n.scaling_chart);
   if (n.is_group) return renderGroupCurves(n);
   const curPts = (n.val_curve || []).filter(p => p[0] > 0);
@@ -1820,31 +2740,31 @@ function renderCurveTab(n) {
   for (let i = 0; i <= 4; i++) {
     const yv = minY + (maxY - minY) * (i / 4);
     const yp = sy(yv).toFixed(1);
-    grid += `<line x1="${ML}" y1="${yp}" x2="${W - MR}" y2="${yp}" stroke="#e1e0d9" stroke-width="1"/>`;
-    grid += `<text x="${ML - 6}" y="${Number(yp) + 3}" text-anchor="end" font-size="10" fill="#898781" font-family="var(--mono)">${yv.toFixed(2)}</text>`;
+    grid += `<line x1="${ML}" y1="${yp}" x2="${W - MR}" y2="${yp}" stroke="${CT.grid}" stroke-width="1"/>`;
+    grid += `<text x="${ML - 6}" y="${Number(yp) + 3}" text-anchor="end" font-size="10" fill="${CT.tick}" font-family="var(--mono)">${yv.toFixed(2)}</text>`;
   }
   for (let i = 0; i <= 4; i++) {
     const xv = maxX * (i / 4);
     const xp = sx(xv).toFixed(1);
-    grid += `<text x="${xp}" y="${H - 10}" text-anchor="middle" font-size="10" fill="#898781" font-family="var(--mono)">${Math.round(xv)}M</text>`;
+    grid += `<text x="${xp}" y="${H - 10}" text-anchor="middle" font-size="10" fill="${CT.tick}" font-family="var(--mono)">${Math.round(xv)}M</text>`;
   }
 
   const refSvg = refPts.length
-    ? `<path d="${pathOf(refPts)}" fill="none" stroke="#898781" stroke-width="1.8" stroke-dasharray="4 3"/>`
-      + refPts.map(p => `<circle cx="${sx(p[0]).toFixed(1)}" cy="${sy(p[1]).toFixed(1)}" r="2.2" fill="#898781"><title>${esc(ref.id)} @ ${p[0]}M tok: ${p[1]}</title></circle>`).join("")
+    ? `<path d="${pathOf(refPts)}" fill="none" stroke="${CT.refLine}" stroke-width="1.8" stroke-dasharray="4 3"/>`
+      + refPts.map(p => `<circle cx="${sx(p[0]).toFixed(1)}" cy="${sy(p[1]).toFixed(1)}" r="2.2" fill="${CT.refLine}"><title>${esc(ref.id)} @ ${p[0]}M tok: ${p[1]}</title></circle>`).join("")
     : "";
-  const curSvg = `<path d="${pathOf(curPts)}" fill="none" stroke="#2a78d6" stroke-width="2.2"/>`
-    + curPts.map(p => `<circle cx="${sx(p[0]).toFixed(1)}" cy="${sy(p[1]).toFixed(1)}" r="3" fill="#2a78d6"><title>${esc(n.id)} @ ${p[0]}M tok: ${p[1]}</title></circle>`).join("");
+  const curSvg = `<path d="${pathOf(curPts)}" fill="none" stroke="${CT.curLine}" stroke-width="2.2"/>`
+    + curPts.map(p => `<circle cx="${sx(p[0]).toFixed(1)}" cy="${sy(p[1]).toFixed(1)}" r="3" fill="${CT.curLine}"><title>${esc(n.id)} @ ${p[0]}M tok: ${p[1]}</title></circle>`).join("");
 
   const offsetM = n.token_offset_m || 0;
   const branchGuide = offsetM > 0
-    ? `<line x1="${sx(offsetM).toFixed(1)}" y1="${MT}" x2="${sx(offsetM).toFixed(1)}" y2="${H - MB}" stroke="#2a78d6" stroke-width="1" stroke-dasharray="3 3" opacity="0.55"/>
-       <text x="${sx(offsetM).toFixed(1)}" y="${MT + 10}" text-anchor="middle" font-size="9.5" font-weight="600" fill="#2a78d6">${esc(L.curveBranchMarker(Math.round(offsetM)))}</text>`
+    ? `<line x1="${sx(offsetM).toFixed(1)}" y1="${MT}" x2="${sx(offsetM).toFixed(1)}" y2="${H - MB}" stroke="${CT.branchLine}" stroke-width="1" stroke-dasharray="3 3" opacity="0.6"/>
+       <text x="${sx(offsetM).toFixed(1)}" y="${MT + 10}" text-anchor="middle" font-size="9.5" font-weight="600" fill="${CT.branchLine}">${esc(L.curveBranchMarker(Math.round(offsetM)))}</text>`
     : "";
 
   const legend = `<div class="curve-legend">
-    <span><span class="curve-dot" style="background:#2a78d6"></span>${esc(n.id)} (${fmtBpb(n.val_bpb)})</span>
-    ${refPts.length ? `<span><span class="curve-dot" style="background:#898781"></span>${L.curveRefPrefix} ${esc(ref.id)} (${fmtBpb(ref.val_bpb)})</span>` : ""}
+    <span><span class="curve-dot" style="background:${CT.curLine}"></span>${esc(n.id)} (${fmtBpb(n.val_bpb)})</span>
+    ${refPts.length ? `<span><span class="curve-dot" style="background:${CT.refLine}"></span>${L.curveRefPrefix} ${esc(ref.id)} (${fmtBpb(ref.val_bpb)})</span>` : ""}
   </div>`;
 
   const stepRows = curPts.map(p => `<tr><td>${p[0]}M</td><td>${p[1].toFixed(4)}</td></tr>`).join("");
@@ -1854,8 +2774,8 @@ function renderCurveTab(n) {
     <svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">
       ${grid}
       ${branchGuide}
-      <line x1="${ML}" y1="${MT}" x2="${ML}" y2="${H - MB}" stroke="#c3c2b7"/>
-      <line x1="${ML}" y1="${H - MB}" x2="${W - MR}" y2="${H - MB}" stroke="#c3c2b7"/>
+      <line x1="${ML}" y1="${MT}" x2="${ML}" y2="${H - MB}" stroke="${CT.axis}"/>
+      <line x1="${ML}" y1="${H - MB}" x2="${W - MR}" y2="${H - MB}" stroke="${CT.axis}"/>
       ${refSvg}${curSvg}
     </svg>
     <div class="note-small" style="margin-top:4px">${esc(curveFootnote)}</div>
@@ -1903,7 +2823,7 @@ function renderArtifactsTab(n) {
   </div>`);
 
   if (refItem && state.compareSamples) {
-    parts.push(`<div class="sample-card" style="background:#f9f8f4">
+    parts.push(`<div class="sample-card sample-ref">
       <div class="sample-card-head"><span>${esc(L.sampleRefHead(ref.id))}</span><span>val BPB ${fmtBpb(ref.val_bpb)}</span></div>
       <span class="sample-prompt">${esc(refItem.prompt)}</span>${esc(refItem.text)}
     </div>`);
@@ -1930,19 +2850,27 @@ function fitToView() {
   const wrap = document.getElementById("canvas-wrap");
   const pts = Object.values(state.layout).concat(Object.values(state.refLayout || {}));
   if (!pts.length) return;
-  const minX = Math.min(...pts.map(p => p.x)) - 24;
-  const maxX = Math.max(...pts.map(p => p.x + p.w)) + 140;
-  const minY = Math.min(...pts.map(p => p.y)) - 26;
-  const maxY = Math.max(...pts.map(p => p.y + p.h)) + 28;
+  const padL = isSephiroth() ? 130 : 24;
+  const padR = isSephiroth() ? 60 : 140;
+  const minX = Math.min(...pts.map(p => p.x)) - padL;
+  const maxX = Math.max(...pts.map(p => p.x + p.w)) + padR;
+  const minY = Math.min(...pts.map(p => p.y)) - 34;
+  const maxY = Math.max(...pts.map(p => p.y + p.h)) + 44;
   const cw = wrap.clientWidth, ch = wrap.clientHeight;
-  const scale = Math.min(1.05, Math.max(0.35, Math.min(cw / (maxX - minX), ch / (maxY - minY))));
+  const scale = Math.min(1.05, Math.max(0.28, Math.min(cw / (maxX - minX), ch / (maxY - minY))));
   state.pan.scale = scale;
   state.pan.x = (cw - (maxX - minX) * scale) / 2 - minX * scale;
   state.pan.y = (ch - (maxY - minY) * scale) / 2 - minY * scale;
   applyTransform();
 }
 
+function applySkinAttr() {
+  if (isSephiroth()) document.documentElement.dataset.skin = "sephiroth";
+  else delete document.documentElement.dataset.skin;
+}
+
 function renderChrome() {
+  applySkinAttr();
   const L = t();
   document.documentElement.lang = L.htmlLang;
   const title = pick(DATA.meta, "title");
@@ -1967,6 +2895,11 @@ function renderChrome() {
   document.getElementById("btn-collapse").textContent = L.btnCollapse;
   document.getElementById("btn-fit").textContent = L.btnFit;
 
+  document.getElementById("skin-lab").textContent = L.skinLab;
+  document.getElementById("skin-sephiroth").textContent = L.skinSephiroth;
+  document.getElementById("skin-lab").classList.toggle("active", state.skin === "lab");
+  document.getElementById("skin-sephiroth").classList.toggle("active", state.skin === "sephiroth");
+
   document.getElementById("tab-overview").textContent = L.tabOverview;
   document.getElementById("tab-bench").textContent = L.tabBench;
   document.getElementById("tab-curve").textContent = L.tabCurve;
@@ -1975,11 +2908,15 @@ function renderChrome() {
   document.getElementById("lang-zh").classList.toggle("active", state.lang === "zh");
   document.getElementById("lang-en").classList.toggle("active", state.lang === "en");
 
+  const swTrunk = isSephiroth() ? "#c9a66b" : "#1baf7a";
+  const swMile = isSephiroth() ? "#d8a254" : "#d98a00";
+  const swBranch = isSephiroth() ? "#6a5c47" : "#c3c2b7";
+  const swRej = isSephiroth() ? "#b56354" : "#d39a92";
   document.getElementById("canvas-legend").innerHTML = `
-    <span class="legend-item"><span class="swatch" style="background:#1baf7a"></span>${L.legendTrunk}</span>
-    <span class="legend-item"><span class="swatch" style="background:#d98a00"></span>${L.legendMilestone}</span>
-    <span class="legend-item"><span class="swatch" style="background:#c3c2b7"></span>${L.legendBranch}</span>
-    <span class="legend-item"><span class="swatch" style="background:#d39a92"></span>${L.legendRejected}</span>
+    <span class="legend-item"><span class="swatch" style="background:${swTrunk}"></span>${L.legendTrunk}</span>
+    <span class="legend-item"><span class="swatch" style="background:${swMile}"></span>${L.legendMilestone}</span>
+    <span class="legend-item"><span class="swatch" style="background:${swBranch}"></span>${L.legendBranch}</span>
+    <span class="legend-item"><span class="swatch" style="background:${swRej}"></span>${L.legendRejected}</span>
     <span class="legend-item"><span class="swatch-line"></span>${L.legendArc}</span>
     <span class="legend-item"><span class="swatch-inspire"></span>${L.legendInspire}</span>
     <span class="legend-item"><span class="swatch-ref"></span>${L.legendRef}</span>`;
@@ -1998,6 +2935,16 @@ function renderChrome() {
   } else {
     b.classList.remove("show");
   }
+}
+
+function setSkin(skin) {
+  if (skin !== "lab" && skin !== "sephiroth") return;
+  state.skin = skin;
+  try { localStorage.setItem("pinwheel-tree-skin", skin); } catch (_) {}
+  renderChrome();
+  renderTree();
+  renderDrawer();
+  fitToView();
 }
 
 function setLang(lang) {
@@ -2073,6 +3020,9 @@ function initInteractions() {
   });
   document.getElementById("btn-fit").addEventListener("click", fitToView);
 
+  document.querySelectorAll(".skin-switch button").forEach(btn => {
+    btn.addEventListener("click", () => setSkin(btn.dataset.skin));
+  });
   document.querySelectorAll(".lang-switch button").forEach(btn => {
     btn.addEventListener("click", () => setLang(btn.dataset.lang));
   });
