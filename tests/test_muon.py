@@ -49,5 +49,5 @@ def test_make_optimizers_puts_block_matrices_on_muon():
     assert [g["base_lr"] for g in muon.param_groups] == [4e-3]
     assert [g["base_lr"] for g in adamw.param_groups] == [2e-3, 2e-3]
 
-    (only_adamw,) = make_optimizers(model, TrainConfig())
+    (only_adamw,) = make_optimizers(model, TrainConfig(optimizer="adamw"))
     assert sum(len(g["params"]) for g in only_adamw.param_groups) == len(names)

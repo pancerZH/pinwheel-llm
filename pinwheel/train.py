@@ -45,7 +45,7 @@ class TrainConfig:
     batch_tokens: int = 131072  # tokens per optimizer step, reached by gradient accumulation (stage 2a)
     micro_batch: int = 32  # sequences per forward pass
     lr: float = 2e-3  # v0, batch 128k, WSD, 1B tokens: 1.4e-3 / 2e-3 / 2.8e-3 give 1.0915 / 1.0850 / 1.0849
-    optimizer: str = "adamw"  # "adamw", or "muon": Muon for the 2-D weights in the blocks, AdamW for the rest
+    optimizer: str = "muon"  # Muon for the 2-D weights in the blocks, AdamW for the rest (stage 2e); or "adamw"
     muon_lr: float = 2e-3  # on AdamW's scale (the update RMS is matched), follows the same schedule as lr
     min_lr_frac: float = 0.0  # final LR as a fraction of lr (stage 1 cosine runs used 0.1)
     warmup_steps: int = 100

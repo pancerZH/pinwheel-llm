@@ -89,7 +89,10 @@ Check published results before each experiment; where a reliable result exists, 
   | Llama-style | 1.1212 | 1.0850 | −0.036 |
   | Architecture gain | −0.033 | −0.022 | |
 - Lesson: on ARC-Easy and SciQ, the log-prob of the correct answer alone (`target_bpb`) mostly measures whether the model expects a bare phrase after "Answer:". It moves all options together and varies by about 0.035 between seeds (val BPB: 0.0016–0.0036), so compare those tasks by accuracy and `prob`; `bench.py --compare` marks them.
-- Muon vs. a tuned AdamW. Expect about 1.3× (Wen et al. 2025), not the 2× often quoted.
+- ✅ Muon for the 70 weight matrices inside the blocks (`--optimizer muon`), AdamW for the embedding and norms. The update is scaled to AdamW's RMS (Moonshot), so AdamW's LR and weight decay carry over. Predictions written before the runs all held:
+  - 300M-token check-up (WSD, from scratch): AdamW 1.1732; Muon at LR 1e-3 / **2e-3** / 4e-3 reaches 1.1507 / **1.1449** / 1.1553. The AdamW optimum is also Muon's; in the constant-LR phase AdamW needs **1.41×** the tokens to match Muon (predicted 1.3–1.4×, Wen et al. 2025); at 4e-3 that falls from 1.37× to 1.12× and the largest attention score doubles to 58.
+  - 1B tokens, two seeds: **1.0716** / 1.0708 (mean **1.0712**), 0.0178 below the three-seed AdamW mean 1.0890 (predicted 0.015–0.020; the two seeds differ by 0.0008). On the data-scaling curve that is worth about 1.4× the tokens. Throughput is 2.5% lower (the optimizer step takes 21 ms vs 2 ms). **New default and baseline: Muon (`2e-muon-1b`).**
+- Two machines: a second GPU (RTX 5080 under WSL2) now runs some experiments. Rerunning a 300M run with the same seed there gives 1.1736 vs 1.1732, so val BPB is comparable across machines; the runs are not bit-identical (early gaps are as large as a seed change), so a rerun on the other machine counts as a new seed. Throughput is only compared on the same machine.
 - Same parameter count, different shapes: v0 vs. one deep-and-narrow shape (d448/L20), as MobileLLM and SmolLM2 suggest.
 - Vocab size (4k / 8k / 16k), and tied vs. untied embeddings.
 - A few modded-nanogpt tricks, such as QK-Norm, ReLU² and logit softcap.
