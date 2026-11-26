@@ -79,6 +79,13 @@ Check published results before each experiment; where a reliable result exists, 
 - ✅ LR at batch 128k with WSD: 1.4e-3 / 2e-3 / 2.8e-3 reach 1.0915 / **1.0850** / 1.0849 (one seed each). All three are within the seed noise below, so the optimum is flat from 1.4e-3 to 2.8e-3. **New default and baseline: LR 2e-3 (`2b-wsd-lr2e-3`, 1.0850).** Shrinking the LR with √batch, a common rule, lost about 0.01 at both 256k and 128k: here the best LR barely depends on the batch size, as the DeepSeek scaling law says.
 - ✅ Noise floor of the new baseline: seeds 0 / 1 / 2 reach **1.0850** / 1.0901 / 1.0919 (mean 1.0890, std 0.0036, spread 0.0069), over twice the stage 1 noise. It is not eval sampling: on the full validation set (12.5M tokens, in five chunks) every chunk shows the same gap in the same order. The gap forms by about 150M tokens and the cooldown does not shrink it, and seed 0 was the worst seed in stage 1 but the best here, so reusing a seed does not cancel the noise. With 3 seeds per config the two noise estimates are not significantly different (F = 5.1, 5% critical value 19); a 4× smaller batch at 2× the LR (8× the LR / batch ratio) may make runs noisier, but that is untested. **From here on, a difference under 0.01 between two single runs does not count** (2·√2·0.0036 ≈ 0.01).
 - ✅ Vanilla baseline: the same model with GPT-2's LayerNorm, learned absolute positions, GELU MLP and plain multi-head attention (equal parameters, `--arch gpt2 --n_kv_head 10 --d_ff 2216`, same recipe) reaches 1.1072, **0.022 worse** than the Llama-style 1.0850 (0.018 worse than its three-seed mean, 5× the seed std). The gap is largest early (0.12 at 66M tokens, 0.03 at 330M). It trains 5% faster (179k vs 170k tokens/s), far too little to make up the gap.
+- ✅ Vanilla baseline on the old stage 1 recipe (512k, cosine, LR 2e-3): **1.1543**, 0.033 worse than v0's 1.1212 on the same recipe. This is now the root of the experiment tree. The gap is 0.011 larger than on the new recipe (about 2σ for four single runs), but aligned by optimizer step the two gaps match (0.047 vs 0.052 at step 1000, 0.033 vs 0.037 near step 1900): the old recipe has 4× fewer steps, and the gap shrinks with steps, not tokens.
+
+  | | Old recipe (512k, cosine) | New recipe (128k, WSD) | Recipe gain |
+  |---|---|---|---|
+  | Vanilla GPT-2 | 1.1543 | 1.1072 | −0.047 |
+  | Llama-style | 1.1212 | 1.0850 | −0.036 |
+  | Architecture gain | −0.033 | −0.022 | |
 - Lesson: on ARC-Easy and SciQ, the log-prob of the correct answer alone (`target_bpb`) mostly measures whether the model expects a bare phrase after "Answer:". It moves all options together and varies by about 0.035 between seeds (val BPB: 0.0016–0.0036), so compare those tasks by accuracy and `prob`; `bench.py --compare` marks them.
 - Muon vs. a tuned AdamW. Expect about 1.3× (Wen et al. 2025), not the 2× often quoted.
 - Same parameter count, different shapes: v0 vs. one deep-and-narrow shape (d448/L20), as MobileLLM and SmolLM2 suggest.
@@ -91,8 +98,9 @@ Check published results before each experiment; where a reliable result exists, 
 - Looped (recurrent-depth) layers, compared at equal parameters and at equal compute.
 - Goal: a clear conclusion for each, positive or negative.
 
-### Stage 4: v3, data and distillation (M4): TODO
+### Stage 4: v3, data and distillation (M4) 🔄
 - Overtrain to 5–10B tokens, then anneal on high-quality data.
+- ✅ First data-scaling runs (the baseline config on a fresh 4B-token set, same validation set): 1B / 2.5B / 4B tokens reach 1.0850 / 1.0430 / **1.0250** (the 2.5B point is a 0.5B cooldown branched from the 2B checkpoint of the 4B run). Each doubling of tokens gains about 0.03, only slightly less at the end (0.032 then 0.027), so at 1B (20 tokens per parameter) the model is far from its capacity. At 4B: HellaSwag **29.4**, 0.5 short of GPT-2 124M; CORE +0.273 → +0.302.
 - Distillation: synthetic data first, then logit distillation from a larger teacher that shares our tokenizer.
 - Stretch goal: HellaSwag ≥ 29.9% on our harness, the level of GPT-2 124M (llm.c reports 29.55% with per-token normalization; random guessing gets 25%).
 
