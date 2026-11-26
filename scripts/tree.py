@@ -384,7 +384,7 @@ def load_run_artifacts(run_id: str, runs_dir: Path, ckpt_dir: Path) -> dict:
 def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
     """Combine tree.toml with all run artifacts into the JSON payload for the webpage."""
     spec = tomllib.loads(spec_path.read_text(encoding="utf-8"))
-    noise_floor = float(spec.get("noise_floor", 0.005))
+    noise_floor = float(spec.get("noise_floor", 0.01))
     raw_nodes: dict[str, dict] = spec.get("nodes") or {}
     raw_refs: dict[str, dict] = spec.get("refs") or {}
     if not raw_nodes:
