@@ -1220,6 +1220,191 @@ function refKindLabel(kind) {
   return L.refKindPaper;
 }
 
+function rectsOverlap(a, b) {
+  return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+}
+
+function collectCanvasObstacles(sephiroth) {
+  const obs = [];
+  const pad = 10;
+  for (const [id, p] of Object.entries(state.layout)) {
+    if (sephiroth) {
+      obs.push({
+        id,
+        x: p.cx - p.r - pad,
+        y: p.cy - p.r - pad,
+        w: 2 * (p.r + pad),
+        h: 2 * p.r + 30 + 2 * pad,
+      });
+    } else {
+      obs.push({ id, x: p.x - pad, y: p.y - pad, w: p.w + 2 * pad, h: p.h + 2 * pad });
+    }
+  }
+  for (const rp of Object.values(state.refLayout || {})) {
+    obs.push({ id: null, x: rp.x - 6, y: rp.y - 6, w: rp.w + 12, h: rp.h + 12 });
+  }
+  return obs;
+}
+
+function isRectClear(rect, obstacles, placedPills) {
+  for (const o of obstacles) if (rectsOverlap(rect, o)) return false;
+  for (const p of placedPills) if (rectsOverlap(rect, p)) return false;
+  return true;
+}
+
+function quadPoint(x1, y1, cx, cy, x2, y2, t) {
+  const mt = 1 - t;
+  return {
+    x: mt * mt * x1 + 2 * mt * t * cx + t * t * x2,
+    y: mt * mt * y1 + 2 * mt * t * cy + t * t * y2,
+  };
+}
+
+function cubicPoint(x1, y1, cx1, cy1, cx2, cy2, x2, y2, t) {
+  const mt = 1 - t;
+  return {
+    x: mt * mt * mt * x1 + 3 * mt * mt * t * cx1 + 3 * mt * t * t * cx2 + t * t * t * x2,
+    y: mt * mt * mt * y1 + 3 * mt * mt * t * cy1 + 3 * mt * t * t * cy2 + t * t * t * y2,
+  };
+}
+
+function curveHitsNode(sampleFn, obstacles, ignoreIds) {
+  for (let i = 1; i <= 7; i++) {
+    const pt = sampleFn(i / 8);
+    for (const o of obstacles) {
+      if (o.id && ignoreIds.has(o.id)) continue;
+      if (pt.x >= o.x && pt.x <= o.x + o.w && pt.y >= o.y && pt.y <= o.y + o.h) return true;
+    }
+  }
+  return false;
+}
+
+// Route a Paper-skin horizontal-tree arc and place its pill in guaranteed obstacle-free space.
+function routeHorizontalArc({ x1, y1, x2, y2, preferTop, pillW, pillH, obstacles, placedPills, ignoreIds, treeMinY, treeMaxY }) {
+  const mx = (x1 + x2) / 2;
+  const targetYs = [];
+  if (preferTop) {
+    const localTop = Math.min(y1, y2);
+    for (let k = 0; k < 3; k++) targetYs.push(localTop - 30 - k * 28);
+    for (let k = 0; k < 4; k++) targetYs.push(treeMinY - 26 - k * 28);
+  } else {
+    const localBot = Math.max(y1, y2);
+    for (let k = 0; k < 3; k++) targetYs.push(localBot + 30 + k * 28);
+  }
+  for (let k = 0; k < 14; k++) targetYs.push(treeMaxY + 28 + k * 28);
+
+  const tOrder = [0.5, 0.42, 0.58, 0.34, 0.66];
+  const trySelect = (requireCleanCurve) => {
+    for (const ty of targetYs) {
+      // Exact quadratic Bezier midpoint inversion: y(0.5) = 0.25*(y1+y2) + 0.5*cy = ty
+      const cy = 2 * ty - 0.5 * (y1 + y2);
+      if (requireCleanCurve && curveHitsNode(t => quadPoint(x1, y1, mx, cy, x2, y2, t), obstacles, ignoreIds)) {
+        continue;
+      }
+      for (const t of tOrder) {
+        const pt = quadPoint(x1, y1, mx, cy, x2, y2, t);
+        const rect = { x: pt.x - pillW / 2 - 4, y: pt.y - pillH / 2 - 4, w: pillW + 8, h: pillH + 8 };
+        if (isRectClear(rect, obstacles, placedPills)) {
+          return { d: `M ${x1} ${y1} Q ${mx} ${cy}, ${x2} ${y2}`, lx: pt.x, ly: pt.y, rect };
+        }
+      }
+    }
+    return null;
+  };
+
+  const chosen = trySelect(true) || trySelect(false) || (() => {
+    const ty = treeMaxY + 28 + placedPills.length * 28;
+    const cy = 2 * ty - 0.5 * (y1 + y2);
+    const pt = quadPoint(x1, y1, mx, cy, x2, y2, 0.5);
+    return {
+      d: `M ${x1} ${y1} Q ${mx} ${cy}, ${x2} ${y2}`,
+      lx: pt.x, ly: pt.y,
+      rect: { x: pt.x - pillW / 2 - 4, y: pt.y - pillH / 2 - 4, w: pillW + 8, h: pillH + 8 },
+    };
+  })();
+  return chosen;
+}
+
+// Clip straight line segment at the outer perimeter of two Sephiroth circles.
+function clippedSegment(p1, p2, pad = 4) {
+  const dx = p2.cx - p1.cx, dy = p2.cy - p1.cy;
+  const dist = Math.hypot(dx, dy) || 1;
+  const ux = dx / dist, uy = dy / dist;
+  return {
+    x1: p1.cx + ux * (p1.r + pad),
+    y1: p1.cy + uy * (p1.r + pad),
+    x2: p2.cx - ux * (p2.r + pad),
+    y2: p2.cy - uy * (p2.r + pad),
+    ux, uy,
+  };
+}
+
+// Route a Sephiroth-skin vertical-tree arc and place its pill in guaranteed obstacle-free space.
+function routeVerticalArc({ a, b, preferRight, pillW, pillH, obstacles, placedPills, ignoreIds, treeMinX, treeMaxX }) {
+  const seg = clippedSegment(a, b, 5);
+  const mx = (seg.x1 + seg.x2) / 2;
+  const my = (seg.y1 + seg.y2) / 2;
+  const sides = preferRight ? [1, -1] : [-1, 1];
+
+  // 1. Try a compact local quadratic curve if both the path and pill are completely clear of all nodes.
+  for (const sign of sides) {
+    for (const mag of [64, 98]) {
+      const cx = mx + sign * mag;
+      const cy = my;
+      if (curveHitsNode(t => quadPoint(seg.x1, seg.y1, cx, cy, seg.x2, seg.y2, t), obstacles, ignoreIds)) {
+        continue;
+      }
+      for (const t of [0.5, 0.42, 0.58]) {
+        const pt = quadPoint(seg.x1, seg.y1, cx, cy, seg.x2, seg.y2, t);
+        const rect = { x: pt.x - pillW / 2 - 4, y: pt.y - pillH / 2 - 4, w: pillW + 8, h: pillH + 8 };
+        if (isRectClear(rect, obstacles, placedPills)) {
+          return { d: `M ${seg.x1} ${seg.y1} Q ${cx} ${cy}, ${seg.x2} ${seg.y2}`, lx: pt.x, ly: pt.y, rect };
+        }
+      }
+    }
+  }
+
+  // 2. Otherwise swing cleanly outside the left/right tree flank where no nodes exist.
+  const tOrder = [0.5, 0.40, 0.60, 0.30, 0.70, 0.22, 0.78];
+  for (const sign of sides) {
+    const goRight = sign > 0;
+    const x1 = goRight ? (a.cx + a.r + 4) : (a.cx - a.r - 4);
+    const x2 = goRight ? (b.cx + b.r + 4) : (b.cx - b.r - 4);
+    const y1 = a.cy, y2 = b.cy;
+    const baseTargetX = goRight
+      ? Math.max(treeMaxX + 22 + pillW / 2, Math.max(x1, x2) + 40 + pillW / 2)
+      : Math.min(treeMinX - 22 - pillW / 2, Math.min(x1, x2) - 40 - pillW / 2);
+
+    for (let col = 0; col < 10; col++) {
+      const targetX = baseTargetX + sign * col * 48;
+      // Invert cubic midpoint x(0.5) = 0.75 * outerX + 0.125 * (x1 + x2) = targetX
+      const outerX = (targetX - 0.125 * (x1 + x2)) / 0.75;
+      for (const t of tOrder) {
+        const pt = cubicPoint(x1, y1, outerX, y1, outerX, y2, x2, y2, t);
+        const rect = { x: pt.x - pillW / 2 - 4, y: pt.y - pillH / 2 - 4, w: pillW + 8, h: pillH + 8 };
+        if (isRectClear(rect, obstacles, placedPills)) {
+          return { d: `M ${x1} ${y1} C ${outerX} ${y1}, ${outerX} ${y2}, ${x2} ${y2}`, lx: pt.x, ly: pt.y, rect };
+        }
+      }
+    }
+  }
+
+  // Guaranteed fallback far outside the preferred flank
+  const goRight = preferRight;
+  const sign = goRight ? 1 : -1;
+  const x1 = goRight ? (a.cx + a.r + 4) : (a.cx - a.r - 4);
+  const x2 = goRight ? (b.cx + b.r + 4) : (b.cx - b.r - 4);
+  const y1 = a.cy, y2 = b.cy;
+  const targetX = (goRight ? treeMaxX : treeMinX) + sign * (28 + pillW / 2 + placedPills.length * 44);
+  const outerX = (targetX - 0.125 * (x1 + x2)) / 0.75;
+  const pt = cubicPoint(x1, y1, outerX, y1, outerX, y2, x2, y2, 0.5);
+  return {
+    d: `M ${x1} ${y1} C ${outerX} ${y1}, ${outerX} ${y2}, ${x2} ${y2}`,
+    lx: pt.x, ly: pt.y,
+    rect: { x: pt.x - pillW / 2 - 4, y: pt.y - pillH / 2 - 4, w: pillW + 8, h: pillH + 8 },
+  };
+}
+
 function renderTree() {
   computeLayout();
   const decorLayer = document.getElementById("decor-layer");
@@ -1269,6 +1454,12 @@ function renderTree() {
   }
 
   // 2. Cross-recipe & sibling comparison arcs (routed around cards; active arcs & pills render above nodes)
+  const obstacles = collectCanvasObstacles(false);
+  const placedPills = [];
+  const allPos = Object.values(state.layout);
+  const treeMinY = allPos.length ? Math.min(...allPos.map(p => p.y)) : 80;
+  const treeMaxY = allPos.length ? Math.max(...allPos.map(p => p.y + p.h)) : 400;
+
   const crossPairs = [];
   for (const [id] of Object.entries(state.layout)) {
     const n = DATA.nodes[id];
@@ -1331,29 +1522,20 @@ function renderTree() {
         targetLayer.appendChild(elNS("text", {
           x: pillX + pillW / 2, y: ly, "text-anchor": "middle", class: "cross-label",
         }, txt));
+        placedPills.push({ x: pillX - 4, y: pillY - 4, w: pillW + 8, h: 28 });
       }
       return;
     }
 
-    // Cross-column comparison arc (e.g., GPT-2 root <-> current HEAD, or 256k <-> 512k)
+    // Cross-column comparison arc (routed clear of nodes & other pills)
     const idx = crossColIdx++;
     const x1 = a.x + a.w / 2, x2 = b.x + b.w / 2;
     const topArc = isRootArc;
     const y1 = topArc ? a.y : a.y + a.h;
     const y2 = topArc ? b.y : b.y + b.h;
-    const lift = topArc ? -(44 + idx * 24) : (48 + idx * 24);
-    const cy = (topArc ? Math.min(y1, y2) : Math.max(y1, y2)) + lift;
-    d = `M ${x1} ${y1} Q ${(x1 + x2) / 2} ${cy}, ${x2} ${y2}`;
+    const showPill = active || isRootArc;
 
-    targetLayer.appendChild(elNS("path", {
-      d,
-      class: `cross-arc${active ? " active" : ""}`,
-      "marker-end": "url(#arrow-blue)",
-    }));
-
-    if (active || isRootArc) {
-      lx = (x1 + x2) / 2;
-      ly = topArc ? (y1 + y2) / 4 + cy / 2 - 4 : (y1 + y2) / 4 + cy / 2 + 12;
+    if (showPill) {
       txt = src.delta_bpb != null
         ? (isRootArc
             ? L.arcRootLabel(fmtDelta(-src.delta_bpb))
@@ -1361,18 +1543,41 @@ function renderTree() {
         : L.arcFallback(src.compare_to);
       const charW = state.lang === "en" ? 6.4 : 8.2;
       const pillW = Math.max(170, Math.round(txt.length * charW + 22));
+      const routed = routeHorizontalArc({
+        x1, y1, x2, y2, preferTop: topArc, pillW, pillH: 20,
+        obstacles, placedPills, ignoreIds: new Set([srcId, dstId]), treeMinY, treeMaxY,
+      });
+      d = routed.d;
+      lx = routed.lx;
+      ly = routed.ly;
+      placedPills.push(routed.rect);
+
+      targetLayer.appendChild(elNS("path", {
+        d,
+        class: `cross-arc${active ? " active" : ""}`,
+        "marker-end": "url(#arrow-blue)",
+      }));
       targetLayer.appendChild(elNS("rect", {
-        x: lx - pillW / 2, y: ly - 13, width: pillW, height: 20, rx: 10,
+        x: lx - pillW / 2, y: ly - 10, width: pillW, height: 20, rx: 10,
         fill: active ? "#eef5fd" : "rgba(255,255,255,0.95)",
         stroke: active ? "#2a78d6" : "#cfe2f9", "stroke-width": 1.1,
       }));
       targetLayer.appendChild(elNS("text", {
-        x: lx, y: ly + 1, "text-anchor": "middle", class: "cross-label",
+        x: lx, y: ly + 4, "text-anchor": "middle", class: "cross-label",
       }, txt));
+    } else {
+      const ty = topArc ? (treeMinY - 26 - idx * 20) : (treeMaxY + 26 + idx * 20);
+      const cy = 2 * ty - 0.5 * (y1 + y2);
+      d = `M ${x1} ${y1} Q ${(x1 + x2) / 2} ${cy}, ${x2} ${y2}`;
+      targetLayer.appendChild(elNS("path", {
+        d,
+        class: "cross-arc",
+        "marker-end": "url(#arrow-blue)",
+      }));
     }
   });
 
-  // 2b. Inspiration edges (amber dotted arcs; only shown when either endpoint is selected to avoid clutter)
+  // 2b. Inspiration edges (amber dotted arcs; routed clear of all nodes and pills)
   function visibleAnchor(id) {
     let cur = id;
     while (cur && !state.layout[cur]) cur = DATA.nodes[cur]?.parent;
@@ -1392,26 +1597,27 @@ function renderTree() {
       }
     }
   }
-  inspireEdges.forEach((ie, idx) => {
+  inspireEdges.forEach(ie => {
     const a = state.layout[ie.srcId], b = state.layout[ie.dstId];
     const x1 = a.x + a.w * 0.5, y1 = a.y + a.h;
     const x2 = b.x + b.w * 0.5, y2 = b.y + b.h;
-    const mx = (x1 + x2) / 2;
-    const dip = Math.max(y1, y2) + 46 + idx * 28;
-    const d = `M ${x1} ${y1} Q ${mx} ${dip}, ${x2} ${y2}`;
-    arcsFgLayer.appendChild(elNS("path", {
-      d, class: "inspire-arc", "marker-end": "url(#arrow-amber)",
-    }));
-    const ly = (y1 + y2) / 4 + dip / 2 + 8;
     const rawTxt = ie.reason ? `${L.inspireBadge} · ${truncLang(ie.reason, 22, 36)}` : L.inspireBadge;
     const charW = state.lang === "en" ? 6.2 : 8.4;
     const pillW = Math.max(88, Math.round(rawTxt.length * charW + 18));
+    const routed = routeHorizontalArc({
+      x1, y1, x2, y2, preferTop: false, pillW, pillH: 20,
+      obstacles, placedPills, ignoreIds: new Set([ie.srcId, ie.dstId]), treeMinY, treeMaxY,
+    });
+    placedPills.push(routed.rect);
+    arcsFgLayer.appendChild(elNS("path", {
+      d: routed.d, class: "inspire-arc", "marker-end": "url(#arrow-amber)",
+    }));
     arcsFgLayer.appendChild(elNS("rect", {
-      x: mx - pillW / 2, y: ly - 13, width: pillW, height: 20, rx: 10,
+      x: routed.lx - pillW / 2, y: routed.ly - 10, width: pillW, height: 20, rx: 10,
       fill: "#fef7e6", stroke: "#d98a00", "stroke-width": 1.1,
     }));
     arcsFgLayer.appendChild(elNS("text", {
-      x: mx, y: ly + 1, "text-anchor": "middle", class: "inspire-label",
+      x: routed.lx, y: routed.ly + 4, "text-anchor": "middle", class: "inspire-label",
     }, rawTxt));
   });
 
@@ -1699,20 +1905,6 @@ function renderTreeSephiroth() {
     }
   }
 
-  // Helper: clip straight line segment at the outer perimeter of two Sephiroth circles
-  function clippedSegment(p1, p2, pad = 4) {
-    const dx = p2.cx - p1.cx, dy = p2.cy - p1.cy;
-    const dist = Math.hypot(dx, dy) || 1;
-    const ux = dx / dist, uy = dy / dist;
-    return {
-      x1: p1.cx + ux * (p1.r + pad),
-      y1: p1.cy + uy * (p1.r + pad),
-      x2: p2.cx - ux * (p2.r + pad),
-      y2: p2.cy - uy * (p2.r + pad),
-      ux, uy,
-    };
-  }
-
   // 1. Sacred Paths (tree edges)
   for (const [id, p] of Object.entries(state.layout)) {
     const n = DATA.nodes[id];
@@ -1749,6 +1941,9 @@ function renderTreeSephiroth() {
   }
 
   // 2. Cross-recipe & sibling comparison arcs in vertical layout
+  const obstacles = collectCanvasObstacles(true);
+  const placedPills = [];
+
   const crossPairs = [];
   for (const [id] of Object.entries(state.layout)) {
     const n = DATA.nodes[id];
@@ -1801,37 +1996,20 @@ function renderTreeSephiroth() {
           x: a.cx, y: py + 13.5, "text-anchor": "middle",
           "font-size": 10.5, "font-weight": 400, fill: "#b8d6ea", "font-family": "var(--mono)",
         }, txt));
+        placedPills.push({ x: px - 4, y: py - 4, w: pillW + 8, h: 28 });
       }
       return;
     }
 
-    // Balance vertical/cross-tier arcs across left and right flanks:
-    // Follow the side the endpoints sit on, or alternate when centered on the Middle Pillar.
+    // Balance vertical/cross-tier arcs across left and right flanks, keeping pills strictly clear of nodes.
     const avgCx = (a.cx + b.cx) / 2;
     let goRight;
     if (isRootArc) goRight = false;
     else if (Math.abs(avgCx) > 15) goRight = avgCx > 0;
     else goRight = leftOuterIdx > rightOuterIdx;
 
-    const sideIdx = goRight ? rightOuterIdx++ : leftOuterIdx++;
-    const x1 = goRight ? (a.cx + a.r + 4) : (a.cx - a.r - 4);
-    const x2 = goRight ? (b.cx + b.r + 4) : (b.cx - b.r - 4);
-    const y1 = a.cy, y2 = b.cy;
-    const outerX = goRight
-      ? Math.max(treeMaxX + 54, Math.max(x1, x2) + 96) + sideIdx * 36
-      : Math.min(treeMinX - 54, Math.min(x1, x2) - 96) - sideIdx * 36;
-    const d = `M ${x1} ${y1} C ${outerX} ${y1}, ${outerX} ${y2}, ${x2} ${y2}`;
-    targetLayer.appendChild(elNS("path", {
-      d, fill: "none", stroke: "#7ea8c4",
-      "stroke-width": active ? 2.2 : 1.4,
-      "stroke-dasharray": "5 5",
-      opacity: active ? 0.92 : (isRootArc ? 0.5 : 0.25),
-      "marker-end": "url(#arrow-sep-blue)",
-    }));
-
-    if (active || isRootArc) {
-      const lx = outerX * 0.75 + ((x1 + x2) / 2) * 0.25;
-      const ly = (y1 + y2) / 2;
+    const showPill = active || isRootArc;
+    if (showPill) {
       const txt = src.delta_bpb != null
         ? (isRootArc
             ? L.arcRootLabel(fmtDelta(-src.delta_bpb))
@@ -1839,18 +2017,48 @@ function renderTreeSephiroth() {
         : L.arcFallback(src.compare_to);
       const charW = state.lang === "en" ? 6.4 : 8.4;
       const pillW = Math.max(176, Math.round(txt.length * charW + 24));
+      const routed = routeVerticalArc({
+        a, b, preferRight: goRight, pillW, pillH: 22,
+        obstacles, placedPills, ignoreIds: new Set([srcId, dstId]), treeMinX, treeMaxX,
+      });
+      placedPills.push(routed.rect);
+      if (routed.lx >= 0) rightOuterIdx++; else leftOuterIdx++;
+
+      targetLayer.appendChild(elNS("path", {
+        d: routed.d, fill: "none", stroke: "#7ea8c4",
+        "stroke-width": active ? 2.2 : 1.4,
+        "stroke-dasharray": "5 5",
+        opacity: active ? 0.92 : (isRootArc ? 0.5 : 0.25),
+        "marker-end": "url(#arrow-sep-blue)",
+      }));
       targetLayer.appendChild(elNS("rect", {
-        x: lx - pillW / 2, y: ly - 11, width: pillW, height: 22, rx: 11,
+        x: routed.lx - pillW / 2, y: routed.ly - 11, width: pillW, height: 22, rx: 11,
         fill: "#182026", stroke: active ? "#7ea8c4" : "rgba(126,168,196,0.45)", "stroke-width": 1,
       }));
       targetLayer.appendChild(elNS("text", {
-        x: lx, y: ly + 3.5, "text-anchor": "middle",
+        x: routed.lx, y: routed.ly + 3.5, "text-anchor": "middle",
         "font-size": 10.5, "font-weight": 400, fill: "#b8d6ea",
       }, txt));
+    } else {
+      const sideIdx = goRight ? rightOuterIdx++ : leftOuterIdx++;
+      const x1 = goRight ? (a.cx + a.r + 4) : (a.cx - a.r - 4);
+      const x2 = goRight ? (b.cx + b.r + 4) : (b.cx - b.r - 4);
+      const y1 = a.cy, y2 = b.cy;
+      const outerX = goRight
+        ? Math.max(treeMaxX + 54, Math.max(x1, x2) + 96) + sideIdx * 36
+        : Math.min(treeMinX - 54, Math.min(x1, x2) - 96) - sideIdx * 36;
+      const d = `M ${x1} ${y1} C ${outerX} ${y1}, ${outerX} ${y2}, ${x2} ${y2}`;
+      targetLayer.appendChild(elNS("path", {
+        d, fill: "none", stroke: "#7ea8c4",
+        "stroke-width": 1.4,
+        "stroke-dasharray": "5 5",
+        opacity: 0.25,
+        "marker-end": "url(#arrow-sep-blue)",
+      }));
     }
   });
 
-  // 2b. Inspiration secret paths (amber dotted arcs on select)
+  // 2b. Inspiration secret paths (amber dotted arcs on select, routed clear of all nodes and pills)
   function visibleAnchor(id) {
     let cur = id;
     while (cur && !state.layout[cur]) cur = DATA.nodes[cur]?.parent;
@@ -1870,33 +2078,28 @@ function renderTreeSephiroth() {
       }
     }
   }
-  inspireEdges.forEach((ie, idx) => {
+  inspireEdges.forEach(ie => {
     const a = state.layout[ie.srcId], b = state.layout[ie.dstId];
-    const seg = clippedSegment(a, b, 5);
-    const mx = (seg.x1 + seg.x2) / 2;
-    const my = (seg.y1 + seg.y2) / 2;
-    // Curve gently outward toward whichever side has space
-    const bendSign = (a.cx + b.cx) >= 0 ? 1 : -1;
-    const bend = (62 + idx * 34) * bendSign;
-    const cx = mx + bend;
-    const cy = my;
-    const d = `M ${seg.x1} ${seg.y1} Q ${cx} ${cy}, ${seg.x2} ${seg.y2}`;
-    arcsFgLayer.appendChild(elNS("path", {
-      d, fill: "none", stroke: "#d8a254", "stroke-width": 1.9,
-      "stroke-dasharray": "2.5 4.5", "stroke-linecap": "round", opacity: 0.92,
-      "marker-end": "url(#arrow-gold)",
-    }));
-    const lx = (seg.x1 + seg.x2) / 4 + cx / 2;
-    const ly = (seg.y1 + seg.y2) / 4 + cy / 2;
+    const preferRight = (a.cx + b.cx) >= 0;
     const rawTxt = ie.reason ? `${L.inspireBadge} · ${truncLang(ie.reason, 20, 34)}` : L.inspireBadge;
     const charW = state.lang === "en" ? 6.2 : 8.4;
     const pillW = Math.max(88, Math.round(rawTxt.length * charW + 18));
+    const routed = routeVerticalArc({
+      a, b, preferRight, pillW, pillH: 22,
+      obstacles, placedPills, ignoreIds: new Set([ie.srcId, ie.dstId]), treeMinX, treeMaxX,
+    });
+    placedPills.push(routed.rect);
+    arcsFgLayer.appendChild(elNS("path", {
+      d: routed.d, fill: "none", stroke: "#d8a254", "stroke-width": 1.9,
+      "stroke-dasharray": "2.5 4.5", "stroke-linecap": "round", opacity: 0.92,
+      "marker-end": "url(#arrow-gold)",
+    }));
     arcsFgLayer.appendChild(elNS("rect", {
-      x: lx - pillW / 2, y: ly - 11, width: pillW, height: 22, rx: 11,
+      x: routed.lx - pillW / 2, y: routed.ly - 11, width: pillW, height: 22, rx: 11,
       fill: "#221c13", stroke: "#d8a254", "stroke-width": 1,
     }));
     arcsFgLayer.appendChild(elNS("text", {
-      x: lx, y: ly + 3.5, "text-anchor": "middle",
+      x: routed.lx, y: routed.ly + 3.5, "text-anchor": "middle",
       "font-size": 10.5, "font-weight": 400, fill: "#e8c486",
     }, rawTxt));
   });
