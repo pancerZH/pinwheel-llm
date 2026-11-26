@@ -181,6 +181,7 @@ def main():
         run_train(
             name,
             ["--max_tokens", "1e9", "--batch_tokens", str(bs), "--lr", str(lr),
+             "--optimizer", "adamw", "--schedule", "cosine", "--min_lr_frac", "0.1",
              "--note", f"2a: batch size {bs // 1024}k, lr {lr}"],
             est_minutes=115,
             blackouts=blackouts,
@@ -195,7 +196,7 @@ def main():
 
     run_train(
         "2b-wsd-1b",
-        ["--max_tokens", "1e9", "--batch_tokens", str(win_bs), "--lr", str(win_lr),
+        ["--max_tokens", "1e9", "--batch_tokens", str(win_bs), "--lr", str(win_lr), "--optimizer", "adamw",
          "--schedule", "wsd", "--cooldown_frac", "0.2", "--min_lr_frac", "0.0",
          "--save_stable_at", "5e8",
          "--note", f"2b: WSD (1-sqrt 20% cd), bs {win_bs // 1024}k, lr {win_lr}"],
@@ -207,7 +208,7 @@ def main():
     run_train(
         "2b-wsd-500m-cd",
         ["--cooldown_from", "ckpt/2b-wsd-1b-stable.pt", "--seed", "1000",
-         "--max_tokens", "1e8", "--batch_tokens", str(win_bs), "--lr", str(win_lr),
+         "--max_tokens", "1e8", "--batch_tokens", str(win_bs), "--lr", str(win_lr), "--optimizer", "adamw",
          "--schedule", "wsd", "--min_lr_frac", "0.0",
          "--note", f"2b: WSD 100M cooldown branched from 500M stable (bs {win_bs // 1024}k)"],
         est_minutes=20,

@@ -76,6 +76,7 @@ def load_results(runs_dir: Path) -> dict[str, dict]:
                 "tokens": (row.get("tokens") or "").strip(),
                 "wall_h": _to_float(row.get("wall_h")),
                 "val_bpb": _to_float(row.get("val_bpb")),
+                "val_bpb_clean": _to_float(row.get("val_bpb_clean")),
                 "notes": (row.get("notes") or "").strip(),
             }
     return out
@@ -441,8 +442,10 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
             else (res["val_bpb"] if res else None)
         )
         ref_json = runs_dir / nid / "ref.json"  # a target's val BPB on our val text (scripts/gpt2_ref.py --bpb)
+        val_bpb_clean = res.get("val_bpb_clean") if res else None
         if is_target and ref_json.exists():
-            val_bpb = json.loads(ref_json.read_text(encoding="utf-8")).get("val_bpb")
+            ref_data = json.loads(ref_json.read_text(encoding="utf-8"))
+            val_bpb, val_bpb_clean = ref_data.get("val_bpb"), ref_data.get("val_bpb_clean")
 
         nodes[nid] = {
             "id": nid,
@@ -470,6 +473,7 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
             "tokens": (meta.get("tokens") or "") if (is_placeholder or is_target) else (res["tokens"] if res else ""),
             "wall_h": res["wall_h"] if res else None,
             "val_bpb": val_bpb,
+            "val_bpb_clean": val_bpb_clean,
             "bench": bench,
             "config": art["config"] if art else None,
             "val_curve": art["val_curve"] if art else [],

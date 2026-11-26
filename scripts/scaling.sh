@@ -12,7 +12,8 @@ run() {  # name d_model n_layer n_head n_kv_head d_ff max_tokens batch_tokens
     uv run python -u -m pinwheel.train --data_dir data/tok8192/fineweb-edu --run "$name" \
       --note "side: scaling law $1, ~20x tokens, lr $lr" \
       --d_model "$2" --n_layer "$3" --n_head "$4" --n_kv_head "$5" --d_ff "$6" \
-      --max_tokens "$7" --batch_tokens "$8" --lr "$lr" > "runs/$name.out" 2>&1
+      --max_tokens "$7" --batch_tokens "$8" --lr "$lr" \
+      --optimizer adamw --schedule cosine --min_lr_frac 0.1 > "runs/$name.out" 2>&1
   done
 }
 

@@ -831,6 +831,8 @@ const I18N = {
     kpiCoreTitle: "CORE 中心化均分",
     kpiCoreSub: "随机 = 0，满分 = 1",
     kpiDeltaCore: "相对对照 ΔCORE",
+    sharedTasks: (k) => `共同 ${k} 项`,
+    cleanBpb: "去重",
     noRefShort: "无直接对照",
     thTask: "任务",
     thScore: "得分",
@@ -998,6 +1000,8 @@ const I18N = {
     kpiCoreTitle: "CORE Centered Avg",
     kpiCoreSub: "chance = 0, perfect = 1",
     kpiDeltaCore: "ΔCORE vs reference",
+    sharedTasks: (k) => `${k} shared tasks`,
+    cleanBpb: "dedup",
     noRefShort: "No direct reference",
     thTask: "Task",
     thScore: "Score",
@@ -2940,7 +2944,8 @@ function renderOverviewTab(n) {
   const valKpiMain = n.is_placeholder && n.val_bpb != null ? `~${fmtBpb(n.val_bpb)}` : fmtBpb(n.val_bpb);
   const valKpiSub = n.is_placeholder
     ? `${L.placeholderValSub}${n.tokens ? " · " + n.tokens + " tokens" : ""}`
-    : `${tokLabel} · ${n.wall_h != null ? n.wall_h + " h" : "—"}`;
+    : `${tokLabel} · ${n.wall_h != null ? n.wall_h + " h" : "—"}`
+      + (n.val_bpb_clean != null ? ` · ${L.cleanBpb} ${fmtBpb(n.val_bpb_clean)}` : "");
 
   parts.push(`<div class="kpi-grid">
     <div class="kpi">
@@ -3049,8 +3054,10 @@ function renderBenchTab(n) {
     </tr>`;
   }).filter(Boolean).join("");
 
-  const coreRef = ref?.bench?.core;
-  const coreDelta = (n.bench.core != null && coreRef != null) ? sign * (n.bench.core - coreRef) : null;
+  // ΔCORE over the tasks both runs have: a 4-task mean minus a 6-task mean can flip the sign.
+  const shared = ref?.bench ? Object.keys(CHANCE).filter(t => n.bench.scores[t] != null && ref.bench.scores[t] != null) : [];
+  const coreOn = (s) => shared.reduce((a, t) => a + (s[t] - CHANCE[t]) / (1 - CHANCE[t]), 0) / shared.length;
+  const coreDelta = shared.length ? sign * (coreOn(n.bench.scores) - coreOn(ref.bench.scores)) : null;
   let html = `<div class="kpi-grid">
     <div class="kpi">
       <div class="kpi-label">${L.kpiCoreTitle}</div>
@@ -3060,7 +3067,7 @@ function renderBenchTab(n) {
     <div class="kpi">
       <div class="kpi-label">${n.is_target ? L.targetDeltaCore : L.kpiDeltaCore}</div>
       <div class="kpi-val ${coreDelta == null ? "" : (coreDelta >= 0 ? "delta-good" : "delta-bad")}">${coreDelta == null ? "—" : (coreDelta >= 0 ? "+" : "−") + Math.abs(coreDelta).toFixed(4)}</div>
-      <div class="kpi-sub">${ref ? `vs ${esc(nodeLabel(ref))}` : L.noRefShort}</div>
+      <div class="kpi-sub">${ref ? `vs ${esc(nodeLabel(ref))} · ${L.sharedTasks(shared.length)}` : L.noRefShort}</div>
     </div>
   </div>
   <table class="data">

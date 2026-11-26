@@ -134,15 +134,25 @@ def main():
     if args.bpb:
         tok = GPT2Tokenizer().tok
         t0 = time.time()
-        windows = val_windows(args.data_dir, args.eval_tokens, args.seq_len)
-        bpb, nbytes = retokenized_bpb(
-            model, lambda s: tok.encode(s).ids, EOT, gpt2_token_bytes(tok).cuda(), windows, model.cfg.max_seq_len
+        windows = list(val_windows(args.data_dir, args.eval_tokens, args.seq_len))
+        score = lambda ws: retokenized_bpb(  # noqa: E731
+            model, lambda s: tok.encode(s).ids, EOT, gpt2_token_bytes(tok).cuda(), ws, model.cfg.max_seq_len
         )
+        bpb, nbytes = score(windows)
         print(f"val BPB {bpb:.4f} over {nbytes:,} bytes ({time.time() - t0:.0f} s)")
+        # The same clean windows as train.py's val_bpb_clean (no 64-token span copied from training text).
+        clean = None
+        overlap_path = Path(args.data_dir) / "val_overlap.npy"
+        if overlap_path.exists():
+            ov, T = np.load(overlap_path), args.seq_len
+            keep = [w for i, w in enumerate(windows) if not ov[i * T : i * T + T + 1].any()]
+            clean, clean_bytes = score(keep)
+            print(f"val BPB clean {clean:.4f} over {len(keep)} of {len(windows)} windows ({clean_bytes:,} bytes)")
         out = Path("runs") / NAME / "ref.json"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps({
-            "val_bpb": round(bpb, 4), "bytes": nbytes, "data_dir": args.data_dir,
+            "val_bpb": round(bpb, 4), "val_bpb_clean": round(clean, 4) if clean is not None else None,
+            "bytes": nbytes, "data_dir": args.data_dir,
             "eval_tokens": args.eval_tokens, "seq_len": args.seq_len, "date": time.strftime("%Y-%m-%d"),
         }, indent=2) + "\n")
         return

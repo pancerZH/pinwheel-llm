@@ -136,12 +136,14 @@ def write_samples(path, step, model, tok, prompts):
         f.write("\n")
 
 
-def append_result(cfg, run, n_params, tokens, hours, val_bpb, hellaswag):
+def append_result(cfg, run, n_params, tokens, hours, val_bpb, val_bpb_clean, hellaswag):
     path = Path("runs/results.tsv")
     if not path.exists():
-        path.write_text("run_id\tdate\tgit_sha\tchange\tparams\ttokens\twall_h\tval_bpb\thellaswag\tnotes\n")
+        path.write_text("run_id\tdate\tgit_sha\tchange\tparams\ttokens\twall_h\tval_bpb\tval_bpb_clean\t"
+                        "hellaswag\tnotes\n")
+    clean = f"{val_bpb_clean:.4f}" if val_bpb_clean is not None else ""
     row = [run, time.strftime("%Y-%m-%d"), git_sha(), cfg.note, f"{n_params / 1e6:.1f}M",
-           f"{tokens / 1e6:.0f}M", f"{hours:.2f}", f"{val_bpb:.4f}", f"{hellaswag:.4f}", ""]
+           f"{tokens / 1e6:.0f}M", f"{hours:.2f}", f"{val_bpb:.4f}", clean, f"{hellaswag:.4f}", ""]
     with open(path, "a") as f:
         f.write("\t".join(row) + "\n")
 
@@ -196,14 +198,15 @@ def main():
         print("  ".join(f"{k} {v:.4g}" if isinstance(v, float) else f"{k} {v}" for k, v in r.items()))
 
     fixed = data.random_batch(cfg.micro_batch, cfg.seq_len, device) if cfg.overfit_batch else None
-    t_start, val_bpb, saved_stable = time.time(), float("nan"), False
+    t_start, val_bpb, val_bpb_clean, saved_stable = time.time(), float("nan"), None, False
     for step in range(max_steps + 1):
         last = step == max_steps
         if step % cfg.eval_every == 0 or last:
             with autocast:
-                val_bpb = evaluate_bpb(train_model, data, token_bytes, cfg.micro_batch, cfg.seq_len,
-                                       cfg.eval_tokens)
-            record(step=step, tokens=step * cfg.batch_tokens, val_bpb=val_bpb)
+                val_bpb, val_bpb_clean = evaluate_bpb(train_model, data, token_bytes, cfg.micro_batch,
+                                                      cfg.seq_len, cfg.eval_tokens)
+            clean = {} if val_bpb_clean is None else {"val_bpb_clean": val_bpb_clean}
+            record(step=step, tokens=step * cfg.batch_tokens, val_bpb=val_bpb, **clean)
         if (step > 0 and step % cfg.sample_every == 0) or last:
             with autocast:
                 write_samples(out / "samples.md", step, model, tok, prompts)
@@ -252,7 +255,7 @@ def main():
     bench = run_benchmarks(model, tok, save_items_path=Path("runs/bench") / f"{run}.npz")  # about 30 s for v0
     append_bench_row(run, bench)
     hellaswag = bench["hellaswag"]["acc_norm"]
-    append_result(cfg, run, n_params, max_steps * cfg.batch_tokens, hours, val_bpb, hellaswag)
+    append_result(cfg, run, n_params, max_steps * cfg.batch_tokens, hours, val_bpb, val_bpb_clean, hellaswag)
     print(f"done in {hours:.2f} h, val_bpb {val_bpb:.4f}, hellaswag {hellaswag:.4f}")
 
 
