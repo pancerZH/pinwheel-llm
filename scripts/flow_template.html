@@ -120,6 +120,8 @@ table.grid th{color:var(--ink2);font-weight:600;background:var(--sub)}
 table.grid td.tk,table.grid th.tk{font-family:var(--mono);white-space:pre;text-align:left}
 table.grid td.hit{outline:2px solid var(--pos);outline-offset:-2px;font-weight:700}
 table.grid td.sel,table.grid th.sel{box-shadow:inset 0 0 0 2px var(--ink)}
+table.grid tr.pick{cursor:pointer}
+table.grid tr.pick:hover th{color:var(--teal)}
 table.xy td{font:14px var(--mono);white-space:pre;padding:2px 6px;border:1px solid var(--line);background:var(--card)}
 table.xy th{padding-right:8px;color:var(--ink2)}
 table.xy{border-collapse:collapse}
@@ -860,14 +862,38 @@ function stBack() {
   const sClip = sy(f(clip, 3), `1 ÷ ${gn} = ${f(clip, 3)}：乘完以后模长正好是 1`, `1 ÷ ${gn} = ${f(clip, 3)}: afterwards the magnitude is exactly 1`);
   let big = [0, 0, -1];
   G.blocks.forEach((r, i) => r.forEach((x, j) => { if (x > big[2]) big = [i, j, x]; }));
+  // what each parameter is, for the column headers
+  const c = v.cfg, d = c.d_model, norm = c.arch === 'gpt2' ? 'LayerNorm' : 'RMSNorm', hd = d / c.n_head;
+  const PARAM = {
+    attn_norm: [`注意力前那次 ${norm} 的增益：每个通道一个“音量旋钮”，${d} 个数`, `Gain of the ${norm} before attention: one volume knob per channel, ${d} numbers`],
+    'attn_norm.bias': [`注意力前那次 LayerNorm 的偏置，${d} 个数`, `Bias of the LayerNorm before attention, ${d} numbers`],
+    wq: ['算 q（“我在找什么”）的矩阵', 'The matrix that computes q ("what I am looking for")'],
+    wk: ['算 k（“我这里有什么”）的矩阵', 'The matrix that computes k ("what I hold")'],
+    wv: ['算 v（被搬走的内容）的矩阵', 'The matrix that computes v (the content that gets moved)'],
+    wo: ['把各个头搬来的内容合起来、写回黑板的矩阵', 'The matrix that joins what the heads moved and writes it back to the blackboard'],
+    q_norm: [`QK-Norm 里 q 的增益，${hd} 个数，所有头共用`, `QK-Norm’s gain for q, ${hd} numbers shared by every head`],
+    k_norm: [`QK-Norm 里 k 的增益，${hd} 个数，所有头共用`, `QK-Norm’s gain for k, ${hd} numbers shared by every head`],
+    mlp_norm: [`MLP 前那次 ${norm} 的增益，${d} 个数`, `Gain of the ${norm} before the MLP, ${d} numbers`],
+    'mlp_norm.bias': [`MLP 前那次 LayerNorm 的偏置，${d} 个数`, `Bias of the LayerNorm before the MLP, ${d} numbers`],
+    w_gate: [`SwiGLU 里算“门开多大”的矩阵（${d} → ${c.d_ff}）`, `SwiGLU’s matrix that decides how far the gate opens (${d} → ${c.d_ff})`],
+    w_up: [`把 ${d} 维放宽到 ${c.d_ff} 维的矩阵${c.arch === 'gpt2' ? '' : '（SwiGLU 里“内容”那一路）'}`, `The matrix that widens ${d} dims to ${c.d_ff}${c.arch === 'gpt2' ? '' : ' (the content path of SwiGLU)'}`],
+    w_down: [`把 ${c.d_ff} 维压回 ${d} 维、写回黑板的矩阵`, `The matrix that squeezes ${c.d_ff} dims back to ${d} and writes them to the blackboard`],
+    tok_emb: [`嵌入表（${c.vocab_size} × ${d}）。权重共享，它同时也是最后的输出头，所以梯度从两头来：开头的查表和最后的打分`, `The embedding table (${c.vocab_size} × ${d}). With tied weights it is also the final output head, so its gradient comes from both ends: the lookup at the start and the scoring at the end`],
+    pos_emb: ['GPT-2 的位置表：每个位置一行', 'GPT-2’s position table: one row per position'],
+    norm: [`输出头前最后那次 ${norm} 的增益，${d} 个数`, `Gain of the last ${norm} before the output head, ${d} numbers`],
+    'norm.bias': [`输出头前最后那次 LayerNorm 的偏置，${d} 个数`, `Bias of the last LayerNorm before the output head, ${d} numbers`],
+  };
+  const head = n => PARAM[n] ? sy(esc(n), ...PARAM[n]) : esc(n);
+  const others = Object.keys(G.other).map(n => n.replace('.weight', ''));
   const body = gist(L('从罚分往回推：每个参数往哪边改一点，罚分会变小。', 'Work backwards from the penalty: which way each parameter should move to make it smaller.'))
     + `<p>${L(`这一步叫反向传播。结果是每个参数都得到一个${g('grad')}，形状和参数一样。为了防止某一步迈太大，先做${g('clip')}：所有梯度合起来的模长超过 1 就整体缩小。`,
       `This is backpropagation. Every parameter gets a ${g('grad')} of its own shape. To keep any single step from being too big, ${g('clip')} comes first: if all gradients together have a magnitude above 1, they are scaled down together.`)}</p>
-    <div class="scroll"><table class="grid"><tr><th></th>${names.map(n => `<th>${esc(n)}</th>`).join('')}</tr>
-    ${G.blocks.map((r, i) => `<tr><th${i === S.layer ? ' class="sel"' : ''}>B${i + 1}</th>${r.map(cell).join('')}</tr>`).join('')}</table></div>
-    <div class="scroll"><table class="grid" style="margin-top:6px"><tr>${Object.keys(G.other).map(n => `<th>${esc(n.replace('.weight', ''))}</th>`).join('')}</tr><tr>${Object.values(G.other).map(cell).join('')}</tr></table></div>`
-    + how(L('每格是一个矩阵梯度的模长（这一块参数“被要求改多少”）。行是层，列是这一层里的各个矩阵；颜色越深越大（对数刻度）。', 'Each cell is the magnitude of one matrix’s gradient (how much that block of parameters is asked to change). Rows are layers, columns the matrices in a layer; darker is larger (log scale).'))
-    + see([L(`这句话里“被要求改得最多”的是 B${big[0] + 1} 的 ${esc(names[big[1]])}（${big[2].toPrecision(2)}）。`, `In this sentence the matrix asked to change most is ${esc(names[big[1]])} of B${big[0] + 1} (${big[2].toPrecision(2)}).`),
+    <div class="scroll"><table class="grid"><tr><th></th>${names.map(n => `<th>${head(n)}</th>`).join('')}</tr>
+    ${G.blocks.map((r, i) => `<tr class="pick" data-layer="${i}"><th${i === S.layer ? ' class="sel"' : ''}>Block ${i + 1}</th>${r.map(cell).join('')}</tr>`).join('')}</table></div>
+    <div class="scroll"><table class="grid" style="margin-top:6px"><tr><th></th>${others.map(n => `<th>${head(n)}</th>`).join('')}</tr><tr><th>${L('Block 外', 'Outside blocks')}</th>${Object.values(G.other).map(cell).join('')}</tr></table></div>`
+    + how(L('每格是一个参数的梯度有多大（模长：这一块参数“被要求改多少”）。上表一行是一层，一列是这一层里的一个参数，表头的名字可以悬停看是什么；颜色越深越大（对数刻度）。黑框那一行是上面「放大 Block」正在看的层，点任意一行就换成放大那一层。下表是不属于任何 Block 的参数：嵌入表和最后那次归一化。',
+      'Each cell is how big one parameter’s gradient is (its magnitude: how much that piece is asked to change). In the top table a row is a layer and a column one parameter of that layer; hover over a header name to see what it is. Darker is larger (log scale). The framed row is the layer zoomed in above; click any row to zoom into that layer instead. The bottom table holds the parameters outside every block: the embedding table and the final norm.'))
+    + see([L(`这句话里“被要求改得最多”的是 Block ${big[0] + 1} 的 ${head(names[big[1]])}（${big[2].toPrecision(2)}）。`, `In this sentence the parameter asked to change most is ${head(names[big[1]])} of block ${big[0] + 1} (${big[2].toPrecision(2)}).`),
       L(`所有梯度${mag('合起来的模长')} ${gn}，${clip < 1 ? `超过 1，要整体乘 ${sClip}` : '没超过 1，不用裁'}。只有一句话（${T} 个 token），比训练时 ${fB(cur().recipe.batch || D.train_shape.batch_tokens)} token 的 batch 吵得多。`,
         `All gradients together have a ${mag('magnitude')} of ${gn}, ${clip < 1 ? `above 1, so everything is scaled by ${sClip}` : 'not above 1, so nothing is clipped'}. This is one sentence (${T} tokens), much noisier than a ${fB(cur().recipe.batch || D.train_shape.batch_tokens)}-token training batch.`)]);
   const more = cv ? `<p>${L('训练日志里每一步（裁剪前）的梯度模长：', 'Gradient magnitude at every step (before clipping), from the training log:')}</p>${chart([{pts: cv.train.map(t => [t[0], t[3]]), color: 'var(--pos)', label: '‖g‖'}], {ylog: true, xf: fTok, yf: x => +x.toPrecision(2)})}` : '';
