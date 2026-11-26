@@ -23,6 +23,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = "data/tok8192/fineweb-edu"
+# These runs predate QK-Norm, zero-init and the small embedding init, which are now the defaults.
+PRE_2E_MODEL = ["--qk_norm", "false", "--zero_init", "false", "--emb_std", "0.02"]
 BASELINE_RUN = "1e-v0-lr2e-3"
 BASELINE_SPEC = (524288, 2e-3)  # (batch_tokens, lr) of 1e-v0-lr2e-3
 
@@ -119,7 +121,7 @@ def run_train(name: str, extra_args: list[str], est_minutes: int, blackouts, ser
 
     wait_for_gpu_window(est_minutes, blackouts, services, dry_run=dry_run)
     cmd = ["uv", "run", "python", "-u", "-m", "pinwheel.train",
-           "--data_dir", DATA_DIR, "--run", name, *extra_args]
+           "--data_dir", DATA_DIR, "--run", name, *PRE_2E_MODEL, *extra_args]
     out_log = ROOT / "runs" / f"{name}.out"
     print(f"[run]  {datetime.now():%H:%M} {' '.join(cmd)}", flush=True)
     if dry_run:

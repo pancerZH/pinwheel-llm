@@ -11,7 +11,7 @@ run() {  # name note [extra flags]
   [ -d "runs/$name" ] && return  # already done: rerunning the script only adds new runs
   uv run python -u -m pinwheel.train --data_dir data/tok8192/fineweb-edu --run "$name" --note "$note" \
     --max_tokens 3e8 --eval_every 100 --batch_tokens 131072 --lr 2e-3 --schedule wsd --min_lr_frac 0.0 \
-    "$@" > "runs/$name.out" 2>&1
+    --qk_norm false --zero_init false --emb_std 0.02 "$@" > "runs/$name.out" 2>&1
 }
 
 run 2e-adamw-300m "2e: AdamW reference, 300M tokens" --optimizer adamw

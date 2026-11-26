@@ -38,9 +38,10 @@ class TrainConfig:
     d_model: int = 640
     d_ff: int = 1728
     arch: str = "llama"  # "llama" or "gpt2" (LayerNorm, learned positions, GELU MLP)
-    qk_norm: bool = False  # RMSNorm on every head's queries and keys (stage 2e)
-    zero_init: bool = False  # wo and w_down start at 0 (stage 2e)
-    emb_std: float = 0.02  # init std of the tied embedding; with zero_init, 0.02 makes the model copy its input at step 0
+    # stage 2e, adopted together: 1B tokens, two seeds, 1.0619 vs 1.0712 with Muon alone
+    qk_norm: bool = True  # RMSNorm on every head's queries and keys
+    zero_init: bool = True  # wo and w_down start at 0
+    emb_std: float = 0.002  # init std of the tied embedding (0.02 before); with zero_init, 0.02 makes the model copy its input at step 0
     seq_len: int = 1024
     # optimization
     max_tokens: float = 1e9
