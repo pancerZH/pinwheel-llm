@@ -114,6 +114,7 @@ Check published results before each experiment; where a reliable result exists, 
 
 ```
 pinwheel/model.py            model, KV cache, sampling
+pinwheel/muon.py             Muon optimizer for the 2-D weights in the blocks
 pinwheel/train.py            training loop; every config field is a command-line flag
 pinwheel/eval.py             val BPB
 pinwheel/bench.py            zero-shot benchmarks (HellaSwag, ARC-Easy, PIQA, BLiMP, SciQ, LAMBADA) and paired tests
@@ -126,4 +127,5 @@ scripts/scaling.py           fit and plot the mini scaling law (run via scripts/
 scripts/tree.py              build interactive experiment tree webpage (runs/tree.html)
 scripts/gpt2_ref.py          score OpenAI GPT-2 124M on our bench (the stretch-goal reference)
 scripts/stage2_preflight.py  Stage 2 batch-size sweep and WSD confirmation runner
+scripts/muon.sh              Stage 2e Muon check-up: 300M-token AdamW reference and Muon LR sweep
 ```

@@ -20,6 +20,7 @@ from pinwheel.bench import append_bench_row, run_benchmarks
 from pinwheel.data import TokenData
 from pinwheel.eval import evaluate_bpb
 from pinwheel.model import GPT, GPTConfig
+from pinwheel.muon import Muon
 from pinwheel.sample import complete
 from pinwheel.tokenizer import load_tokenizer, token_byte_lengths
 
@@ -43,6 +44,8 @@ class TrainConfig:
     batch_tokens: int = 131072  # tokens per optimizer step, reached by gradient accumulation (stage 2a)
     micro_batch: int = 32  # sequences per forward pass
     lr: float = 2e-3  # v0, batch 128k, WSD, 1B tokens: 1.4e-3 / 2e-3 / 2.8e-3 give 1.0915 / 1.0850 / 1.0849
+    optimizer: str = "adamw"  # "adamw", or "muon": Muon for the 2-D weights in the blocks, AdamW for the rest
+    muon_lr: float = 2e-3  # on AdamW's scale (the update RMS is matched), follows the same schedule as lr
     min_lr_frac: float = 0.0  # final LR as a fraction of lr (stage 1 cosine runs used 0.1)
     warmup_steps: int = 100
     schedule: str = "wsd"  # "wsd" (warmup + constant + (1-sqrt) cooldown, stage 2b) or "cosine"
@@ -89,6 +92,29 @@ def lr_at(step, cfg, max_steps):
     return cfg.lr * (cfg.min_lr_frac + (1 - cfg.min_lr_frac) * 0.5 * (1 + math.cos(math.pi * progress)))
 
 
+def make_optimizers(model, cfg):
+    """AdamW for everything, or with optimizer="muon", Muon for the 2-D weights inside the blocks.
+
+    AdamW decays only matrices (the embedding, and the blocks' weights when they are on AdamW);
+    norm gains are left alone. Every optimizer group remembers its peak lr as base_lr.
+    """
+    if cfg.optimizer not in ("adamw", "muon"):
+        raise ValueError(f"unknown optimizer: {cfg.optimizer}")
+    muon = [p for n, p in model.named_parameters()
+            if cfg.optimizer == "muon" and n.startswith("blocks.") and p.dim() == 2]
+    rest = [p for p in model.parameters() if all(p is not q for q in muon)]
+    optimizers = [torch.optim.AdamW(
+        [{"params": [p for p in rest if p.dim() >= 2], "weight_decay": cfg.weight_decay},
+         {"params": [p for p in rest if p.dim() < 2], "weight_decay": 0.0}],
+        lr=cfg.lr, betas=(0.9, 0.95), fused=True)]
+    if muon:
+        optimizers.append(Muon(muon, lr=cfg.muon_lr, weight_decay=cfg.weight_decay))
+    for opt in optimizers:
+        for group in opt.param_groups:
+            group["base_lr"] = group["lr"]
+    return optimizers
+
+
 def git_sha():
     def git(*args):
         return subprocess.run(["git", *args], capture_output=True, text=True).stdout.strip()
@@ -133,18 +159,15 @@ def main():
     model = GPT(mcfg).to(device)
     n_params, flops_per_token = model.num_params(), model.flops_per_token(cfg.seq_len)
 
-    # Weight decay only on matrices; norms (1-D) are left alone.
     params = list(model.parameters())
-    optimizer = torch.optim.AdamW(
-        [{"params": [p for p in params if p.dim() >= 2], "weight_decay": cfg.weight_decay},
-         {"params": [p for p in params if p.dim() < 2], "weight_decay": 0.0}],
-        lr=cfg.lr, betas=(0.9, 0.95), fused=True,
-    )
+    optimizers = make_optimizers(model, cfg)
     if cfg.cooldown_from:
         ckpt = torch.load(cfg.cooldown_from, map_location=device, weights_only=True)
         model.load_state_dict(ckpt["model"])
         if "optimizer" in ckpt:
-            optimizer.load_state_dict(ckpt["optimizer"])
+            states = ckpt["optimizer"]
+            for opt, state in zip(optimizers, [states] if isinstance(states, dict) else states, strict=True):
+                opt.load_state_dict(state)
         print(f"cooldown_from {cfg.cooldown_from} (step {ckpt.get('step', '?')}, tokens {ckpt.get('tokens', '?')})")
     train_model = torch.compile(model) if cfg.compile else model
 
@@ -184,8 +207,9 @@ def main():
             break
 
         lr = lr_at(step, cfg, max_steps)
-        for group in optimizer.param_groups:
-            group["lr"] = lr
+        for opt in optimizers:
+            for group in opt.param_groups:
+                group["lr"] = group["base_lr"] * lr / cfg.lr
         if step % cfg.log_every == 0:
             torch.cuda.synchronize()  # the CPU runs ahead of the GPU: drain earlier steps so only this one is timed
         t0 = time.time()
@@ -197,13 +221,14 @@ def main():
             (loss / accum).backward()
             loss_sum += loss.detach()
         grad_norm = torch.nn.utils.clip_grad_norm_(params, cfg.grad_clip)
-        optimizer.step()
-        optimizer.zero_grad(set_to_none=True)
+        for opt in optimizers:
+            opt.step()
+            opt.zero_grad(set_to_none=True)
         done_tokens = (step + 1) * cfg.batch_tokens
         if not saved_stable and cfg.save_stable_at > 0 and done_tokens >= cfg.save_stable_at:
             Path("ckpt").mkdir(exist_ok=True)
             stable_path = Path("ckpt") / f"{run}-stable.pt"
-            torch.save({"model": model.state_dict(), "optimizer": optimizer.state_dict(),
+            torch.save({"model": model.state_dict(), "optimizer": [opt.state_dict() for opt in optimizers],
                         "model_config": asdict(mcfg), "train_config": asdict(cfg),
                         "step": step + 1, "tokens": done_tokens}, stable_path)
             print(f"saved stable checkpoint to {stable_path} ({done_tokens / 1e6:.1f}M tokens)")
