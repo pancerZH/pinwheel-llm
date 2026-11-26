@@ -379,11 +379,11 @@ def build_payload(args) -> dict:
                 rec["tokens"] = ckpt["tokens"]
                 vals = [v for v in log["val"] if v[0] <= ckpt["tokens"]]
                 info.update(stable=True, val_bpb=vals[-1][1] if vals else None, bench={}, seeds=[],
-                            note=f"{base} 的稳定段 checkpoint（退火前）", mark=ckpt["tokens"])
+                            note="", mark=ckpt["tokens"])
         else:
             rec = {"arch": "llama", "qk_norm": False, "zero_init": False, "optimizer": None, "lr": None,
                    "schedule": None, "batch": None, "tokens": 0, "data": None}
-            info.update(note="随机初始化，第 0 步", val_bpb=None, bench={}, seeds=[], curves=None)
+            info.update(note="", val_bpb=None, bench={}, seeds=[], curves=None)  # the page writes the notes
         info.update(recipe=rec, cfg={k: getattr(model.cfg, k) for k in
                                      ("n_layer", "n_head", "n_kv_head", "d_model", "d_ff", "vocab_size",
                                       "max_seq_len", "rope_base", "arch", "qk_norm", "zero_init", "emb_std")},
@@ -400,7 +400,7 @@ def build_payload(args) -> dict:
 
     base_train = configs[variants[1]["run"].removesuffix("-stable")]["train"] if len(variants) > 1 else {}
     return {
-        "text": args.text, "ids": ids, "vocab": [tok.decode([i]) for i in range(tok.get_vocab_size())],
+        "text": args.text, "ids": ids, "vocab": [tok.decode([i]) or tok.id_to_token(i) for i in range(tok.get_vocab_size())],  # decode drops specials
         "token_bytes": token_bytes.tolist(),
         "windows": {name: data_window(Path("data/tok8192") / name) for name in ("fineweb-edu", "tinystories")},
         "train_shape": {k: base_train.get(k) for k in ("micro_batch", "seq_len", "batch_tokens", "eval_tokens")},
