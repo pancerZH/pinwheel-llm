@@ -91,13 +91,13 @@ aside{position:sticky;top:12px;align-self:start;max-height:calc(100vh - 24px);ov
 .sub h4{font-size:16px;font-weight:700;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:baseline}
 .sub h4 .io{font-weight:400}
 .heat{position:relative;margin-top:6px}
-.heat canvas{display:block;width:100%;height:calc(var(--rows) * 6px);image-rendering:pixelated;border:1px solid var(--line);cursor:crosshair}
+.heat canvas{display:block;width:100%;height:calc(var(--rows) * 6px);image-rendering:pixelated;border:1px solid var(--line);cursor:pointer}
 .selrow{position:absolute;left:0;right:0;outline:2px solid var(--ink);pointer-events:none}
 .heads{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:6px;max-width:560px}
 .heads button{border:1px solid var(--line);background:var(--card);border-radius:6px;padding:4px;font-size:13px;text-align:center}
 .heads button.on{border:2px solid var(--ink)}
 .heads canvas{display:block;width:100%;aspect-ratio:1;image-rendering:pixelated}
-.bigatt canvas{display:block;max-width:100%}
+.bigatt canvas{display:block;max-width:100%;cursor:pointer}
 .scroll{overflow-x:auto}
 .bars{display:grid;gap:3px;margin-top:6px}
 .bars .r{display:grid;grid-template-columns:minmax(0,10em) minmax(0,1fr) 5.2em;gap:8px;align-items:center;font-size:14px}
@@ -355,7 +355,7 @@ function heatHTML(h, total) {
   TIPS[id] = {h};
   later(() => drawHeat(id, h));
   return `<div class="heat" id="${id}" style="--rows:${T}"><canvas width="${h.w}" height="${T}"></canvas><div class="selrow" style="top:${S.pos / T * 100}%;height:${100 / T}%"></div></div>
-    <p class="cap">${L(`行 = ${T} 个 token，列 = 前 ${h.w} / ${total} 个通道。红 = 正、蓝 = 负、白 ≈ 0；满格 = ${sat(h.s)}，更大的值也只画满格。黑框 = 跟踪的 token。`, `Rows = ${T} tokens, columns = the first ${h.w} of ${total} channels. Red = positive, blue = negative, white ≈ 0; full colour = ${sat(h.s)}, larger values saturate. Black frame = the tracked token.`)}</p>`;
+    <p class="cap">${L(`行 = ${T} 个 token，列 = 前 ${h.w} / ${total} 个通道。红 = 正、蓝 = 负、白 ≈ 0；满格 = ${sat(h.s)}，更大的值也只画满格。黑框 = 跟踪的 token，点别的行就改为跟踪那个 token。`, `Rows = ${T} tokens, columns = the first ${h.w} of ${total} channels. Red = positive, blue = negative, white ≈ 0; full colour = ${sat(h.s)}, larger values saturate. Black frame = the tracked token; click another row to track it instead.`)}</p>`;
 }
 function drawHeat(id, h) {
   const cv = document.querySelector(`#${id} canvas`); if (!cv) return;
@@ -785,8 +785,8 @@ function stBlock() {
       <p>${L(`打分经过 ${g('softmax')} 变成权重：每个 token 把 100% 的注意力分给自己和前面的 token。后面的 token 被${g('causal')}挡住。`,
         `The scores go through ${g('softmax')} to become weights: each token spreads 100% of its attention over itself and the tokens before it. Later tokens are blocked by the ${g('causal')}.`)}</p>
       <div class="heads">${[...Array(H).keys()].map(h => { const id = uid(); later(() => attnThumb(id, a, h)); return `<button class="${h === S.head ? 'on' : ''}" data-head="${h}"><canvas id="${id}" width="${T}" height="${T}"></canvas>${L('头', 'head')} ${h}${KV < H ? ` · kv${Math.floor(h / grp)}` : ''}</button>`; }).join('')}</div>
-      ${how(L('每张小图是一个头：第 i 行 = 第 i 个 token 在看谁，越深越关注，右上角灰色是被挡住的“未来”。最左边一整列深色 = 在看开头的 &lt;bos&gt;；一条斜线 = 在看固定距离的 token（比如前一个词）。点小图在下面放大。',
-        'Each thumbnail is one head: row i = whom the i-th token looks at; darker means more attention, and the grey upper-right is the blocked "future". A dark leftmost column = looking at the opening &lt;bos&gt;; a diagonal line = looking a fixed distance back (say, the previous word). Click a thumbnail to enlarge it below.'))}
+      ${how(L('每张小图是一个头：第 i 行 = 第 i 个 token 在看谁，越深越关注，右上角灰色是被挡住的“未来”。最左边一整列深色 = 在看开头的 &lt;bos&gt;；一条斜线 = 在看固定距离的 token（比如前一个词）。点小图在下面放大；大图里点一行可以换跟踪的 token。',
+        'Each thumbnail is one head: row i = whom the i-th token looks at; darker means more attention, and the grey upper-right is the blocked "future". A dark leftmost column = looking at the opening &lt;bos&gt;; a diagonal line = looking a fixed distance back (say, the previous word). Click a thumbnail to enlarge it below; click a row of the big one to track that token.'))}
       <div class="cols" style="margin-top:10px"><div class="scroll bigatt">${(() => { const id = uid(); later(() => attnBig(id, a, S.head)); return `<canvas id="${id}"></canvas>`; })()}</div>
       <div><p>${L(`头 ${S.head}：${me} 最关注的 token`, `Head ${S.head}: the tokens ${me} attends to most`)}</p>${bars(row.map(r => ({label: `${tokH(INP[r.j])} @${r.j}`, v: r.p, text: pct(r.p)})), 1)}${copy}
       ${see([S.pos > 0 && L(`这一层 ${H} 个头平均把 ${pct(bos)} 的注意力放在开头的 &lt;bos&gt; 上${bos > 0.3 ? `：没什么要搬的时候，头就把注意力“停”在那里（${g('sink')}）` : ''}。`,
@@ -1020,6 +1020,12 @@ function induction() {
 document.addEventListener('click', e => {
   const t = e.target.closest('.term');
   if (t) return termTip(t, e);  // a tap on a phone shows the explanation
+  const cv = e.target.closest('.heat canvas, .bigatt canvas');
+  if (cv) {  // every row of these pictures is a token: clicking one tracks it
+    const r = cv.getBoundingClientRect(), row = Math.floor((e.clientY - r.top) / r.height * T);
+    if (row >= 0 && row < T && row !== S.pos) { S.pos = row; render(); }
+    return;
+  }
   const b = e.target.closest('[data-go],[data-pos],[data-layer],[data-head],[data-big],[data-mat],[data-lang],[data-hints],#play');
   if (!b) return tip(null);
   if (b.id === 'play') return play();
