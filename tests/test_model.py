@@ -65,3 +65,17 @@ def test_qk_norm_makes_attention_ignore_the_size_of_wq_and_wk():
                 block.attn.wk.weight *= 3
         same = torch.allclose(model(x), before, atol=1e-4)
         assert same == qk_norm  # only QK-Norm makes the scores independent of the weights' scale
+
+
+def test_zero_init_makes_every_block_the_identity():
+    torch.manual_seed(0)
+    model = GPT(GPTConfig(**{**TINY.__dict__, "zero_init": True}))
+    x = torch.randn(2, 16, TINY.d_model)
+    cos, sin = model.cos[:16], model.sin[:16]
+    for block in model.blocks:
+        torch.testing.assert_close(block(x, cos, sin), x)
+
+
+def test_emb_std_sets_the_embedding_scale():
+    model = GPT(GPTConfig(**{**TINY.__dict__, "emb_std": 0.002}))
+    assert abs(model.tok_emb.weight.std().item() - 0.002) < 0.0002

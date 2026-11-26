@@ -27,6 +27,8 @@ class GPTConfig:
     rope_base: float = 10000.0
     arch: str = "llama"  # "llama" or "gpt2" (see the module docstring)
     qk_norm: bool = False
+    zero_init: bool = False  # wo and w_down start at 0, so every block starts as the identity
+    emb_std: float = 0.02  # init std of the tied embedding
 
 
 def rope_tables(head_dim, max_len, base):
@@ -145,11 +147,15 @@ class GPT(nn.Module):
         for m in self.modules():
             if isinstance(m, (nn.Linear, nn.Embedding)):
                 nn.init.normal_(m.weight, std=0.02)
+        nn.init.normal_(self.tok_emb.weight, std=cfg.emb_std)
         # Projections that write into the residual stream start smaller, so its variance
-        # does not grow with depth.
+        # does not grow with depth; with zero_init they start at 0.
         for name, p in self.named_parameters():
             if name.endswith(("wo.weight", "w_down.weight")):
-                nn.init.normal_(p, std=0.02 / math.sqrt(2 * cfg.n_layer))
+                if cfg.zero_init:
+                    nn.init.zeros_(p)
+                else:
+                    nn.init.normal_(p, std=0.02 / math.sqrt(2 * cfg.n_layer))
 
     def forward(self, idx, targets=None, caches=None, reduction="mean"):
         """Logits (B, T, V), or the cross-entropy loss when targets are given."""

@@ -39,6 +39,8 @@ class TrainConfig:
     d_ff: int = 1728
     arch: str = "llama"  # "llama" or "gpt2" (LayerNorm, learned positions, GELU MLP)
     qk_norm: bool = False  # RMSNorm on every head's queries and keys (stage 2e)
+    zero_init: bool = False  # wo and w_down start at 0 (stage 2e)
+    emb_std: float = 0.02  # init std of the tied embedding; with zero_init, 0.02 makes the model copy its input at step 0
     seq_len: int = 1024
     # optimization
     max_tokens: float = 1e9
@@ -156,7 +158,8 @@ def main():
     token_bytes = token_byte_lengths(tok).to(device)
     mcfg = GPTConfig(vocab_size=tok.get_vocab_size(), n_layer=cfg.n_layer, n_head=cfg.n_head,
                      n_kv_head=cfg.n_kv_head, d_model=cfg.d_model, d_ff=cfg.d_ff,
-                     max_seq_len=cfg.seq_len, arch=cfg.arch, qk_norm=cfg.qk_norm)
+                     max_seq_len=cfg.seq_len, arch=cfg.arch, qk_norm=cfg.qk_norm,
+                     zero_init=cfg.zero_init, emb_std=cfg.emb_std)
     model = GPT(mcfg).to(device)
     n_params, flops_per_token = model.num_params(), model.flops_per_token(cfg.seq_len)
 
