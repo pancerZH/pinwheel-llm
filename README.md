@@ -104,10 +104,18 @@ Check published results before each experiment; where a reliable result exists, 
 - Not done: ReLU² (mostly a throughput change at equal parameters) and a logit softcap (our output logits peak at 24.9 and never pass 30, so a cap of 30 barely bends them), as well as cautious weight decay and FP8 training.
 - ✅ Goal met: v1 beats v0 on val BPB by more than the noise floor. **v1 = `2e-stack-1b`**: v0's shape, trained with batch 128k, LR 2e-3, WSD and Muon, with QK-Norm, zero-initialized residual projections and the small embedding init. Three seeds at 1B tokens: 1.0620 / 1.0617 / 1.0636, mean **1.0624**, 0.0266 below v0 on the stage 2 recipe with AdamW (three-seed mean 1.0890; worth about 1.8× the tokens on the data-scaling curve) and 0.059 below the stage 1 baseline. About 0.032 of the gain over stage 1 comes from the recipe (batch size, schedule, LR) and 0.027 from the optimizer and the init.
 
-### Stage 3: v2, architecture experiments (M3): TODO
-- Multi-token prediction (MTP).
-- Looped (recurrent-depth) layers, compared at equal parameters and at equal compute.
-- Goal: a clear conclusion for each, positive or negative.
+### Stage 3: v2, architecture experiments (M3) 🔄
+- ✅ Multi-token prediction (`--mtp`), as in DeepSeek-V3: one extra module takes the hidden state at position i and the embedding of token i+1, runs one more block and predicts token i+2 through the shared output head (loss weight 0.3; dropped at inference). The module is created last, so with the same seed the trunk starts from the same weights and sees the same data as the baseline, which makes the comparison paired. 300M tokens: 1.1281 vs 1.1327 for the same seed (−0.0046); 1B tokens: **1.0592** vs 1.0620 (−0.0028). The lead is largest early (−0.014 at step 250 of the 1B run) and narrows. We predicted a small loss at 300M (Gloeckle et al. 2024 see MTP hurt small models, with parallel heads); the sign was wrong. But the module costs 19% more FLOPs per token, and spending that on 19% more tokens is worth about 0.0075 on our data-scaling curve, so at equal compute MTP loses about 0.005. **Not adopted.**
+- ✅ Looped layers (`--n_loop`): the first and last layer run once and the layers in between run r times with the same weights, with a learned vector added at the start of each pass. 300M tokens, against v0's 1.1330:
+
+  | | Unique params | FLOPs | val BPB | vs v0 |
+  |---|---|---|---|---|
+  | 6 layers, no loop | 32.5M | 0.63× | 1.1638 | +0.031 |
+  | 6 layers, middle 4 twice (10 deep, equal compute) | 32.5M | 1.0× | 1.1497 | +0.017 |
+  | 10 layers, middle 8 twice (18 deep, equal parameters) | 50.7M | 1.73× | **1.1257** | **−0.007** |
+
+  At equal parameters looping wins a little; at equal compute it loses, as the literature says. Measured against the 6-layer and 10-layer points, two passes through the middle layers are worth 2^φ times their parameters with φ ≈ 0.49 for the small model (the literature gives 0.46) and only 0.21 for the large one, which at 300M tokens is already short of data. The same 73% of extra compute spent on more v0 tokens is worth about −0.032. Running more passes at inference than in training only hurts (1 / 2 / 3 / 4 passes: 1.354 / **1.126** / 1.151 / 1.192), since the model never saw another count; and the per-pass vectors ended up too small to matter (zeroing them costs 0.0004). **Not adopted.**
+- ✅ Goal met: a clear conclusion for each; neither changes v1.
 
 ### Stage 4: v3, data and distillation (M4) 🔄
 - Overtrain to 5–10B tokens, then anneal on high-quality data.
