@@ -6,6 +6,8 @@ The idea is to add one technique at a time and understand every part. Beating st
 **Main metric: validation bits-per-byte (val BPB).** It measures how well the model predicts held-out text. Lower is better.
 It does not depend on the vocabulary, but it does depend on the data, so compare runs only on the same validation set.
 
+**Data-flow page: <https://pancerzh.github.io/pinwheel-llm/>** walks through one training step, stage by stage, with tensors from real checkpoints of the runs below. Swap a part (AdamW ⇄ Muon, QK-Norm, looped layers, MTP, …) and the page moves to the run that changed it. It is built by `scripts/flow.py`.
+
 ## Quick start
 
 ```
@@ -150,3 +152,7 @@ scripts/stage2_preflight.py  Stage 2 batch-size sweep and WSD confirmation runne
 scripts/muon.sh              Stage 2e Muon check-up: 300M-token AdamW reference and Muon LR sweep
 scripts/decontam.py          mark val tokens found verbatim in a training file (for val_bpb_clean)
 ```
+
+## License
+
+Apache-2.0, see [LICENSE](LICENSE).
