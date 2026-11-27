@@ -16,7 +16,7 @@ i + k + 1 through the shared output head. forward(..., mtp=True) returns their l
 """
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 
 import torch
 import torch.nn as nn
@@ -201,11 +201,12 @@ class GPT(nn.Module):
                 else:
                     nn.init.normal_(p, std=0.02 / math.sqrt(2 * cfg.n_layer))
 
-    def forward(self, idx, targets=None, caches=None, reduction="mean", mtp=False):
+    def forward(self, idx, targets=None, caches=None, reduction="mean", mtp=False, n_loop=None):
         """Logits (B, T, V), or the cross-entropy loss when targets are given.
 
         With mtp=True, a list: the next-token loss, then the loss of each MTP module (module k scores
-        the T - k positions whose token i + k + 1 is still among the targets).
+        the T - k positions whose token i + k + 1 is still among the targets). n_loop runs fewer passes
+        through the loop than cfg.n_loop (training with a random number of passes).
         """
         T = idx.size(1)
         pos = caches[0].pos if caches else 0
@@ -215,7 +216,8 @@ class GPT(nn.Module):
         else:
             cos = sin = None
             x = x + self.pos_emb(torch.arange(pos, pos + T, device=idx.device))
-        for i, (b, loop) in enumerate(self.order):
+        order = self.order if n_loop is None else self.loop_order(n_loop)
+        for i, (b, loop) in enumerate(order):
             if loop is not None:
                 x = x + self.loop_emb[loop]
             x = self.blocks[b](x, cos, sin, caches[i] if caches else None)
@@ -234,19 +236,25 @@ class GPT(nn.Module):
     def _loss(logits, targets, reduction):
         return F.cross_entropy(logits.float().view(-1, logits.size(-1)), targets.reshape(-1), reduction=reduction)
 
+    def loop_order(self, n_loop):
+        if not 1 <= n_loop <= self.cfg.n_loop:
+            raise ValueError(f"n_loop must be between 1 and {self.cfg.n_loop}")
+        return layer_order(replace(self.cfg, n_loop=n_loop))
+
     def num_params(self):
         return sum(p.numel() for p in self.parameters())
 
-    def flops_per_token(self, seq_len):
+    def flops_per_token(self, seq_len, n_loop=None):
         """Training FLOPs per token: 6 per parameter (forward + backward) plus the attention scores.
 
         A looped block counts once per pass, and every MTP module uses the output head once more.
         """
         cfg = self.cfg
+        order = self.order if n_loop is None else self.loop_order(n_loop)
         block_params = [sum(p.numel() for p in block.parameters()) for block in self.blocks]
-        reused = sum(block_params[b] for b, _ in self.order) - sum(block_params)
+        reused = sum(block_params[b] for b, _ in order) - sum(block_params)
         matmul_params = self.num_params() + reused + cfg.mtp * cfg.vocab_size * cfg.d_model
-        return 6 * matmul_params + 12 * (len(self.order) + cfg.mtp) * cfg.d_model * seq_len
+        return 6 * matmul_params + 12 * (len(order) + cfg.mtp) * cfg.d_model * seq_len
 
     @torch.no_grad()
     def generate(self, idx, max_new_tokens, temperature=1.0, top_k=None, top_p=None, generator=None):

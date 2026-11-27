@@ -144,3 +144,20 @@ def test_mtp_residual_stream_stays_in_float32_under_autocast():
     with torch.autocast("cpu", dtype=torch.bfloat16):
         model(x, y, mtp=True)
     assert seen == [torch.float32]  # as in the trunk, where the stream starts as the fp32 embedding
+
+
+def test_n_loop_runs_fewer_passes_with_the_first_loop_embeddings():
+    torch.manual_seed(0)
+    model = GPT(LOOPED).eval()
+    with torch.no_grad():
+        model.loop_emb.normal_()
+    x = torch.randint(0, TINY.vocab_size, (2, 16))
+    torch.testing.assert_close(model(x, n_loop=3), model(x))
+    h = model.tok_emb(x)
+    cos, sin = model.cos[:16], model.sin[:16]
+    for b, loop in [(0, None), (1, 0), (2, None), (1, 1), (2, None), (3, None)]:  # two passes
+        if loop is not None:
+            h = h + model.loop_emb[loop]
+        h = model.blocks[b](h, cos, sin)
+    torch.testing.assert_close(model(x, n_loop=2), torch.nn.functional.linear(model.norm(h), model.tok_emb.weight))
+    assert model.flops_per_token(64, 2) < model.flops_per_token(64)

@@ -8,6 +8,7 @@ Writes runs/<run>/{config.json,log.jsonl,samples.md}, ckpt/<run>.pt and a line i
 import argparse
 import json
 import math
+import random
 import subprocess
 import time
 from dataclasses import asdict, dataclass, fields, replace
@@ -31,6 +32,7 @@ class TrainConfig:
     run: str = ""  # run name; defaults to a timestamp
     note: str = ""  # one line for results.tsv: what this run changes
     seed: int = 0
+    data_seed: int = -1  # seed of the training-window order; -1 uses seed (seed alone sets the init then)
     # model (the defaults are v0, about 50.7M parameters)
     n_layer: int = 10
     n_head: int = 10
@@ -46,6 +48,7 @@ class TrainConfig:
     n_loop: int = 1  # passes through the middle layers, which share their weights
     n_prelude: int = 1  # with n_loop > 1: layers before the loop, run once
     n_coda: int = 1  # with n_loop > 1: layers after the loop, run once
+    loop_min: int = 0  # > 0: every micro-batch runs a random number of passes in [loop_min, n_loop]; eval uses n_loop
     mtp: int = 0  # multi-token prediction modules, used only in training
     mtp_weight: float = 0.3  # weight of the mean MTP loss (DeepSeek-V3: 0.3, later 0.1)
     seq_len: int = 1024
@@ -177,7 +180,8 @@ def append_result(cfg, run, n_params, tokens, hours, val_bpb, val_bpb_clean, hel
 def main():
     cfg = parse_args()
     torch.manual_seed(cfg.seed)
-    np.random.seed(cfg.seed)
+    np.random.seed(cfg.seed if cfg.data_seed < 0 else cfg.data_seed)
+    loop_rng = random.Random(cfg.seed)  # its own generator, so the data order does not depend on loop_min
     torch.set_float32_matmul_precision("high")
     device = "cuda"
 
@@ -191,6 +195,9 @@ def main():
                      n_prelude=cfg.n_prelude, n_coda=cfg.n_coda, mtp=cfg.mtp)
     model = GPT(mcfg).to(device)
     n_params, flops_per_token = model.num_params(), model.flops_per_token(cfg.seq_len)
+    if cfg.loop_min:  # the mean over the pass counts drawn in training
+        loops = range(cfg.loop_min, cfg.n_loop + 1)
+        flops_per_token = sum(model.flops_per_token(cfg.seq_len, r) for r in loops) / len(loops)
 
     params = list(model.parameters())
     optimizers = make_optimizers(model, cfg)
@@ -253,14 +260,15 @@ def main():
         loss_sum, mtp_sum = torch.zeros((), device=device), torch.zeros((), device=device)
         for _ in range(accum):
             x, y = fixed or data.random_batch(cfg.micro_batch, cfg.seq_len, device)
+            loop = {"n_loop": loop_rng.randint(cfg.loop_min, cfg.n_loop)} if cfg.loop_min else {}
             with autocast:
                 if cfg.mtp:
-                    loss, *mtp_losses = train_model(x, y, mtp=True)
+                    loss, *mtp_losses = train_model(x, y, mtp=True, **loop)
                     mtp_loss = sum(mtp_losses) / cfg.mtp
                     total = loss + cfg.mtp_weight * mtp_loss
                     mtp_sum += mtp_loss.detach()
                 else:
-                    loss = total = train_model(x, y)
+                    loss = total = train_model(x, y, **loop)
             (total / accum).backward()
             loss_sum += loss.detach()  # the next-token loss alone, comparable with runs without MTP
         grad_norm = torch.nn.utils.clip_grad_norm_(params, cfg.grad_clip)
