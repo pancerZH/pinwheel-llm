@@ -188,6 +188,7 @@
     padding: 12px 14px; background: var(--card); border: 1px solid var(--grid);
     border-radius: 10px; margin-bottom: 12px; color: var(--ink); font-size: 14px; line-height: 1.6;
   }
+  .takeaway-box.rejected { border: 1px dashed var(--red); }
   .protocol-box {
     padding: 9px 12px; background: var(--blue-bg); border-radius: 8px; margin-bottom: 14px;
     font-size: 12.5px; color: #163d66; line-height: 1.55;
@@ -578,6 +579,7 @@
   html[data-skin="sephiroth"] .takeaway-box { border-color: #322b21; border-left: 2px solid #c9a66b; border-radius: 4px; }
   html[data-skin="sephiroth"] .takeaway-box.branch { border-left-color: #6b5d49; }
   html[data-skin="sephiroth"] .takeaway-box.root { border-left-color: #b196ce; }
+  html[data-skin="sephiroth"] .takeaway-box.rejected { border-left-color: #b56354; }
   html[data-skin="sephiroth"] .ref-summary-box { border-left-style: solid; border-radius: 4px; }
   html[data-skin="sephiroth"] .link-btn { text-decoration-color: rgba(216, 184, 124, 0.4); }
   html[data-skin="sephiroth"] .node-g.selected .node-rect { stroke-width: 2.6 !important; }
@@ -2876,7 +2878,7 @@ function renderOverviewTab(n) {
   const parts = [];
   const takeaway = nodeTakeaway(n);
   if (takeaway) {
-    const cls = n.status === "root" ? "root" : (n.status === "adopted" ? "" : "branch");
+    const cls = { root: "root", adopted: "", rejected: "rejected" }[n.status] ?? "branch";
     parts.push(`<div class="takeaway-box ${cls}">${esc(takeaway)}</div>`);
   }
   const protocol = nodeProtocol(n);
@@ -2914,7 +2916,7 @@ function renderOverviewTab(n) {
     </div>`);
     const rows = collectDescRuns(n.id).map(r => `
       <tr>
-        <td><button class="link-btn" data-jump="${esc(r.id)}">${esc(nodeLabel(r))}</button></td>
+        <td><button class="link-btn" data-jump="${esc(r.id)}">${esc(nodeLabel(r))}</button>${r.status === "rejected" ? ` <span class="badge badge-rejected">${L.badgeRejected}</span>` : ""}</td>
         <td>${fmtBpb(r.val_bpb)}</td>
         <td>${r.delta_bpb != null ? fmtDelta(r.delta_bpb) : "—"}</td>
       </tr>`).join("");
