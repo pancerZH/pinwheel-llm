@@ -261,9 +261,13 @@ def main():
             opt.load_state_dict(state)
         start, hours_before, resumed = resumed["step"], resumed["hours"], resumed["rng"]  # frees the weights
         print(f"resume {cfg.resume} (step {start}, tokens {start * cfg.batch_tokens})")
+    branch_rng = None
     if cfg.cooldown_from and not resumed:
         ckpt = torch.load(cfg.cooldown_from, map_location=device, weights_only=True)
         model.load_state_dict(ckpt["model"])
+        # A --ckpt_every checkpoint carries the RNG states: the cooldown then reads the data the run would
+        # have read next, as one run of that length would (unless data_seed asks for another order).
+        branch_rng = ckpt.get("rng") if cfg.data_seed < 0 else None
         if "optimizer" in ckpt:
             states = ckpt["optimizer"]
             for opt, state in zip(optimizers, [states] if isinstance(states, dict) else states, strict=True):
@@ -302,8 +306,8 @@ def main():
     t_start, val_bpb, val_bpb_clean = time.time(), float("nan"), None
     saved_stable = cfg.save_stable_at > 0 and start * cfg.batch_tokens >= cfg.save_stable_at
     ckpt_steps = round(cfg.ckpt_every / cfg.batch_tokens) if cfg.ckpt_every > 0 else 0
-    if resumed:
-        set_rng_state(resumed, loop_rng)  # last, so nothing above moves the data order
+    if resumed or branch_rng:
+        set_rng_state(resumed or branch_rng, loop_rng)  # last, so nothing above moves the data order
     for step in range(start, max_steps + 1):
         last = step == max_steps
         if (step > start or not resumed) and (step % cfg.eval_every == 0 or last):  # else logged before the stop
