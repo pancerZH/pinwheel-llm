@@ -42,6 +42,12 @@ class TrainConfig:
     qk_norm: bool = True  # RMSNorm on every head's queries and keys
     zero_init: bool = True  # wo and w_down start at 0
     emb_std: float = 0.002  # init std of the tied embedding (0.02 before); with zero_init, 0.02 makes the model copy its input at step 0
+    # stage 3 (see pinwheel/model.py)
+    n_loop: int = 1  # passes through the middle layers, which share their weights
+    n_prelude: int = 1  # with n_loop > 1: layers before the loop, run once
+    n_coda: int = 1  # with n_loop > 1: layers after the loop, run once
+    mtp: int = 0  # multi-token prediction modules, used only in training
+    mtp_weight: float = 0.3  # weight of the mean MTP loss (DeepSeek-V3: 0.3, later 0.1)
     seq_len: int = 1024
     # optimization
     max_tokens: float = 1e9
@@ -108,7 +114,7 @@ def make_optimizers(model, cfg):
     if cfg.optimizer not in ("adamw", "muon"):
         raise ValueError(f"unknown optimizer: {cfg.optimizer}")
     muon = [p for n, p in model.named_parameters()
-            if cfg.optimizer == "muon" and n.startswith("blocks.") and p.dim() == 2]
+            if cfg.optimizer == "muon" and n.startswith(("blocks.", "mtp.")) and p.dim() == 2]
     rest = [p for p in model.parameters() if all(p is not q for q in muon)]
     optimizers = [torch.optim.AdamW(
         [{"params": [p for p in rest if p.dim() >= 2], "weight_decay": cfg.weight_decay},
@@ -181,7 +187,8 @@ def main():
     mcfg = GPTConfig(vocab_size=tok.get_vocab_size(), n_layer=cfg.n_layer, n_head=cfg.n_head,
                      n_kv_head=cfg.n_kv_head, d_model=cfg.d_model, d_ff=cfg.d_ff,
                      max_seq_len=cfg.seq_len, arch=cfg.arch, qk_norm=cfg.qk_norm,
-                     zero_init=cfg.zero_init, emb_std=cfg.emb_std)
+                     zero_init=cfg.zero_init, emb_std=cfg.emb_std, n_loop=cfg.n_loop,
+                     n_prelude=cfg.n_prelude, n_coda=cfg.n_coda, mtp=cfg.mtp)
     model = GPT(mcfg).to(device)
     n_params, flops_per_token = model.num_params(), model.flops_per_token(cfg.seq_len)
 
@@ -243,13 +250,19 @@ def main():
         if step % cfg.log_every == 0:
             torch.cuda.synchronize()  # the CPU runs ahead of the GPU: drain earlier steps so only this one is timed
         t0 = time.time()
-        loss_sum = torch.zeros((), device=device)
+        loss_sum, mtp_sum = torch.zeros((), device=device), torch.zeros((), device=device)
         for _ in range(accum):
             x, y = fixed or data.random_batch(cfg.micro_batch, cfg.seq_len, device)
             with autocast:
-                loss = train_model(x, y)
-            (loss / accum).backward()
-            loss_sum += loss.detach()
+                if cfg.mtp:
+                    loss, *mtp_losses = train_model(x, y, mtp=True)
+                    mtp_loss = sum(mtp_losses) / cfg.mtp
+                    total = loss + cfg.mtp_weight * mtp_loss
+                    mtp_sum += mtp_loss.detach()
+                else:
+                    loss = total = train_model(x, y)
+            (total / accum).backward()
+            loss_sum += loss.detach()  # the next-token loss alone, comparable with runs without MTP
         grad_norm = torch.nn.utils.clip_grad_norm_(params, cfg.grad_clip)
         for opt in optimizers:
             opt.step()
@@ -269,7 +282,8 @@ def main():
         if step % cfg.log_every == 0:
             torch.cuda.synchronize()
             tok_per_s = cfg.batch_tokens / (time.time() - t0)
-            record(step=step, tokens=(step + 1) * cfg.batch_tokens, loss=(loss_sum / accum).item(),
+            extra = {"mtp_loss": (mtp_sum / accum).item()} if cfg.mtp else {}
+            record(step=step, tokens=(step + 1) * cfg.batch_tokens, loss=(loss_sum / accum).item(), **extra,
                    lr=lr, grad_norm=grad_norm.item(), tok_per_s=round(tok_per_s),
                    mfu=tok_per_s * flops_per_token / (cfg.peak_tflops * 1e12))
 

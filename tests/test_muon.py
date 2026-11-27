@@ -51,3 +51,12 @@ def test_make_optimizers_puts_block_matrices_on_muon():
 
     (only_adamw,) = make_optimizers(model, TrainConfig(optimizer="adamw"))
     assert sum(len(g["params"]) for g in only_adamw.param_groups) == len(names)
+
+
+def test_muon_also_takes_the_matrices_of_the_mtp_modules():
+    model = GPT(GPTConfig(vocab_size=512, n_layer=2, n_head=4, n_kv_head=2, d_model=64, d_ff=128, mtp=1))
+    adamw, muon = make_optimizers(model, TrainConfig(optimizer="muon"))
+    on_muon = {id(p) for group in muon.param_groups for p in group["params"]}
+    names = {n for n, p in model.named_parameters() if id(p) in on_muon}
+    assert {"mtp.0.proj.weight", "mtp.0.block.attn.wq.weight", "blocks.0.mlp.w_up.weight"} <= names
+    assert not any("norm" in n or n == "tok_emb.weight" for n in names)

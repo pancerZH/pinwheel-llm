@@ -79,3 +79,58 @@ def test_zero_init_makes_every_block_the_identity():
 def test_emb_std_sets_the_embedding_scale():
     model = GPT(GPTConfig(**{**TINY.__dict__, "emb_std": 0.002}))
     assert abs(model.tok_emb.weight.std().item() - 0.002) < 0.0002
+
+
+LOOPED = GPTConfig(**{**TINY.__dict__, "n_layer": 4, "n_loop": 3})  # block 0, blocks 1-2 three times, block 3
+
+
+def test_loop_reruns_the_middle_blocks_with_one_embedding_per_pass():
+    model = GPT(LOOPED)
+    assert [b for b, _ in model.order] == [0, 1, 2, 1, 2, 1, 2, 3]
+    assert [loop for _, loop in model.order] == [None, 0, None, 1, None, 2, None, None]
+    plain = GPT(GPTConfig(**{**TINY.__dict__, "n_layer": 4}))
+    d = TINY.d_model
+    assert model.num_params() == plain.num_params() + 3 * d  # shared weights, plus the loop embedding
+    block = sum(p.numel() for p in plain.blocks[0].parameters())
+    # 4 more block passes, each with its matmuls and attention scores
+    assert model.flops_per_token(64) - plain.flops_per_token(64) == 6 * (4 * block + 3 * d) + 12 * 4 * d * 64
+
+
+def test_looped_kv_cache_matches_full_forward():
+    torch.manual_seed(0)
+    model = GPT(LOOPED).eval()
+    with torch.no_grad():
+        model.loop_emb.normal_()  # 0 at init, which would hide a mix-up between passes
+    x = torch.randint(0, TINY.vocab_size, (2, 16))
+    caches = [KVCache(16) for _ in model.order]
+    steps = [model(x[:, :8], caches=caches)]
+    steps += [model(x[:, t : t + 1], caches=caches) for t in range(8, 16)]
+    torch.testing.assert_close(torch.cat(steps, dim=1), model(x), atol=1e-5, rtol=1e-4)
+
+
+MTP2 = GPTConfig(**{**TINY.__dict__, "mtp": 2})
+
+
+def test_mtp_adds_one_loss_per_module_and_leaves_the_next_token_loss_alone():
+    torch.manual_seed(0)
+    model = GPT(MTP2)
+    x, y = torch.randint(0, TINY.vocab_size, (2, 2, 16))
+    losses = model(x, y, mtp=True)
+    assert len(losses) == 3
+    torch.testing.assert_close(losses[0], model(x, y))
+    assert [loss.numel() for loss in model(x, y, mtp=True, reduction="none")] == [32, 30, 28]
+
+
+def test_mtp_module_k_reads_tokens_up_to_i_plus_k_only():
+    torch.manual_seed(0)
+    model = GPT(MTP2).eval()
+    seq = torch.randint(0, TINY.vocab_size, (1, 17))
+    p = 10  # change token 10
+    changed = seq.clone()
+    changed[0, p] = (seq[0, p] + 1) % TINY.vocab_size
+    before = model(seq[:, :-1], seq[:, 1:], mtp=True, reduction="none")
+    after = model(changed[:, :-1], changed[:, 1:], mtp=True, reduction="none")
+    for k, (a, b) in enumerate(zip(before, after)):  # k = 0 is the next-token head
+        i = p - k - 1  # the first position whose target is token 10
+        torch.testing.assert_close(a[:i], b[:i])
+        assert not torch.allclose(a[i], b[i])
