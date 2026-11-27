@@ -2797,8 +2797,10 @@ function renderDrawer() {
   else if (n.status === "root") badges.push(`<span class="badge badge-root">${L.badgeRoot}</span>`);
   else if (n.is_head) badges.push(`<span class="badge badge-adopted">${L.badgeHead}</span>`);
   else if (n.status === "adopted") badges.push(`<span class="badge badge-adopted">${L.badgeAdopted}</span>`);
-  else if (n.is_group) badges.push(`<span class="badge badge-group">${L.badgeGroup}</span>`);
-  else if (n.status === "rejected") badges.push(`<span class="badge badge-rejected">${L.badgeRejected}</span>`);
+  else if (n.is_group) {
+    badges.push(`<span class="badge badge-group">${L.badgeGroup}</span>`);
+    if (n.status === "rejected") badges.push(`<span class="badge badge-rejected">${L.badgeRejected}</span>`);
+  } else if (n.status === "rejected") badges.push(`<span class="badge badge-rejected">${L.badgeRejected}</span>`);
   else badges.push(`<span class="badge badge-branch">${L.badgeBranch}</span>`);
   const ms = nodeMilestone(n);
   if (ms) badges.push(`<span class="badge badge-milestone">★ ${esc(ms)}</span>`);

@@ -637,7 +637,8 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
                 }
             )
 
-    # Summarize group nodes (descendant run count + best val_bpb).
+    # Summarize group nodes (descendant run count + best val_bpb); a group whose runs are all
+    # rejected is shown as rejected itself.
     def collect_descendant_runs(nid: str) -> list[dict]:
         out = []
         for cid in nodes[nid]["children"]:
@@ -651,7 +652,9 @@ def build_tree_payload(runs_dir: Path, ckpt_dir: Path, spec_path: Path) -> dict:
         if not node["is_group"]:
             continue
         desc = collect_descendant_runs(nid)
-        valid = [d for d in desc if d["val_bpb"] is not None and not d["is_placeholder"]]
+        if desc and all(d["status"] == "rejected" for d in desc):
+            node["status"] = "rejected"
+        valid =[d for d in desc if d["val_bpb"] is not None and not d["is_placeholder"]]
         best = min(valid, key=lambda d: d["val_bpb"]) if valid else None
         node["group_stats"] = {
             "count": len(desc),

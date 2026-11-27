@@ -442,3 +442,25 @@ def test_target_node_scores_from_bench_and_tracks_closest_run(tmp_path):
     assert [r["task"] for r in target["paired_bench"]] == ["hellaswag"]
     assert payload["meta"]["total_runs"] == 2
     assert [c["id"] for c in payload["nodes"]["best"]["compared_by"]] == ["gpt2-124m"]
+
+
+def test_group_of_only_rejected_runs_is_rejected(tmp_path):
+    runs_dir = tmp_path / "runs"
+    ckpt_dir = tmp_path / "ckpt"
+    runs_dir.mkdir()
+    for rid in ("root", "a", "b", "c", "d"):
+        _write_run(runs_dir, ckpt_dir, rid)
+    spec = tmp_path / "tree.toml"
+    spec.write_text(
+        '[nodes."root"]\nstatus = "root"\n'
+        '[nodes."grp-dead"]\nparent = "root"\nstatus = "group"\n'
+        '[nodes."a"]\nparent = "grp-dead"\nstatus = "rejected"\n'
+        '[nodes."b"]\nparent = "grp-dead"\nstatus = "rejected"\n'
+        '[nodes."grp-mixed"]\nparent = "root"\nstatus = "group"\n'
+        '[nodes."c"]\nparent = "grp-mixed"\nstatus = "rejected"\n'
+        '[nodes."d"]\nparent = "grp-mixed"\nstatus = "branch"\n',
+        encoding="utf-8",
+    )
+    nodes = tree_mod.build_tree_payload(runs_dir, ckpt_dir, spec)["nodes"]
+    assert nodes["grp-dead"]["status"] == "rejected" and nodes["grp-dead"]["is_group"]
+    assert nodes["grp-mixed"]["status"] == "group"
