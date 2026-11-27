@@ -134,3 +134,13 @@ def test_mtp_module_k_reads_tokens_up_to_i_plus_k_only():
         i = p - k - 1  # the first position whose target is token 10
         torch.testing.assert_close(a[:i], b[:i])
         assert not torch.allclose(a[i], b[i])
+
+
+def test_mtp_residual_stream_stays_in_float32_under_autocast():
+    model = GPT(GPTConfig(**{**TINY.__dict__, "mtp": 1}))
+    seen = []
+    model.mtp[0].block.attn_norm.register_forward_hook(lambda m, args, out: seen.append(args[0].dtype))
+    x, y = torch.randint(0, TINY.vocab_size, (2, 2, 16))
+    with torch.autocast("cpu", dtype=torch.bfloat16):
+        model(x, y, mtp=True)
+    assert seen == [torch.float32]  # as in the trunk, where the stream starts as the fp32 embedding

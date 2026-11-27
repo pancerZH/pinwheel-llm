@@ -154,7 +154,9 @@ class MTP(nn.Module):
 
     def forward(self, h, e, cos, sin):
         """h: hidden states at positions i, e: embeddings of tokens i + k; returns new hidden states."""
-        return self.block(self.proj(torch.cat([self.h_norm(h), self.e_norm(e)], dim=-1)), cos, sin)
+        x = self.proj(torch.cat([self.h_norm(h), self.e_norm(e)], dim=-1))
+        # Under autocast proj returns bf16; keep this residual stream in h's dtype (fp32), like the trunk's.
+        return self.block(x.to(h.dtype), cos, sin)
 
 
 def layer_order(cfg):
