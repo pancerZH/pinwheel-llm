@@ -8,6 +8,8 @@ It does not depend on the vocabulary, but it does depend on the data, so compare
 
 **Data-flow page: <https://pancerzh.github.io/pinwheel-llm/>** walks through one training step, stage by stage, with tensors from real checkpoints of the runs below. Swap a part (AdamW ⇄ Muon, QK-Norm, looped layers, MTP, …) and the page moves to the run that changed it. It is built by `scripts/flow.py`.
 
+**Experiment tree: <https://pancerzh.github.io/pinwheel-llm/tree/>** shows every run as a node: the change it tested, its val BPB against the run it branched from, and what was concluded. It is built by `scripts/tree.py`.
+
 ## Quick start
 
 ```
