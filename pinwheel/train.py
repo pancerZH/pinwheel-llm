@@ -10,7 +10,7 @@ import json
 import math
 import subprocess
 import time
-from dataclasses import asdict, dataclass, fields
+from dataclasses import asdict, dataclass, fields, replace
 from pathlib import Path
 
 import numpy as np
@@ -56,6 +56,9 @@ class TrainConfig:
     cooldown_frac: float = 0.2  # WSD: fraction of steps spent in cooldown
     save_stable_at: float = 0.0  # optional token count to save ckpt/<run>-stable.pt (with optimizer)
     cooldown_from: str = ""  # load model + optimizer from a stable ckpt and run a pure cooldown
+    # Weight averages kept over the last cooldown_frac of the steps (stage 2f), comma-separated: EMA decays
+    # such as 0.998, or "uniform" for a plain mean. Each is scored and saved as ckpt/<run>-<name>.pt.
+    tail_avg: str = ""
     weight_decay: float = 0.1
     grad_clip: float = 1.0
     compile: bool = True
@@ -119,6 +122,22 @@ def make_optimizers(model, cfg):
     return optimizers
 
 
+def tail_averages(spec):
+    """'0.99,uniform' -> {"ema0.99": 0.99, "uniform": None}: an EMA decay, or None for a plain mean."""
+    names = [s.strip() for s in spec.split(",") if s.strip()]
+    return {("uniform" if s == "uniform" else f"ema{s}"): (None if s == "uniform" else float(s)) for s in names}
+
+
+@torch.no_grad()
+def update_averages(averages, params, n):
+    """Fold the current weights into every average; n counts the weights folded in so far, these included."""
+    for decay, avg in averages.values():
+        if n == 1:
+            torch._foreach_copy_(avg, params)
+        else:
+            torch._foreach_lerp_(avg, params, 1.0 / n if decay is None else 1.0 - decay)
+
+
 def git_sha():
     def git(*args):
         return subprocess.run(["git", *args], capture_output=True, text=True).stdout.strip()
@@ -177,10 +196,13 @@ def main():
                 opt.load_state_dict(state)
         print(f"cooldown_from {cfg.cooldown_from} (step {ckpt.get('step', '?')}, tokens {ckpt.get('tokens', '?')})")
     train_model = torch.compile(model) if cfg.compile else model
+    averages = {name: (decay, [torch.empty_like(p) for p in params])
+                for name, decay in tail_averages(cfg.tail_avg).items()}
 
     accum, rest = divmod(cfg.batch_tokens, cfg.micro_batch * cfg.seq_len)
     assert accum > 0 and rest == 0, "batch_tokens must be a multiple of micro_batch * seq_len"
     max_steps = int(cfg.max_tokens // cfg.batch_tokens)
+    tail_start = 0 if cfg.cooldown_from else int(max_steps * (1 - cfg.cooldown_frac))
 
     run = cfg.run or time.strftime("%Y%m%d-%H%M%S")
     out = Path("runs") / run
@@ -232,6 +254,8 @@ def main():
         for opt in optimizers:
             opt.step()
             opt.zero_grad(set_to_none=True)
+        if averages and step >= tail_start:
+            update_averages(averages, params, step - tail_start + 1)
         done_tokens = (step + 1) * cfg.batch_tokens
         if not saved_stable and cfg.save_stable_at > 0 and done_tokens >= cfg.save_stable_at:
             Path("ckpt").mkdir(exist_ok=True)
@@ -257,6 +281,22 @@ def main():
     append_bench_row(run, bench)
     hellaswag = bench["hellaswag"]["acc_norm"]
     append_result(cfg, run, n_params, max_steps * cfg.batch_tokens, hours, val_bpb, val_bpb_clean, hellaswag)
+    for name, (_, avg) in averages.items():  # score each average in place of the final weights
+        avg_run = f"{run}-{name}"
+        with torch.no_grad():
+            torch._foreach_copy_(params, avg)
+        with autocast:
+            bpb, bpb_clean = evaluate_bpb(train_model, data, token_bytes, cfg.micro_batch, cfg.seq_len,
+                                          cfg.eval_tokens)
+        torch.save({"model": model.state_dict(), "model_config": asdict(mcfg),
+                    "train_config": asdict(replace(cfg, run=avg_run)), "step": max_steps},
+                   Path("ckpt") / f"{avg_run}.pt")
+        avg_bench = run_benchmarks(model, tok, save_items_path=Path("runs/bench") / f"{avg_run}.npz")
+        append_bench_row(avg_run, avg_bench)
+        note = "; ".join(filter(None, [cfg.note, f"tail average {name} of {run}"]))
+        append_result(replace(cfg, note=note), avg_run, n_params,
+                      max_steps * cfg.batch_tokens, hours, bpb, bpb_clean, avg_bench["hellaswag"]["acc_norm"])
+        print(f"tail average {name}: val_bpb {bpb:.4f} ({bpb - val_bpb:+.4f} vs the final weights)")
     print(f"done in {hours:.2f} h, val_bpb {val_bpb:.4f}, hellaswag {hellaswag:.4f}")
 
 
