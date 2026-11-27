@@ -32,7 +32,7 @@ from tree import _serve_single_file  # scripts/ is on sys.path when this file ru
 
 # The page starts on the first run that exists; "-stable" names a stable checkpoint of a run.
 RUNS = (
-    "2e-muon-1b", "2b-wsd-lr2e-3", "2b-wsd-1b", "2b-wsd-1b-stable", "2b-wsd-lr2.8e-3",
+    "2e-stack-1b", "2e-muon-1b", "2b-wsd-lr2e-3", "2b-wsd-1b", "2b-wsd-1b-stable", "2b-wsd-lr2.8e-3",
     "2a-bs128k-lr1.4e-3", "2a-bs256k-lr2e-3", "1e-v0-lr2e-3",
     "2c-gpt2-vanilla", "2c-gpt2-vanilla-old",
     "2e-adamw-300m", "2e-muon-lr1e-3-300m", "2e-muon-lr2e-3-300m", "2e-muon-lr4e-3-300m",
@@ -334,6 +334,9 @@ def build_payload(args) -> dict:
         t, m = configs[run]["train"], configs[run]["model"]
         rest = {k: t.get(k) for k in ("warmup_steps", "cooldown_frac", "min_lr_frac", "weight_decay")}
         rest.update({k: m.get(k) for k in ("n_layer", "d_model", "n_kv_head", "d_ff", "vocab_size")})
+        # configs older than these fields ran at their defaults
+        rest.update(emb_std=m.get("emb_std") or 0.02, n_loop=m.get("n_loop") or 1, mtp=m.get("mtp") or 0,
+                    init_from=t.get("init_from") or "")
         return json.dumps([run_recipe(run), rest], sort_keys=True)
 
     seeds = {}  # seed_key -> [(run, seed, val_bpb, date)] over every finished run
