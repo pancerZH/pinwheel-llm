@@ -66,6 +66,11 @@ class TrainConfig:
     save_stable_at: float = 0.0  # optional token count to save ckpt/<run>-stable.pt (with optimizer)
     cooldown_from: str = ""  # load model + optimizer from a stable ckpt and run a pure cooldown
     init_from: str = ""  # start from a ckpt's weights (fresh optimizer, usual schedule); new loop_emb / mtp stay at init
+    # Every ckpt_every tokens, save ckpt/<run>-<tokens>M.pt with everything needed to go on: weights, optimizer,
+    # step, RNG states (so the data order continues as if never stopped). resume continues the run from one,
+    # with the same flags; these checkpoints also serve as cooldown_from branch points.
+    ckpt_every: float = 0.0
+    resume: str = ""
     # Weight averages kept over the last cooldown_frac of the steps (stage 2f), comma-separated: EMA decays
     # such as 0.998, or "uniform" for a plain mean. Each is scored and saved as ckpt/<run>-<name>.pt.
     tail_avg: str = ""
@@ -158,6 +163,35 @@ def load_weights(model, path):
     return new
 
 
+def rng_state(loop_rng):
+    np_state = np.random.get_state()
+    return {"numpy": (np_state[0], np_state[1].tolist(), *np_state[2:]), "torch": torch.get_rng_state(),
+            "cuda": torch.cuda.get_rng_state(), "loop": loop_rng.getstate()}
+
+
+def set_rng_state(state, loop_rng):
+    name, keys, *rest = state["numpy"]
+    np.random.set_state((name, np.array(keys, dtype=np.uint32), *rest))
+    torch.set_rng_state(state["torch"].cpu())  # torch.load's map_location moves them to the GPU
+    torch.cuda.set_rng_state(state["cuda"].cpu())
+    loop_rng.setstate(state["loop"])
+
+
+def trim_logs(out, step):
+    """Drop what a stopped run wrote after its checkpoint at `step`: the evals and samples of later
+    steps, and the training lines from `step` on (the checkpoint is taken before that step trains)."""
+    log = out / "log.jsonl"
+    if log.exists():
+        keep = [line for line in log.read_text().splitlines()
+                if (r := json.loads(line))["step"] < step or (r["step"] == step and "val_bpb" in r)]
+        log.write_text("".join(line + "\n" for line in keep))
+    samples = out / "samples.md"
+    if samples.exists():
+        parts = samples.read_text().split("## step ")
+        keep = [p for p in parts[1:] if int(p.split("\n", 1)[0]) <= step]
+        samples.write_text(parts[0] + "".join("## step " + p for p in keep))
+
+
 def git_sha():
     def git(*args):
         return subprocess.run(["git", *args], capture_output=True, text=True).stdout.strip()
@@ -216,7 +250,18 @@ def main():
         print(f"init_from {cfg.init_from}" + (f" (new: {', '.join(new)})" if new else ""))
     params = list(model.parameters())
     optimizers = make_optimizers(model, cfg)
-    if cfg.cooldown_from:
+    start, hours_before, resumed = 0, 0.0, None
+    if cfg.resume:
+        assert not cfg.tail_avg, "resume does not keep the tail averages"
+        resumed = torch.load(cfg.resume, map_location=device, weights_only=True)
+        if replace(TrainConfig(**resumed["train_config"]), resume="") != replace(cfg, resume=""):
+            raise ValueError(f"{cfg.resume} was saved with other flags: resume with the same ones")
+        model.load_state_dict(resumed["model"])
+        for opt, state in zip(optimizers, resumed["optimizer"], strict=True):
+            opt.load_state_dict(state)
+        start, hours_before, resumed = resumed["step"], resumed["hours"], resumed["rng"]  # frees the weights
+        print(f"resume {cfg.resume} (step {start}, tokens {start * cfg.batch_tokens})")
+    if cfg.cooldown_from and not resumed:
         ckpt = torch.load(cfg.cooldown_from, map_location=device, weights_only=True)
         model.load_state_dict(ckpt["model"])
         if "optimizer" in ckpt:
@@ -235,9 +280,13 @@ def main():
 
     run = cfg.run or time.strftime("%Y%m%d-%H%M%S")
     out = Path("runs") / run
-    out.mkdir(parents=True, exist_ok=False)
-    (out / "config.json").write_text(json.dumps(
-        {"train": asdict(cfg), "model": asdict(mcfg), "params": n_params, "git": git_sha()}, indent=2))
+    if resumed:
+        out.mkdir(parents=True, exist_ok=True)
+        trim_logs(out, start)
+    else:
+        out.mkdir(parents=True, exist_ok=False)
+        (out / "config.json").write_text(json.dumps(
+            {"train": asdict(cfg), "model": asdict(mcfg), "params": n_params, "git": git_sha()}, indent=2))
     log = open(out / "log.jsonl", "a")
     prompts = Path("prompts.txt").read_text().splitlines()
     autocast = torch.autocast("cuda", dtype=torch.bfloat16)
@@ -250,20 +299,33 @@ def main():
         print("  ".join(f"{k} {v:.4g}" if isinstance(v, float) else f"{k} {v}" for k, v in r.items()))
 
     fixed = data.random_batch(cfg.micro_batch, cfg.seq_len, device) if cfg.overfit_batch else None
-    t_start, val_bpb, val_bpb_clean, saved_stable = time.time(), float("nan"), None, False
-    for step in range(max_steps + 1):
+    t_start, val_bpb, val_bpb_clean = time.time(), float("nan"), None
+    saved_stable = cfg.save_stable_at > 0 and start * cfg.batch_tokens >= cfg.save_stable_at
+    ckpt_steps = round(cfg.ckpt_every / cfg.batch_tokens) if cfg.ckpt_every > 0 else 0
+    if resumed:
+        set_rng_state(resumed, loop_rng)  # last, so nothing above moves the data order
+    for step in range(start, max_steps + 1):
         last = step == max_steps
-        if step % cfg.eval_every == 0 or last:
+        if (step > start or not resumed) and (step % cfg.eval_every == 0 or last):  # else logged before the stop
             with autocast:
                 val_bpb, val_bpb_clean = evaluate_bpb(train_model, data, token_bytes, cfg.micro_batch,
                                                       cfg.seq_len, cfg.eval_tokens)
             clean = {} if val_bpb_clean is None else {"val_bpb_clean": val_bpb_clean}
             record(step=step, tokens=step * cfg.batch_tokens, val_bpb=val_bpb, **clean)
-        if (step > 0 and step % cfg.sample_every == 0) or last:
+        if step > start and ((step % cfg.sample_every == 0) or last):
             with autocast:
                 write_samples(out / "samples.md", step, model, tok, prompts)
         if last:
             break
+        if ckpt_steps and step > start and step % ckpt_steps == 0:
+            Path("ckpt").mkdir(exist_ok=True)
+            path = Path("ckpt") / f"{run}-{step * cfg.batch_tokens / 1e6:.0f}M.pt"
+            torch.save({"model": model.state_dict(), "optimizer": [opt.state_dict() for opt in optimizers],
+                        "model_config": asdict(mcfg), "train_config": asdict(cfg), "step": step,
+                        "tokens": step * cfg.batch_tokens, "rng": rng_state(loop_rng),
+                        "hours": hours_before + (time.time() - t_start) / 3600}, path.with_suffix(".tmp"))
+            path.with_suffix(".tmp").rename(path)  # a crash mid-save leaves the last good checkpoint alone
+            print(f"saved {path}")
 
         lr = lr_at(step, cfg, max_steps)
         for opt in optimizers:
@@ -310,7 +372,7 @@ def main():
                    lr=lr, grad_norm=grad_norm.item(), tok_per_s=round(tok_per_s),
                    mfu=tok_per_s * flops_per_token / (cfg.peak_tflops * 1e12))
 
-    hours = (time.time() - t_start) / 3600
+    hours = hours_before + (time.time() - t_start) / 3600
     Path("ckpt").mkdir(exist_ok=True)
     torch.save({"model": model.state_dict(), "model_config": asdict(mcfg),
                 "train_config": asdict(cfg), "step": max_steps}, Path("ckpt") / f"{run}.pt")
