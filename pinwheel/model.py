@@ -183,23 +183,28 @@ class GPT(nn.Module):
         self.blocks = nn.ModuleList(Block(cfg) for _ in range(cfg.n_layer))
         self.norm = make_norm(cfg)
         self.loop_emb = nn.Parameter(torch.zeros(cfg.n_loop, cfg.d_model)) if cfg.n_loop > 1 else None
-        self.mtp = nn.ModuleList(MTP(cfg) for _ in range(cfg.mtp))  # created last: v0's init draws stay the same
+        with torch.random.fork_rng(devices=[]):  # their default init would move the trunk's draws
+            self.mtp = nn.ModuleList(MTP(cfg) for _ in range(cfg.mtp))
         cos, sin = rope_tables(cfg.d_model // cfg.n_head, cfg.max_seq_len, cfg.rope_base)
         self.register_buffer("cos", cos, persistent=False)
         self.register_buffer("sin", sin, persistent=False)
 
-        for m in self.modules():
-            if isinstance(m, (nn.Linear, nn.Embedding)):
-                nn.init.normal_(m.weight, std=0.02)
-        nn.init.normal_(self.tok_emb.weight, std=cfg.emb_std)
-        # Projections that write into the residual stream start smaller, so its variance
-        # does not grow with depth; with zero_init they start at 0.
-        for name, p in self.named_parameters():
-            if name.endswith(("wo.weight", "w_down.weight")):
-                if cfg.zero_init:
-                    nn.init.zeros_(p)
-                else:
-                    nn.init.normal_(p, std=0.02 / math.sqrt(2 * cfg.n_layer))
+        # The trunk draws first and the MTP modules after it, so with the same seed the trunk
+        # starts from the same weights with or without them (the stage 3a MTP runs predate this and did not).
+        for mtp_part in (False, True):
+            for name, m in self.named_modules():
+                if name.startswith("mtp.") == mtp_part and isinstance(m, (nn.Linear, nn.Embedding)):
+                    nn.init.normal_(m.weight, std=0.02)
+            if not mtp_part:
+                nn.init.normal_(self.tok_emb.weight, std=cfg.emb_std)
+            # Projections that write into the residual stream start smaller, so its variance
+            # does not grow with depth; with zero_init they start at 0.
+            for name, p in self.named_parameters():
+                if name.startswith("mtp.") == mtp_part and name.endswith(("wo.weight", "w_down.weight")):
+                    if cfg.zero_init:
+                        nn.init.zeros_(p)
+                    else:
+                        nn.init.normal_(p, std=0.02 / math.sqrt(2 * cfg.n_layer))
 
     def forward(self, idx, targets=None, caches=None, reduction="mean", mtp=False, n_loop=None):
         """Logits (B, T, V), or the cross-entropy loss when targets are given.

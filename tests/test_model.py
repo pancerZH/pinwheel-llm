@@ -121,6 +121,19 @@ def test_mtp_adds_one_loss_per_module_and_leaves_the_next_token_loss_alone():
     assert [loss.numel() for loss in model(x, y, mtp=True, reduction="none")] == [32, 30, 28]
 
 
+def test_mtp_modules_leave_the_trunk_init_unchanged():
+    for zero_init in (False, True):
+        cfg = GPTConfig(**{**TINY.__dict__, "zero_init": zero_init})
+        torch.manual_seed(0)
+        plain = GPT(cfg).state_dict()
+        torch.manual_seed(0)
+        with_mtp = GPT(GPTConfig(**{**cfg.__dict__, "mtp": 2}))
+        for name, value in plain.items():
+            assert torch.equal(with_mtp.state_dict()[name], value), name
+        proj = [m.proj.weight for m in with_mtp.mtp]
+        assert abs(proj[0].std().item() - 0.02) < 0.002 and not torch.equal(proj[0], proj[1])
+
+
 def test_mtp_module_k_reads_tokens_up_to_i_plus_k_only():
     torch.manual_seed(0)
     model = GPT(MTP2).eval()
