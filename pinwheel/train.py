@@ -65,6 +65,7 @@ class TrainConfig:
     cooldown_frac: float = 0.2  # WSD: fraction of steps spent in cooldown
     save_stable_at: float = 0.0  # optional token count to save ckpt/<run>-stable.pt (with optimizer)
     cooldown_from: str = ""  # load model + optimizer from a stable ckpt and run a pure cooldown
+    init_from: str = ""  # start from a ckpt's weights (fresh optimizer, usual schedule); new loop_emb / mtp stay at init
     # Weight averages kept over the last cooldown_frac of the steps (stage 2f), comma-separated: EMA decays
     # such as 0.998, or "uniform" for a plain mean. Each is scored and saved as ckpt/<run>-<name>.pt.
     tail_avg: str = ""
@@ -147,6 +148,16 @@ def update_averages(averages, params, n):
             torch._foreach_lerp_(avg, params, 1.0 / n if decay is None else 1.0 - decay)
 
 
+def load_weights(model, path):
+    """Load a checkpoint's weights into model; only parameters the checkpoint predates may be missing."""
+    state = torch.load(path, map_location=next(model.parameters()).device, weights_only=True)["model"]
+    missing, unexpected = model.load_state_dict(state, strict=False)
+    new = [k for k in missing if k == "loop_emb" or k.startswith("mtp.")]
+    if unexpected or len(new) < len(missing):
+        raise ValueError(f"{path} does not fit this model: missing {missing}, unexpected {unexpected}")
+    return new
+
+
 def git_sha():
     def git(*args):
         return subprocess.run(["git", *args], capture_output=True, text=True).stdout.strip()
@@ -199,6 +210,10 @@ def main():
         loops = range(cfg.loop_min, cfg.n_loop + 1)
         flops_per_token = sum(model.flops_per_token(cfg.seq_len, r) for r in loops) / len(loops)
 
+    if cfg.init_from:
+        assert not cfg.cooldown_from, "init_from and cooldown_from do not combine"
+        new = load_weights(model, cfg.init_from)
+        print(f"init_from {cfg.init_from}" + (f" (new: {', '.join(new)})" if new else ""))
     params = list(model.parameters())
     optimizers = make_optimizers(model, cfg)
     if cfg.cooldown_from:
