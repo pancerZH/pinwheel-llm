@@ -4,8 +4,9 @@
     uv run python scripts/flow.py --serve-only --host 0.0.0.0   # serve the page already built
 
 Every run in RUNS that has a checkpoint reads one short text on the CPU, and the page keeps what
-each stage produces: tokens, embeddings, every block's attention and MLP, the per-layer readout
-(logit lens), the logits, the loss and the gradients. The AdamW and Muon updates come from the
+each stage produces: tokens, embeddings, the attention and MLP of every layer that runs (a looped
+block once per pass), the per-layer readout (logit lens), the logits, the MTP modules' guesses,
+the loss and the gradients. The AdamW and Muon updates come from the
 optimizer state of a stable checkpoint plus one real training batch. Configs, val BPB, bench
 scores and curves come from runs/. No number is typed in by hand.
 """
@@ -32,7 +33,10 @@ from tree import _serve_single_file  # scripts/ is on sys.path when this file ru
 
 # The page starts on the first run that exists; "-stable" names a stable checkpoint of a run.
 RUNS = (
-    "2e-stack-1b", "2e-muon-1b", "2b-wsd-lr2e-3", "2b-wsd-1b", "2b-wsd-1b-stable", "2b-wsd-lr2.8e-3",
+    "2e-stack-1b", "2e-muon-1b", "3a-mtp1-1b-5080",
+    "3d-cont-v0-200m", "3d-upcycle-loop2-200m", "3d-cont-v0-347m-5080",
+    "2e-zeroinit-emb002-300m-5080", "2e-emb002-300m", "3a-mtp1-300m-5080",
+    "3b-l10-loop2-300m", "3b-l6-300m", "3b-l6-loop2-300m", "3b-l6-randloop-300m", "2b-wsd-lr2e-3", "2b-wsd-1b", "2b-wsd-1b-stable", "2b-wsd-lr2.8e-3",
     "2a-bs128k-lr1.4e-3", "2a-bs256k-lr2e-3", "1e-v0-lr2e-3",
     "2c-gpt2-vanilla", "2c-gpt2-vanilla-old",
     "2e-adamw-300m", "2e-muon-lr1e-3-300m", "2e-muon-lr2e-3-300m", "2e-muon-lr4e-3-300m",
@@ -72,23 +76,34 @@ def rms(x: torch.Tensor) -> list:
 
 
 def recipe(train: dict, model: dict, tokens: float) -> dict:
-    """The swappable parts of a run, in the page's terms (old configs predate some fields)."""
+    """The swappable parts of a run, in the page's terms (old configs predate some fields and ran
+    at their defaults)."""
     opt = train.get("optimizer") or "adamw"
+    loop = model.get("n_loop") or 1
     return {
         "arch": model.get("arch") or "llama",
+        "n_layer": model["n_layer"],
+        "loop": f"{train['loop_min']}-{loop}" if train.get("loop_min") else str(loop),  # "1-4": random passes
+        "mtp": bool(model.get("mtp")),
         "qk_norm": bool(model.get("qk_norm")),
         "zero_init": bool(model.get("zero_init")),
+        "emb_std": model.get("emb_std") or 0.02,
         "optimizer": opt,
         "lr": train["muon_lr"] if opt == "muon" else train["lr"],
         "schedule": train.get("schedule") or "cosine",
         "batch": train["batch_tokens"],
         "tokens": round(tokens),
+        "start": Path(train.get("init_from") or "").stem,  # the run whose weights it continued
         "data": Path(train["data_dir"]).name.removesuffix("-4b"),  # the 4B set shares the 1B set's val
     }
 
 
 def start_tokens(train: dict, runs_dir: Path) -> float:
-    """Tokens already seen when a --cooldown_from branch starts (0 for a run from scratch)."""
+    """Tokens already seen when a run starts: a --cooldown_from branch starts at its parent's stable
+    checkpoint, an --init_from run after all of its parent's tokens, a run from scratch at 0."""
+    if train.get("init_from"):
+        parent = json.loads((runs_dir / Path(train["init_from"]).stem / "config.json").read_text())["train"]
+        return start_tokens(parent, runs_dir) + parent["max_tokens"]
     src = train.get("cooldown_from") or ""
     if not src:
         return 0.0
@@ -118,7 +133,10 @@ def read_log(run_dir: Path, offset=0.0, max_points=240) -> dict:
 
 @torch.no_grad()
 def trace(model: GPT, idx: torch.Tensor) -> dict:
-    """GPT.forward for a batch of one, step by step, keeping every intermediate tensor."""
+    """GPT.forward for a batch of one, step by step, keeping every intermediate tensor.
+
+    Every layer that runs gets its own entry: a looped block once per pass, with the block whose
+    weights it uses and the pass it belongs to (None outside the loop)."""
     T = idx.size(1)
     x = model.tok_emb(idx)
     out = {"emb": x[0], "pos": None, "layers": []}
@@ -130,7 +148,13 @@ def trace(model: GPT, idx: torch.Tensor) -> dict:
         x = x + out["pos"]
     out["x0"] = x[0]
     causal = torch.ones(T, T, dtype=torch.bool).tril()
-    for blk in model.blocks:
+    cfg, n_pass = model.cfg, None
+    looped = range(cfg.n_prelude, cfg.n_layer - cfg.n_coda) if cfg.n_loop > 1 else range(0)
+    for b, loop in model.order:
+        if loop is not None:  # a pass through the loop starts: add that pass's loop embedding
+            n_pass = loop
+            x = x + model.loop_emb[loop]
+        inp, blk = x, model.blocks[b]
         a = blk.attn
         h = blk.attn_norm(x)
         q = a.wq(h).view(1, T, a.n_head, a.head_dim).transpose(1, 2)
@@ -155,17 +179,29 @@ def trace(model: GPT, idx: torch.Tensor) -> dict:
         mlp_out = blk.mlp.w_down(hid)
         x = mid + mlp_out
         out["layers"].append(dict(
-            inp=out["layers"][-1]["out"] if out["layers"] else out["x0"], attn_norm=h[0],
+            block=b, n_pass=n_pass if b in looped else None, inp=inp[0], attn_norm=h[0],
             q_raw=q_raw[0], k_raw=k_raw[0], scores=scores[0].masked_fill(~causal, 0), probs=probs[0],
             attn_out=attn_out[0], mid=mid[0], mlp_norm=h2[0], hid=hid[0], mlp_out=mlp_out[0], out=x[0]))
+    out["x"], out["cos"], out["sin"] = x, cos, sin
     out["logits"] = F.linear(model.norm(x), model.tok_emb.weight)[0]
     return out
 
 
+def mtp_trace(model: GPT, t: dict, targets: torch.Tensor) -> list:
+    """The MTP modules' logits on the trunk's last residual stream, as GPT.forward(mtp=True) runs
+    them: module k reads position i and the embedding of token i + k, and guesses token i + k + 1."""
+    x, T, out = t["x"], targets.size(1), []
+    for k, module in enumerate(model.mtp, start=1):
+        n = T - k
+        cut = [None if c is None else c[:n] for c in (t["cos"], t["sin"])]
+        x = module(x[:, :n], model.tok_emb(targets[:, k - 1:k - 1 + n]), *cut)
+        out.append(F.linear(module.norm(x), model.tok_emb.weight)[0].float())
+    return out
+
+
 @torch.no_grad()
-def readout(model: GPT, x: torch.Tensor, targets: torch.Tensor, k=5) -> dict:
-    """Read the residual stream as a prediction: final norm, then the tied output head."""
-    logits = F.linear(model.norm(x), model.tok_emb.weight).float()
+def guesses(logits: torch.Tensor, targets: torch.Tensor, k=5) -> dict:
+    """The top k guesses at every position, and the probability and rank of the right one."""
     p = logits.softmax(-1)
     top = p.topk(k, -1)
     right = logits.gather(-1, targets[:, None])
@@ -174,11 +210,23 @@ def readout(model: GPT, x: torch.Tensor, targets: torch.Tensor, k=5) -> dict:
             "rank": (logits > right).sum(-1).tolist()}
 
 
-def describe(model: GPT, idx: torch.Tensor, targets: torch.Tensor) -> dict:
+def readout(model: GPT, x: torch.Tensor, targets: torch.Tensor, k=5) -> dict:
+    """Read the residual stream as a prediction: final norm, then the tied output head."""
+    return guesses(F.linear(model.norm(x), model.tok_emb.weight).float(), targets, k)
+
+
+def describe(model: GPT, idx: torch.Tensor, targets: torch.Tensor, mtp_weight=0.3) -> dict:
     """Everything the page shows about one model on the sample text."""
     t = trace(model, idx)
     torch.testing.assert_close(t["logits"], model(idx)[0], atol=1e-4, rtol=1e-4)  # the trace is the model
     y = targets[0]
+    mtp = []
+    if model.cfg.mtp:
+        losses = model(idx, targets, mtp=True)
+        for k, logits in enumerate(mtp_trace(model, t, targets), start=1):
+            nats = F.cross_entropy(logits, y[k:], reduction="none")
+            torch.testing.assert_close(nats.mean(), losses[k], atol=1e-4, rtol=1e-4)
+            mtp.append({**guesses(logits, y[k:]), "nats": sig(nats.tolist())})
     layers = []
     for L in t["layers"]:
         hid = L["hid"].float()
@@ -186,7 +234,7 @@ def describe(model: GPT, idx: torch.Tensor, targets: torch.Tensor) -> dict:
         hist, _ = np.histogram(hid.numpy(), bins=41, range=(-4 * sd, 4 * sd))
         top = L["out"].abs().amax(0).topk(3)
         layers.append({
-            "in_rms": rms(L["inp"]), "attn_norm": heat(L["attn_norm"]), "attn_norm_rms": rms(L["attn_norm"]),
+            "block": L["block"], "pass": L["n_pass"], "in_rms": rms(L["inp"]), "attn_norm": heat(L["attn_norm"]), "attn_norm_rms": rms(L["attn_norm"]),
             "q_rms": sig(L["q_raw"].pow(2).mean((-1, -2)).sqrt().tolist()),
             "k_rms": sig(L["k_raw"].pow(2).mean((-1, -2)).sqrt().tolist()),
             "score_max": sig(L["scores"].abs().amax((-1, -2)).tolist()),
@@ -204,14 +252,21 @@ def describe(model: GPT, idx: torch.Tensor, targets: torch.Tensor) -> dict:
     probs = t["logits"].float().softmax(-1)
 
     model.zero_grad(set_to_none=True)
-    model(idx, targets).backward()
+    if model.cfg.mtp:  # the training loss: next token plus mtp_weight times the mean MTP loss
+        main, *extra = model(idx, targets, mtp=True)
+        (main + mtp_weight * sum(extra) / len(extra)).backward()
+    else:
+        model(idx, targets).backward()
     grads = {n: p.grad.norm().item() for n, p in model.named_parameters()}
     model.zero_grad(set_to_none=True)
     suffixes = [n.removeprefix("blocks.0.") for n in grads if n.startswith("blocks.0.")]
+    mtp_grad = [v for n, v in grads.items() if n.startswith("mtp.")]
     return {
         "emb": heat(t["emb"]), "emb_rms": rms(t["emb"]),
         "pos": heat(t["pos"]) if t["pos"] is not None else None, "x0_rms": rms(t["x0"]),
         "layers": layers,
+        "loop_rms": rms(model.loop_emb) if model.loop_emb is not None else None,
+        "mtp": mtp,
         "lens0": readout(model, t["x0"], y),
         "final": readout(model, t["layers"][-1]["out"], y, k=10),
         "nats": sig(nats.tolist()),
@@ -219,7 +274,8 @@ def describe(model: GPT, idx: torch.Tensor, targets: torch.Tensor) -> dict:
         "grads": {
             "names": suffixes,
             "blocks": [[sig(grads[f"blocks.{i}.{s}"], 3) for s in suffixes] for i in range(model.cfg.n_layer)],
-            "other": {n: sig(v, 3) for n, v in grads.items() if not n.startswith("blocks.")},
+            "other": {n: sig(v, 3) for n, v in grads.items() if not n.startswith(("blocks.", "mtp."))},
+            "mtp": sig(math.sqrt(sum(v * v for v in mtp_grad)), 3) if mtp_grad else None,
             "total": sig(math.sqrt(sum(v * v for v in grads.values()))),
         },
     }
@@ -333,10 +389,7 @@ def build_payload(args) -> dict:
     def seed_key(run):  # runs that differ only in the seed
         t, m = configs[run]["train"], configs[run]["model"]
         rest = {k: t.get(k) for k in ("warmup_steps", "cooldown_frac", "min_lr_frac", "weight_decay")}
-        rest.update({k: m.get(k) for k in ("n_layer", "d_model", "n_kv_head", "d_ff", "vocab_size")})
-        # configs older than these fields ran at their defaults
-        rest.update(emb_std=m.get("emb_std") or 0.02, n_loop=m.get("n_loop") or 1, mtp=m.get("mtp") or 0,
-                    init_from=t.get("init_from") or "")
+        rest.update({k: m.get(k) for k in ("d_model", "n_kv_head", "d_ff", "vocab_size")})
         return json.dumps([run_recipe(run), rest], sort_keys=True)
 
     seeds = {}  # seed_key -> [(run, seed, val_bpb, date)] over every finished run
@@ -372,6 +425,8 @@ def build_payload(args) -> dict:
             rec = run_recipe(base)
             row = results.get(base, {})
             info.update(note=row.get("change", ""), date=row.get("date", ""), wall_h=row.get("wall_h"),
+                        start=start_tokens(c["train"], runs_dir), mtp_weight=c["train"].get("mtp_weight"),
+                        micro_batch=c["train"]["micro_batch"],
                         seed=c["train"]["seed"], lr=c["train"]["lr"], muon_lr=c["train"].get("muon_lr"),
                         warmup=c["train"]["warmup_steps"], cooldown_frac=c["train"].get("cooldown_frac"),
                         min_lr_frac=c["train"].get("min_lr_frac"), tok_s=log["tok_s"], curves=log,
@@ -385,13 +440,16 @@ def build_payload(args) -> dict:
                 info.update(stable=True, val_bpb=vals[-1][1] if vals else None, bench={}, seeds=[],
                             note="", mark=ckpt["tokens"])
         else:
-            rec = {"arch": "llama", "qk_norm": False, "zero_init": False, "optimizer": None, "lr": None,
-                   "schedule": None, "batch": None, "tokens": 0, "data": None}
+            cfg = model.cfg
+            rec = {"arch": "llama", "n_layer": cfg.n_layer, "loop": "1", "mtp": False, "qk_norm": False,
+                   "zero_init": False, "emb_std": cfg.emb_std, "optimizer": None, "lr": None,
+                   "schedule": None, "batch": None, "tokens": 0, "start": "", "data": None}
             info.update(note="", val_bpb=None, bench={}, seeds=[], curves=None)  # the page writes the notes
         info.update(recipe=rec, cfg={k: getattr(model.cfg, k) for k in
                                      ("n_layer", "n_head", "n_kv_head", "d_model", "d_ff", "vocab_size",
-                                      "max_seq_len", "rope_base", "arch", "qk_norm", "zero_init", "emb_std")},
-                    params=param_info(model), trace=describe(model, idx, targets))
+                                      "max_seq_len", "rope_base", "arch", "qk_norm", "zero_init", "emb_std",
+                                      "n_loop", "n_prelude", "n_coda", "mtp")},
+                    params=param_info(model), trace=describe(model, idx, targets, info.get("mtp_weight") or 0.3))
         variants.append(info)
         print(f"traced {run}: sample loss {np.mean(info['trace']['nats']):.3f} nats")
 
