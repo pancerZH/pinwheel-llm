@@ -288,6 +288,14 @@ def test_cooldown_from_shifts_val_curve_by_branch_tokens(tmp_path):
     assert math.isclose(art["val_curve"][-1][0], 599.92, abs_tol=0.05)
 
 
+def test_cooldown_from_a_periodic_checkpoint_starts_at_its_exact_step(tmp_path):
+    runs_dir = tmp_path / "runs"
+    _write_run(runs_dir, tmp_path / "ckpt", "main", {"ckpt_every": 8e8})
+    # every 6104 steps; step 48832 = 6,400,507,904 tokens, which the file name rounds to 6401M
+    cfg = {"train": {"cooldown_from": "ckpt/main-6401M.pt"}}
+    assert tree_mod.resolve_cooldown_offset_tokens(cfg, runs_dir) == 48832 * 131072
+
+
 def test_inspired_by_builds_bidirectional_dag_and_validates(tmp_path):
     runs_dir = tmp_path / "runs"
     ckpt_dir = tmp_path / "ckpt"

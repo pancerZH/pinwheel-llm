@@ -330,6 +330,14 @@ def resolve_cooldown_offset_tokens(cfg_raw: dict | None, runs_dir: Path) -> floa
     is_stable = stem.endswith("-stable")
     src_id = stem[: -len("-stable")] if is_stable else stem
     src_cfg_path = runs_dir / src_id / "config.json"
+    # A periodic checkpoint <run>-<N>M.pt (--ckpt_every): N is rounded to 1M, the step is a multiple of ckpt_every.
+    m = re.fullmatch(r"(.+)-(\d+)M", stem)
+    if not src_cfg_path.exists() and m and (runs_dir / m[1] / "config.json").exists():
+        st = json.loads((runs_dir / m[1] / "config.json").read_text(encoding="utf-8"))["train"]
+        bs = int(st["batch_tokens"])
+        every = round(st.get("ckpt_every", 0) / bs)
+        if every:
+            return float(round(int(m[2]) * 1e6 / bs / every) * every * bs)
     if src_cfg_path.exists():
         src_cfg = json.loads(src_cfg_path.read_text(encoding="utf-8"))
         st = src_cfg.get("train") or {}

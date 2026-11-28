@@ -29,11 +29,11 @@ from pinwheel.model import GPT, GPTConfig, SwiGLU, apply_rope
 from pinwheel.muon import orthogonalize
 from pinwheel.tokenizer import BOS, load_tokenizer, token_byte_lengths
 from pinwheel.train import TrainConfig, make_optimizers
-from tree import _serve_single_file  # scripts/ is on sys.path when this file runs as a script
+from tree import _serve_single_file, resolve_cooldown_offset_tokens  # scripts/ is on sys.path when this file runs as a script
 
 # The page starts on the first run that exists; "-stable" names a stable checkpoint of a run.
 RUNS = (
-    "2e-stack-1b", "2e-muon-1b", "3a-mtp1-1b-5080",
+    "4a-v1-10b", "2e-stack-1b", "2e-muon-1b", "3a-mtp1-1b-5080",
     "3d-cont-v0-200m", "3d-upcycle-loop2-200m", "3d-cont-v0-347m-5080",
     "2e-zeroinit-emb002-300m-5080", "2e-emb002-300m", "3a-mtp1-300m-5080",
     "3b-l10-loop2-300m", "3b-l6-300m", "3b-l6-loop2-300m", "3b-l6-randloop-300m", "2b-wsd-lr2e-3", "2b-wsd-1b", "2b-wsd-1b-stable", "2b-wsd-lr2.8e-3",
@@ -104,11 +104,7 @@ def start_tokens(train: dict, runs_dir: Path) -> float:
     if train.get("init_from"):
         parent = json.loads((runs_dir / Path(train["init_from"]).stem / "config.json").read_text())["train"]
         return start_tokens(parent, runs_dir) + parent["max_tokens"]
-    src = train.get("cooldown_from") or ""
-    if not src:
-        return 0.0
-    parent = json.loads((runs_dir / Path(src).stem.removesuffix("-stable") / "config.json").read_text())["train"]
-    return math.ceil(parent["save_stable_at"] / parent["batch_tokens"]) * parent["batch_tokens"]
+    return resolve_cooldown_offset_tokens({"train": train}, runs_dir)
 
 
 def read_tsv(path: Path, key: str) -> dict:
